@@ -1,18 +1,21 @@
-Figure8Squad
+## A graph-based multi-agent environment scenario for skirmish simulations
 
-A graph-based multi-agent environment scenario for skirmish simulations
+### Install:
 
-Install:
-% in the project root folder
-pip install -e .
+In the project root folder
 
-% the 'sigma-graph' package should be ready to import into python scripts
-% look for 'figure8squad-v0' in Gym scenarios
+% pip install -e .
 
-Parsing graph data:
-% The data files locate at ./sigma_graph/data/
-% Run 'python ./sigma_graph/data/file_manager.py' to parse new skirmish maps
+The 'sigma-graph' package should be ready to import into python scripts. Look for 'figure8squad-v0' in Gym scenarios.
 
-Usage:
-% This custom Gym multi-agent environment is for team Red v.s. team Blue combat simulations
-% Check ./sigma_graph/test/ for examples
+
+### Usage:
+
+This custom Gym multi-agent environment is for team Red v.s. team Blue combat simulations. 
+Check ./sigma_graph/test/ for examples
+
+
+### I/O helper:
+
+The data files locate inside './sigma_graph/data/'  
+Run '% python ./sigma_graph/data/file_manager.py' under project root to parse new skirmish maps.
