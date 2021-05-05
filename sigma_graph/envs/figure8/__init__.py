@@ -1,0 +1,2 @@
+from .figure8_squad import Figure8Squad
+# from .figure8_squad_4d import Figure8Squad4Dir
