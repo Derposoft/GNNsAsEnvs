@@ -11,13 +11,13 @@ from ...data.file_manager import load_graph_files
 from .maps.skirmish_graph import MapInfo, RouteInfo
 from .maps.configs import ACTION_LOOKUP, ACTION_TURN_LOOKUP, TURN_L, TURN_R, INTERACT_LOOKUP, INIT_POS_LOOKUP
 from .maps.data_helper import get_node_name_from_pos_abs, get_node_pos_from_name_abs, get_pos_norms, get_emb_from_name
-from .rewards.rewards_simple import get_step_reward, get_episode_reward_agent, get_episode_reward_team
+from .rewards.rewards_simple import get_step_reward, get_step_overlay, get_episode_reward_agent, get_episode_reward_team
 
 
 class Figure8Squad(gym.Env):
     def __init__(self, env_path='./', env_map='S', load_pkl=True, n_red=2, init_red=None, n_blue=1, init_blue=None,
-                 max_step=40, d_step=INTERACT_LOOKUP["engage_damage"], d_agent=INTERACT_LOOKUP["damage_threshold"],
-                 init_health=100, act_masked=True, obs_embed=False, obs_dir=True, obs_team=True, obs_sight=True):
+                 init_health=100, d_step=INTERACT_LOOKUP["engage_damage"], d_agent=INTERACT_LOOKUP["damage_threshold"],
+                 max_step=40, act_masked=True, obs_embed=False, obs_dir=True, obs_team=True, obs_sight=True, **args):
         self.max_step = max_step
         self.step_counter = 0
         # setup env configs
@@ -30,6 +30,9 @@ class Figure8Squad(gym.Env):
                         "init_red": init_red, "init_blue": init_blue, "init_health": init_health,
                         "damage_step": d_step, "damage_thres": d_agent, "invalid_masked": act_masked,
                         "obs_dir": obs_dir, "obs_embed": obs_embed, "obs_team": obs_team, "obs_sight": obs_sight}
+        self.rewards = {}
+        self.logs = {}
+        self.set_outer_configs(self, **args)
         # init map: load connectivity & visibility graphs and patrol routes
         self.map = MapInfo()
         self.routes = []
@@ -40,16 +43,16 @@ class Figure8Squad(gym.Env):
         self.num_blue = n_blue
         # agent instances
         self.team_red = [AgentRed(_uid=_, _health=init_health) for _ in range(n_red)]
-        self.team_blue = [AgentBlue(_uid=_, _health=init_health) for _ in range(n_blue)]
+        self.team_blue = [AgentBlue(_uid=(_ + n_red), _health=init_health) for _ in range(n_blue)]
 
         # init spaces
         self.action_space = ActionSpaces([spaces.MultiDiscrete([len(ACTION_LOOKUP), len(ACTION_TURN_LOOKUP)])
                                           for _ in range(n_red)])
-        # agent_obs: [self: pos(6/27) + dir(4) + flags; teamB: pos + next_move + flags; teamR: 6 * (n_R - 1) or 27]
-        self.state_shape = get_state_shape(self.map.get_graph_size(), n_red, n_blue, obs_embed, obs_dir, obs_sight,
-                                           obs_team)
-        self.observation_space = ObservationSpaces(
-            [spaces.Box(low=0, high=1, shape=(self.state_shape,), dtype=np.int8) for _ in range(n_red)])
+        # agent obs size: [self: pos(6/27) + dir(4) + flags; teamB: pos + next_move + flags; teamR: 6 * (n_R - 1) or 27]
+        self.state_shape = get_state_shape(self.map.get_graph_size(), n_red, n_blue,
+                                           obs_embed, obs_dir, obs_sight, obs_team)
+        self.observation_space = ObservationSpaces([spaces.Box(low=0, high=1, shape=(self.state_shape,), dtype=np.int8)
+                                                    for _ in range(n_red)])
         self.action_mask = []
         if act_masked:
             self.action_mask = [np.empty((len(ACTION_LOOKUP) + len(ACTION_TURN_LOOKUP)), dtype=np.bool_)
@@ -180,22 +183,18 @@ class Figure8Squad(gym.Env):
 
         # update state for each agent
         if self.configs["obs_embed"]:
-            # get position embedding shape
-            (bit_row, bit_col), _ = get_pos_norms()
-            bit_embed = bit_row + bit_col
-
             # generate binary position encodings for all agents
-            _state_R_embed = [[0] * bit_embed] * self.num_red
+            _state_R_embed = []
             for agent_i in range(self.num_red):
-                _state_R_embed[agent_i] = get_emb_from_name(self.team_red[agent_i].get_encoding())
-
-            _state_B_embed = [[0] * bit_embed] * self.num_blue
+                _state_R_embed.append(get_emb_from_name(self.team_red[agent_i].get_encoding()))
+            _state_B_embed = []
             for agent_i in range(self.num_blue):
-                _state_B_embed[agent_i] = get_emb_from_name(self.team_blue[agent_i].get_encoding())
+                _state_B_embed.append(get_emb_from_name(self.team_blue[agent_i].get_encoding()))
 
             # concatenate state_self + state_blue + state_red
             for _r in range(self.num_red):
-                _state = _state_R_embed[_r]
+                _state = []
+                _state += _state_R_embed[_r]
                 if _obs_self_dir:
                     _state += _state_R_dir[_r, :].tolist()
                 if self.configs["obs_sight"]:
@@ -211,9 +210,9 @@ class Figure8Squad(gym.Env):
 
                 # add teammates info if True
                 if self.configs["obs_team"]:
-                    for _agent in range(self.num_red):
-                        if _agent != _r:
-                            _state += _state_R_embed[_agent]
+                    for agent in range(self.num_red):
+                        if agent != _r:
+                            _state += _state_R_embed[agent]
                 self.states[_r] = _state
             # [Debug] test state shape
             # self.states = [[[(_ + self.step_counter) % 2] * self.state_shape] for _ in range(self.num_red)]
@@ -262,7 +261,7 @@ class Figure8Squad(gym.Env):
     # update health points for all agents
     def agent_interaction(self, R_engage_B, B_engage_R):
         # end game condition for blue agent: Thres * n_Red
-        _threshold_blue = self.configs["damage_thres"] * self.num_red   # TODO: modify the condition for more red agents
+        _threshold_blue = self.configs["damage_thres"] * self.num_red  # TODO: modify the condition for more red agents
         for _b in range(self.num_blue):
             for _r in range(self.num_red):
                 if R_engage_B[_r, _b]:
@@ -277,11 +276,9 @@ class Figure8Squad(gym.Env):
 
     def _step_rewards(self, rewards, penalties, R_engage_B, B_engage_R, R_overlay):
         for agent_r in range(self.num_red):
-            rewards[agent_r] += penalties[agent_r]
+            rewards[agent_r] += penalties[agent_r] + get_step_overlay(R_overlay[agent_r])
             for agent_b in range(self.num_blue):
-                rewards[agent_r] += get_step_reward(R_engage_B[agent_r, agent_b],
-                                                    B_engage_R[agent_b, agent_r],
-                                                    R_overlay[agent_r])
+                rewards[agent_r] += get_step_reward(R_engage_B[agent_r, agent_b], B_engage_R[agent_b, agent_r])
         return rewards
 
     def _episode_rewards(self, rewards, penalties=None):
@@ -376,6 +373,28 @@ class Figure8Squad(gym.Env):
             self.routes[_route].list_move = [off_dir] + list_dir
             self.routes[_route].list_next = list_dir + [off_dir]
 
+    def set_outer_configs(self, **args):
+        # Designed for eval. default path is None. If None, no log files will be generated during step run.
+        LOG_LOOKUP = {
+            "log_on": False,
+            "log_path": "sigma_graph/logs/",
+            "log_prefix": "log_",
+            "log_overview": "run_dones.txt",
+        }
+        # TODO: define keys
+        list_config_keys = []
+        list_reward_keys = ["reward_done_lookup", "reward_R_2_B", "reward_R_2_B", "reward_R_2_R", "reward_B_2_R",
+                            "reward_fast", "step_pivot", "step_decay"]
+        list_log_keys = ["log_on", "log_path", "log_overview", "log_prefix"]
+        for item in args.keys():
+            if item in list_config_keys:
+                self.configs[item] = args[item]
+            elif item in list_reward_keys:
+                self.rewards[item] = args[item]
+            elif item in list_log_keys:
+                self.logs[item] = args[item]
+        return True
+
     def render(self, mode='human'):
         pass
 
@@ -388,15 +407,6 @@ class Figure8Squad(gym.Env):
             del self.routes
         if self.map is not None:
             del self.map
-
-
-# Designed for eval. default path is None. If None, no log files will be generated during step run.
-LOG_LOOKUP = {
-    "log_on": False,
-    "log_path": "../../logs/04-10-eval/L3_Ep105.5/",
-    "log_list": "list_done_counters.txt",
-    "log_file": "log"
-}
 
 
 # get red agent position for map initialization
@@ -429,8 +439,8 @@ def get_state_shape(n_G, n_R, n_B, obs_embed=False, obs_self_dir=True, obs_sight
 
 
 class AgentRed(MAgent):
-    def __init__(self, _uid=0, _node=0, _code=None, _dir=0, _health=5):
-        super().__init__(_uid, _node, _code, _dir, _health)
+    def __init__(self, _uid=0, _node=0, _code=None, _dir=0, _health=5, _learn=True):
+        super().__init__(_uid, _node, _code, _dir, _health, _learn)
         self.total_damage = 0
 
     def reset(self, _node, _code, _dir, _health):
@@ -448,8 +458,8 @@ class AgentRed(MAgent):
 
 
 class AgentBlue(MAgent):
-    def __init__(self, _uid=0, _node=0, _code=None, _dir=0, _health=5):
-        super().__init__(_uid, _node, _code, _dir, _health)
+    def __init__(self, _uid=0, _node=0, _code=None, _dir=0, _health=5, _learn=False):
+        super().__init__(_uid, _node, _code, _dir, _health, _learn)
         self.route_ptr = None
         self.route_idx = None
         self.end_step = -1
