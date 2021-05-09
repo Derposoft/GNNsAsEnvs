@@ -32,7 +32,7 @@ class Figure8Squad(gym.Env):
                         "obs_dir": obs_dir, "obs_embed": obs_embed, "obs_team": obs_team, "obs_sight": obs_sight}
         self.rewards = {}
         self.logs = {}
-        self.set_outer_configs(self, **args)
+        self.set_outer_configs(**args)
         # init map: load connectivity & visibility graphs and patrol routes
         self.map = MapInfo()
         self.routes = []
@@ -44,6 +44,7 @@ class Figure8Squad(gym.Env):
         # agent instances
         self.team_red = [AgentRed(_uid=_, _health=init_health) for _ in range(n_red)]
         self.team_blue = [AgentBlue(_uid=(_ + n_red), _health=init_health) for _ in range(n_blue)]
+        self.learning_agent = []
 
         # init spaces
         self.action_space = ActionSpaces([spaces.MultiDiscrete([len(ACTION_LOOKUP), len(ACTION_TURN_LOOKUP)])
@@ -339,17 +340,22 @@ class Figure8Squad(gym.Env):
         return False
 
     def _reset_agents(self):
+        self.learning_agent = []
         for idx in range(self.num_red):
             _code = get_default_red_encoding(self.configs["init_red"][idx]["pos"], idx)
             _node = self.map.get_index_by_name(_code)
             _dir = get_default_dir(self.configs["init_red"][idx]["dir"])
             self.team_red[idx].reset(_node, _code, _dir, self.configs["init_health"])
+            if self.team_red[idx].is_learning():
+                self.learning_agent.append(self.team_red[idx].agent_id)
 
         for idx in range(self.num_blue):
             _route = self.list_route.index(self.configs["init_blue"][idx]["route"])
             _index = int(self.configs["init_blue"][idx]["idx"])
             _node, _code, _dir = self.routes[_route].get_location_by_index(_index)
             self.team_blue[idx].reset(_node, _code, _dir, self.configs["init_health"], _route, _index)
+            if self.team_blue[idx].is_learning():
+                self.learning_agent.append(self.team_blue[idx].agent_id)
 
     def _load_map_data(self, routes):
         # load graphs
