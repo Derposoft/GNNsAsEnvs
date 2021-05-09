@@ -129,8 +129,8 @@ dmypy.json
 .pyre/
 
 # local data folder
-# data/parsed/
-logs/*
-visuals/*
-*.egg-info/
-.ipynb_checkpoints
+data/parsed/
+logs/
+visuals/
+*.egg-info
+test/.ipynb_checkpoints/
