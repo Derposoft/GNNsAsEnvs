@@ -1,8 +1,9 @@
-import os.path
+import sys
+import os
 import re
 
 from sigma_graph.envs.figure8.maps.configs import MAP_LOOKUP
-from sigma_graph.envs.figure8.maps.data_helper import get_node_name_from_pos_abs
+from sigma_graph.envs.figure8.maps.data_helper import get_node_name_from_pos_abs, get_node_pos_from_name_abs
 from sigma_graph.envs.figure8.maps.skirmish_graph import MapInfo, RouteInfo
 
 
@@ -245,6 +246,43 @@ def generate_local_files():
     #                          is_pickle_graph=True, if_overwrite=True)
     generate_graph_files(env_path=local_path, map_lookup="S", route_lookup=['0', '1'],
                          is_pickle_graph=True, if_overwrite=True)
+
+
+# logger for env.step
+def save_log_2_file(config, n_step, n_done, agents, prev_obs, actions, obs, rewards, dones=None):
+    if config["log_on"] is False:
+        return False
+    ori_stdout = sys.stdout
+    _log_path = config["log_path"]
+    if not check_dir(_log_path):
+        os.makedirs(_log_path)
+    file_path = os.path.join(_log_path, "{}_done_{}.txt".format(config["log_prefix"], n_done))
+    with open(file_path, 'a+') as stream:
+        sys.stdout = stream
+        _buffer = "Step #{:2d} | ".format(n_step)
+        for _idx in range(len(agents)):
+            _buffer += "| {} HP:{} node:{} dir:{} pos:{}".format(agents[_idx][0], agents[_idx][3],
+                                                                 agents[_idx][1][0], agents[_idx][1][1],
+                                                                 get_node_pos_from_name_abs(agents[_idx][2]))
+        print("{} | Actions {} | Step rewards {}".format(_buffer, actions, rewards))
+        print("<Obs_before>{} | <Obs_after>{}".format(prev_obs, obs))
+        sys.stdout = ori_stdout
+    return True
+
+
+def log_done_reward(config, n_done, rewards):
+    if config["log_on"] is False:
+        return False
+    ori_stdout = sys.stdout
+    _log_path = config["log_path"]
+    if not check_dir(_log_path):
+        os.makedirs(_log_path)
+    file_path = os.path.join(_log_path, config["log_overview"])
+    with open(file_path, 'a+') as stream:
+        sys.stdout = stream
+        print("Episode #{:3d} Done rewards {}".format(n_done, rewards))
+        sys.stdout = ori_stdout
+    return True
 
 
 if __name__ == "__main__":
