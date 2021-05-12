@@ -22,7 +22,7 @@ def get_step_reward(r_engages_b, b_engages_r, **rewards):
 def get_step_overlay(overlay, **rewards):
     overlay_reward = 0
     if overlay:
-        overlay_reward += rewards["reward_R_2_R"] if "reward_R_2_R" in rewards.keys() else REWARDS["reward_R_2_Rs"]
+        overlay_reward += rewards["reward_R_2_R"] if "reward_R_2_R" in rewards.keys() else REWARDS["reward_R_2_R"]
     return overlay_reward
 
 

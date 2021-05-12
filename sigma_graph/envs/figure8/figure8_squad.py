@@ -74,7 +74,7 @@ class Figure8Squad(gym.Env):
         self.step_counter = 0
 
     def step(self, n_actions):
-        assert len(n_actions) == self.num_red
+        assert len(n_actions) == self.num_red, "[EnvError] Invalid action shape {}".format(n_actions)
         if self.logger is True:
             prev_obs = self.states
         self.step_counter += 1
@@ -100,7 +100,8 @@ class Figure8Squad(gym.Env):
         # add episodic reward and update done counts
         if all(done is True for done in dones):
             episode_rewards = self._episode_rewards()
-            log_done_reward(self.logs, self.done_counter, episode_rewards)
+            if self.logger is True:
+                log_done_reward(self.logs, self.done_counter, episode_rewards)
             rewards += episode_rewards
             self.done_counter += 1
         return np.array(self.states, dtype=np.int8), rewards, dones, {}
@@ -412,7 +413,7 @@ class Figure8Squad(gym.Env):
     def set_outer_configs(self, **args):
         # Designed for eval. default path is None. If None, no log files will be generated during step run.
         LOG_LOOKUP = {
-            "log_path": "sigma_graph/logs/",
+            "log_path": "./logs/",
             "log_prefix": "log",
             "log_overview": "reward_dones.txt",
         }

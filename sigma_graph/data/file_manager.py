@@ -250,8 +250,6 @@ def generate_local_files():
 
 # logger for env.step
 def save_log_2_file(config, n_step, n_done, agents, prev_obs, actions, obs, rewards, dones=None):
-    if config["log_on"] is False:
-        return False
     ori_stdout = sys.stdout
     _log_path = config["log_path"]
     if not check_dir(_log_path):
@@ -271,8 +269,6 @@ def save_log_2_file(config, n_step, n_done, agents, prev_obs, actions, obs, rewa
 
 
 def log_done_reward(config, n_done, rewards):
-    if config["log_on"] is False:
-        return False
     ori_stdout = sys.stdout
     _log_path = config["log_path"]
     if not check_dir(_log_path):
