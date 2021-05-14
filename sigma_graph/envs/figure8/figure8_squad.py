@@ -15,14 +15,15 @@ from .rewards.rewards_simple import get_step_engage, get_step_overlay, get_episo
 
 
 class Figure8Squad(gym.Env):
-    def __init__(self, max_step=40, n_red=2, n_blue=1, init_health=100,
-                 env_path='./', env_map='S', load_pkl=True, act_masked=True,
-                 obs_embed=False, obs_dir=True, obs_team=True, obs_sight=True, **args):
+    def __init__(self, act_masked=True, n_red=2, init_red=None, n_blue=1, init_blue=None,
+                 init_health=100, env_path='./', env_map='S', load_pkl=True, max_step=40,
+                 obs_embed=False, obs_dir=True, obs_team=True, obs_sight=True, **kwargs):
         # setup env configs
         self.max_step = max_step
         self.step_counter = 0
         self.done_counter = 0
-        self.configs = {"init_health": init_health, "env_path": env_path, "map_id": env_map, "load_pickle": load_pkl,
+        self.configs = {"init_red": init_red, "init_blue": init_blue, "init_health": init_health,
+                        "env_path": env_path, "map_id": env_map, "load_pickle": load_pkl,
                         "obs_embed": obs_embed, "obs_dir": obs_dir, "obs_team": obs_team, "obs_sight": obs_sight}
         self.rewards = {}
         self.logger = False
@@ -30,7 +31,7 @@ class Figure8Squad(gym.Env):
         # set default local configs and parse outer arguments
         self.num_red = n_red
         self.num_blue = n_blue
-        self._init_env_config(**args)
+        self._init_env_config(**kwargs)
 
         # env map and patrol routes (loading connectivity & visibility graphs)
         self.map = MapInfo()
@@ -370,17 +371,18 @@ class Figure8Squad(gym.Env):
 
     def _init_env_config(self, **kwargs):
         # set default env config values if not specified in outer configs
-        _config_args = ["init_red", "init_blue", "damage_step", "damage_threshold_red", "damage_threshold_blue"]
-        INIT_REGION = {"L": 1, "R": 0}
-        self.rewards["step_agent"] = {}
-        self.rewards["done_agent"] = {}
+        _config_args = ["damage_step", "damage_threshold_red", "damage_threshold_blue"]
         _reward_agent_step = ["reward_step_RB", "reward_step_BR", "reward_step_RR", "penalty_stay"]
         _reward_agent_done = ["reward_episode_lookup", "reward_faster_lookup"]
-        # Designed for eval. default path is None. If None, no log files will be generated during step run.
+        self.rewards["step_agent"] = {}
+        self.rewards["done_agent"] = {}
+
+        # Designed for eval logger. default path is ./logs/ no log files should be generated during trainning steps.
         _log_keys = ["on", "save", "plot", "path", "prefix", "overview", "verbose"]
-        # log defaults
         LOG_LOOKUP = {"prefix": "log_", "local_path": "logs/", "save": True,
                       "verbose": False, "plot": False, "overview": "reward_episodes.txt"}
+
+        # loading outer configs
         for item in kwargs:
             if item in _config_args:
                 self.configs[item] = kwargs[item]
@@ -390,46 +392,46 @@ class Figure8Squad(gym.Env):
                 self.rewards["done_agent"][item] = kwargs[item]
             elif item in _log_keys:
                 self.logs[item] = kwargs[LOG_LOOKUP["prefix"]+item]
-            # else:
-            #     pass
 
         # set default configs if not defined
         for key in _config_args:
             if key in self.configs:
                 continue
-            if key == "init_red":
-                self.configs[key] = [{"learn": True, "pos": None, "dir": None} for _ in range(self.num_red)]
-            elif key == "init_blue":
-                self.configs[key] = [{"learn": False, "route": "0", "idx": 0} for _ in range(self.num_blue)]
-            elif key == "damage_step":
+            if key == "damage_step":
                 self.configs[key] = INTERACT_LOOKUP["engage_damage"]
             elif key == "damage_threshold_red":
                 self.configs[key] = INTERACT_LOOKUP["damage_maximum"]
             elif key == "damage_threshold_blue":
                 # grant blue agents a higher damage threshold when more reds on the map
                 self.configs[key] = INTERACT_LOOKUP["damage_maximum"] * self.num_red
-            else:
-                print("[Env] Invalid config arg:{}".format(key))
+            # else:
+            #     # print("[Env] Invalid config arg {}".format(key))
 
         # check init_red init configs, must have attribute "pos":[str/tuple] for resetting agents
-        assert len(self.configs["init_red"]) == self.num_red, "Invalid init_red:{}".format(self.configs["init_red"])
-        for idx, _config in enumerate(self.configs["init_red"]):
-            # set up default init looking direction "dir":[int]
-            if "dir" not in _config:
-                self.configs["init_red"][idx]["dir"] = None
-            # parse "pos" indicator and validate range
-            _pos = _config["pos"]
-            if _pos is None:
-                continue
-            if isinstance(_pos, tuple):
-                assert check_pos_abs_range(_pos), "Pos tuple: {} out of range".format(_pos)
-            elif isinstance(_pos, str):
-                assert _pos in INIT_REGION, "Invalid init region:\'{}\' (not in {})".format(_pos, INIT_REGION.keys())
-                self.configs["init_red"][idx]["pos"] = INIT_REGION[_pos]
-
+        INIT_REGION = {"L": 1, "R": 0}
+        if self.configs["init_red"] is None:
+            self.configs["init_red"] = [{"learn": True, "pos": None, "dir": None} for _ in range(self.num_red)]
+        else:
+            assert len(self.configs["init_red"]) == self.num_red, "Invalid config: 'init_red'"
+            for idx, _config in enumerate(self.configs["init_red"]):
+                # set up default looking direction "dir":[int]
+                if "dir" not in _config:
+                    self.configs["init_red"][idx]["dir"] = None
+                # parse "pos" indicator and validate range
+                _pos = _config["pos"]
+                if _pos is None:
+                    continue
+                if isinstance(_pos, tuple):
+                    assert check_pos_abs_range(_pos), "Pos tuple: {} out of range".format(_pos)
+                elif isinstance(_pos, str):
+                    assert _pos in INIT_REGION, "Invalid region:\'{}\' (not in {})".format(_pos, INIT_REGION.keys())
+                    self.configs["init_red"][idx]["pos"] = INIT_REGION[_pos]
 
         # check init_blue, must have attribute "route":[str] used in loading graph files. default: '0'
-        assert len(self.configs["init_blue"]) == self.num_blue, "Invalid init_blue:{}".format(self.configs["init_blue"])
+        if self.configs["init_blue"] is None:
+            self.configs["init_blue"] = [{"learn": False, "route": "0", "idx": 0} for _ in range(self.num_blue)]
+        else:
+            assert len(self.configs["init_blue"]) == self.num_blue, "Invalid config: 'init_blue'"
         _route_list = []
         for idx, _config in enumerate(self.configs["init_blue"]):
             _route_list.append(_config["route"])
@@ -497,7 +499,7 @@ class Figure8Squad(gym.Env):
         for idx in range(self.num_red):
             # parsing init position config
             _flag = self.configs["init_red"][idx]["pos"]
-            _args = [None, 0]
+            _args = [None, idx]
             if isinstance(_flag, int):
                 _args[1] = _flag
             elif isinstance(_flag, tuple):

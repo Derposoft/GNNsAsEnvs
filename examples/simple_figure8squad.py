@@ -33,18 +33,26 @@ def print_agents(env):
 def environment_example(config):
     n_episode = config.n_episode
     # init_red and init_blue should have number of agents dictionary elements if you want to specify it
+
+    # [!!] remember to update this dict if adding new args in parser
     outer_configs = {"env_path": config.env_path, "n_red": config.n_red, "n_blue": config.n_blue,
                      "max_step": config.max_step, "init_health": config.init_health,
+                     "obs_embed": config.obs_embed, "obs_dir": config.obs_dir, "obs_team": config.obs_team,
+                     "obs_sight": config.obs_sight, "act_masked": config.act_masked,
                      "log_on": config.log_on, "log_path": config.log_path,
-                     "penalty_stay": config.penalty_stay, }
+                     "init_red": config.init_red, "init_blue": config.init_blue}
+    if hasattr(config, "penalty_stay"):
+        outer_configs["penalty_stay"]: config.penalty_stay
     # "init_red": [{"pos": (11, 1), "dir": 1}, {"pos": None}, {"pos": "L", "dir": None}]
     ## init 'pos': tuple(x, z) or "L"/"R" region of the map
 
     ###===> Step 1. make
     env = gym.make('figure8squad-v0', **outer_configs)
     print("Env created with default env configs: {}\n".format(env.configs))
+    print("loaded reward_configs:{} log_configs:{}\n".format(env.rewards, env.logs))
     print_lookup()
-    # print("loaded reward_configs:{}\n log_configs:{}\n".format(env.rewards, env.logs))
+    print("\nNumbers of red:{} and blue:{}".format(env.num_red, env.num_blue))
+    print("Observation shape: ", env.state_shape)
 
     # episode loop
     for ep in range(n_episode):
@@ -54,7 +62,6 @@ def environment_example(config):
         # reset 'step_counter' and agent states for the next episode
         obs = env.reset()
         print("\nEnv after reset: new config:{} obs:{}".format(env.configs, obs))
-        print("Observation shape: ", obs.shape)
         print_agents(env)
 
         # step loop
@@ -87,23 +94,28 @@ if __name__ == "__main__":
     parser.add_argument('--max_step', type=int, default=20, help='max step for each episode')
     parser.add_argument('--init_health', type=int, default=20, help='intitial HP for all agents')
     # advanced configs
-    ''' feel free to add more paerser args here
+    ''' feel free to add more paerser args [!!] keep in mind to update the 'outer_configs' if new args been added here
             All other valid config arguments including {
-                env_map='S', load_pkl=True, act_masked=True,
-                obs_embed=False, obs_dir=True, obs_team=True, obs_sight=True,
+                _graph_args = {"env_map": 'S', "load_pkl": True}
+                _config_args = ["damage_step", "damage_threshold_red", "damage_threshold_blue"]
+                _reward_agent_step = ["reward_step_RB", "reward_step_BR", "reward_step_RR", "penalty_stay"]
+                _reward_agent_done = ["reward_episode_lookup", "reward_faster_lookup"]
+                _log_keys = ["log_"] + ["prefix", "on", "path", "save", "plot", "overview", "verbose"]
             }
-            _config_args = ["init_red", "init_blue", "damage_step", "damage_threshold_red", "damage_threshold_blue"]
-            _reward_agent_step = ["reward_step_RB", "reward_step_BR", "reward_step_RR", "penalty_stay"]
-            _reward_agent_done = ["reward_episode_lookup", "reward_faster_lookup"]
-            _log_keys = ["log_"] + ["prefix", "on", "path", "save", "plot", "overview", "verbose"]
     '''
-    parser.add_argument('--obs_embed', type=bool, default=False, help='encoded embedding rather than raw one-hot POS')
+    parser.add_argument('--obs_embed_on', dest="obs_embed", action='store_true', default=False, help='encoded embedding rather than raw one-hot POS')
+    parser.add_argument('--obs_dir_off', dest="obs_dir", action='store_false', default=True, help='observation self 4 dir')
+    parser.add_argument('--obs_team_off', dest="obs_team", action='store_false', default=True, help='observation teammates')
+    parser.add_argument('--obs_sight_off', dest="obs_sight", action='store_false', default=True, help='observation in sight indicators')
+    parser.add_argument('--act_masked_off', dest="act_masked", action='store_false', default=True, help='invalid action masking')
     parser.add_argument('--init_red', type=list, default=None, help='set init "pos" and "dir" for team red')
     parser.add_argument('--init_blue', type=list, default=None, help='set init "route" and "idx" for team blue')
-    parser.add_argument('--log_on', type=bool, default=False, help='generate verbose logs')
+
+    parser.add_argument('--log_on', dest="log_on", action='store_true', default=False, help='generate verbose logs')
     parser.add_argument('--log_path', type=str, default='logs/temp/', help='relative path to the project root')
-    parser.add_argument('--penalty_stay', type=int, default=-1, help='penalty for take stay action [0: "NOOP"]')
+    # parser.add_argument('--penalty_stay', type=int, default=-1, help='penalty for take stay action [0: "NOOP"]')
     config = parser.parse_args()
+    print(config)
 
     # test run
     environment_example(config)
