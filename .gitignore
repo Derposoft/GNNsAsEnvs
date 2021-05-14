@@ -128,8 +128,8 @@ dmypy.json
 # Pyre type checker
 .pyre/
 
-# local data folder
+# local user data
+logs/archived/
+logs/temp/
+examples/.ipynb_checkpoints/
 #data/parsed/*
-logs
-*.egg-info
-test/.ipynb_checkpoints/*

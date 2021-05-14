@@ -11,7 +11,7 @@ def get_pos_min_max():
 
 
 def get_pos_norms():
-    # get range and mix for X and Y coordinates for name encoding
+    # get range and mins for X and Y coordinates for name encoding
     (row_min, row_max), (col_min, col_max) = get_pos_min_max()
     row_bit = (row_max - row_min).bit_length()
     col_bit = (col_max - col_min).bit_length()
@@ -23,14 +23,20 @@ def get_node_name_from_pos(row, col):
     return "{:0{}b}_{:0{}b}".format(row, row_b, col, col_b)
 
 
+def check_pos_abs_range(pos):
+    (r_min, r_max), (c_min, c_max) = get_pos_min_max()
+    assert len(pos) == 2 and r_min <=pos[0] <= r_max and c_min <=pos[1] <= c_max, "Pos range error"
+    return True
+
+
 def get_node_name_from_pos_abs(pos, bit_range=None):
     (row_bit, col_bit), (row_min, col_min) = get_pos_norms()
     if bit_range is None:
         row_b, col_b = row_bit, col_bit
     else:
         (row_b, col_b) = bit_range
-        assert row_b < row_bit, "[GymEnv][Parser] ROW encoding bits not enough {} < min limit {}".format(row_b, row_bit)
-        assert col_b < col_bit, "[GymEnv][Parser] COL encoding bits not enough {} < min limit {}".format(col_b, col_bit)
+        # assert row_b < row_bit, "[GymEnv][Parser] ROW encoding bits <{}> not enough < min {}".format(row_b, row_bit)
+        # assert col_b < col_bit, "[GymEnv][Parser] COL encoding bits <{}> not enough < min {}".format(col_b, col_bit)
     return "{:0{}b}_{:0{}b}".format(pos[0] - row_min, row_b, pos[1] - col_min, col_b)
 
 

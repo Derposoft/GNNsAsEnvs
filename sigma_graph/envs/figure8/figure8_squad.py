@@ -10,44 +10,40 @@ from ...data.file_manager import load_graph_files, save_log_2_file, log_done_rew
 
 from .maps.skirmish_graph import MapInfo, RouteInfo
 from .maps.configs import ACTION_LOOKUP, ACTION_TURN_LOOKUP, TURN_L, TURN_R, INTERACT_LOOKUP, INIT_POS_LOOKUP
-from .maps.data_helper import get_node_name_from_pos_abs, get_node_pos_from_name_abs, get_pos_norms, get_emb_from_name
-from .rewards.rewards_simple import get_step_reward, get_step_overlay, get_episode_reward_agent, get_episode_reward_team
+from .maps.data_helper import get_node_name_from_pos_abs, check_pos_abs_range, get_pos_norms, get_emb_from_name
+from .rewards.rewards_simple import get_step_engage, get_step_overlay, get_episode_reward_agent, get_episode_reward_team
 
 
 class Figure8Squad(gym.Env):
-    def __init__(self, env_path='./', env_map='S', load_pkl=True, n_red=2, init_red=None, n_blue=1, init_blue=None,
-                 init_health=100, d_step=INTERACT_LOOKUP["engage_damage"], d_agent=INTERACT_LOOKUP["damage_threshold"],
-                 max_step=40, act_masked=True, obs_embed=False, obs_dir=True, obs_team=True, obs_sight=True, **args):
+    def __init__(self, max_step=40, n_red=2, n_blue=1, init_health=100,
+                 env_path='./', env_map='S', load_pkl=True, act_masked=True,
+                 obs_embed=False, obs_dir=True, obs_team=True, obs_sight=True, **args):
+        # setup env configs
         self.max_step = max_step
         self.step_counter = 0
-        # setup env configs
-        if init_red is None:
-            init_red = [{"pos": None, "dir": None} for _ in range(n_red)]
-        if init_blue is None:
-            init_blue = [{"route": "0", "idx": 0} for _ in range(n_blue)]
-        self.list_route = list(set([_d["route"] for _d in init_blue]))
-        self.configs = {"env_path": env_path, "map_lookup": env_map, "load_pickle": load_pkl,
-                        "init_red": init_red, "init_blue": init_blue, "init_health": init_health,
-                        "damage_step": d_step, "damage_thres": d_agent, "invalid_masked": act_masked,
-                        "obs_dir": obs_dir, "obs_embed": obs_embed, "obs_team": obs_team, "obs_sight": obs_sight}
+        self.done_counter = 0
+        self.configs = {"init_health": init_health, "env_path": env_path, "map_id": env_map, "load_pickle": load_pkl,
+                        "obs_embed": obs_embed, "obs_dir": obs_dir, "obs_team": obs_team, "obs_sight": obs_sight}
         self.rewards = {}
-        self.logs = {}
         self.logger = False
-        self.set_outer_configs(**args)
-        # init map: load connectivity & visibility graphs and patrol routes
-        self.map = MapInfo()
-        self.routes = []
-        self._load_map_data(self.list_route)
-
-        # init agents
+        self.logs = {}
+        # set default local configs and parse outer arguments
         self.num_red = n_red
         self.num_blue = n_blue
-        # agent instances
-        self.team_red = [AgentRed(_uid=_, _health=init_health) for _ in range(n_red)]
-        self.team_blue = [AgentBlue(_uid=(_ + n_red), _health=init_health) for _ in range(n_blue)]
-        # default training agents are team red agents
+        self._init_env_config(**args)
+
+        # env map and patrol routes (loading connectivity & visibility graphs)
+        self.map = MapInfo()
+        # list of RouteInfo instances
+        self.routes = []
+        self._load_map_data()
+
+        # lists of agent instances
+        self.team_red = []
+        self.team_blue = []
+        # default training agents are agents in team red
         self.learning_agent = []
-        self._set_learning_agents()
+        self._init_agents()
 
         # init spaces
         self.action_space = ActionSpaces([spaces.MultiDiscrete([len(ACTION_LOOKUP), len(ACTION_TURN_LOOKUP)])
@@ -58,16 +54,16 @@ class Figure8Squad(gym.Env):
         # agent obs size: [self: pos(6/27) + dir(4) + flags; teamB: pos + next_move + flags; teamR: 6 * (n_R - 1) or 27]
         self.observation_space = ObservationSpaces([spaces.Box(low=0, high=1, shape=(self.state_shape,), dtype=np.int8)
                                                     for _ in range(len(self.learning_agent))])
+        self.invalid_masked = act_masked
         self.action_mask = []
         self.states = [[] for _ in range(len(self.learning_agent))]
-        self.done_counter = 0
 
     def reset(self, force=False):
         self.step_counter = 0
-        self._reset_agents()
-        self._update()
         if force:
             self.done_counter = 0
+        self._reset_agents()
+        self._update()
         return np.array(self.states, dtype=np.int8)
 
     def reset_step(self):
@@ -91,9 +87,9 @@ class Figure8Squad(gym.Env):
                  for _r in range(self.num_red)]
         # log action-states and step rewards
         if self.logger is True:
-            _r = [["red_{}".format(_agent.get_id()), _agent.get_pos_dir(), _agent.get_encoding(), _agent.get_health()]
+            _r = [["red:{}".format(_agent.get_id()), _agent.get_pos_dir(), _agent.get_encoding(), _agent.get_health()]
                   for _agent in self.team_red]
-            _b = [["blue_{}".format(_agent.get_id()), _agent.get_pos_dir(), _agent.get_encoding(), _agent.get_health()]
+            _b = [["blue:{}".format(_agent.get_id()), _agent.get_pos_dir(), _agent.get_encoding(), _agent.get_health()]
                   for _agent in self.team_blue]
             save_log_2_file(self.logs, self.step_counter, self.done_counter, _r + _b,
                             prev_obs, n_actions, self.states, rewards)
@@ -102,29 +98,34 @@ class Figure8Squad(gym.Env):
             episode_rewards = self._episode_rewards()
             if self.logger is True:
                 log_done_reward(self.logs, self.done_counter, episode_rewards)
-            rewards += episode_rewards
+            for _r in range(self.num_red):
+                rewards[_r] += episode_rewards[_r]
             self.done_counter += 1
         return np.array(self.states, dtype=np.int8), rewards, dones, {}
 
     def _take_action_red(self, n_actions):
         action_penalty = [0] * self.num_red
         for agent_i, actions in enumerate(n_actions):
+            # check input action if in range of the desired discrete action space
+            assert self.action_space[agent_i].contains(actions), "{}: action out of range".format(actions)
             action_move, action_turn = actions
+
             # find all 1st ordered neighbors of the current node
             agent_encode = self.team_red[agent_i].agent_code
             prev_idx, list_neighbor, list_act = self.map.get_all_states_by_node(agent_encode)
             if action_move != 0 and action_move not in list_act:
                 # if the action_mask turns on in the learning, invalid actions should not appear.
-                if self.configs["invalid_masked"]:
+                if self.invalid_masked:
                     assert action_move, "[ActError] act{} {} {} mask{}".format(self.step_counter, action_move, prev_idx,
-                                                                               self.action_mask[agent_i],
-                                                                               get_node_pos_from_name_abs(agent_encode))
+                                                                               self.action_mask[agent_i])
                 # if the learning process doesn't have action masking, then invalid moves should be replaced by NOOP.
                 else:
                     action_move = 0
                     action_penalty[agent_i] = INTERACT_LOOKUP["unmasked_invalid_action_penalty"]
             # just make turn when the move action is NOOP
             if action_move == 0:
+                if "penalty_stay" in self.rewards["step_agent"]:
+                    action_penalty[agent_i] += self.rewards["step_agent"]["penalty_stay"]
                 if action_turn == 1:
                     self.team_red[agent_i].agent_dir = TURN_L[self.team_red[agent_i].agent_dir]
                 elif action_turn == 2:
@@ -156,7 +157,7 @@ class Figure8Squad(gym.Env):
         B_engage_R = np.zeros((self.num_blue, self.num_red), dtype=np.bool_)
         R_nodes = [0] * self.num_red
         R_overlay = [False] * self.num_red
-        if self.configs["invalid_masked"]:
+        if self.invalid_masked:
             self.action_mask = [np.zeros(sum(tuple(self.action_space[_].nvec)), dtype=np.bool_)
                                 for _ in range(len(self.learning_agent))]
         for _r in range(self.num_red):
@@ -169,7 +170,7 @@ class Figure8Squad(gym.Env):
                 B_see_R[_b, _r] = self.is_in_sight(node_b, node_r, self.team_blue[_b].agent_dir)
                 B_engage_R[_b, _r] = self.is_in_range(node_b, node_r, self.team_blue[_b].agent_dir)
             # update action masking
-            if self.configs["invalid_masked"]:
+            if self.invalid_masked:
                 # self.action_mask[_r] = np.zeros(sum(tuple(self.action_space[_r].nvec)), dtype=np.bool_)
                 mask_idx = self.learning_agent.index(self.team_red[_r].get_id())
                 # masking invalid movements on the given node
@@ -284,8 +285,7 @@ class Figure8Squad(gym.Env):
 
     # update health points for all agents
     def agent_interaction(self, R_engage_B, B_engage_R):
-        # end game condition for blue agent: Thres * n_Red
-        _threshold_blue = self.configs["damage_thres"] * self.num_red  # TODO: modify the condition for more red agents
+        # update health and damage points for all agents
         for _b in range(self.num_blue):
             for _r in range(self.num_red):
                 if R_engage_B[_r, _b]:
@@ -294,15 +294,19 @@ class Figure8Squad(gym.Env):
                 if B_engage_R[_b, _r]:
                     self.team_red[_r].take_damage(self.configs["damage_step"])
             # update end time for blue agents
-            _damage_taken_blue = self.configs["init_health"] - self.team_blue[_b].get_health()
-            if _damage_taken_blue >= _threshold_blue and self.team_blue[_b].get_end_step() < 0:
+            if self.team_blue[_b].get_end_step() > 0:
+                continue
+            blue_damage_taken = (self.configs["init_health"] - self.team_blue[_b].get_health())
+            if blue_damage_taken >= self.configs["damage_threshold_blue"]:
                 self.team_blue[_b].set_end_step(self.step_counter)
 
     def _step_rewards(self, rewards, penalties, R_engage_B, B_engage_R, R_overlay):
         for agent_r in range(self.num_red):
-            rewards[agent_r] += penalties[agent_r] + get_step_overlay(R_overlay[agent_r])
+            rewards[agent_r] += penalties[agent_r] + get_step_overlay(R_overlay[agent_r], **self.rewards["step_agent"])
             for agent_b in range(self.num_blue):
-                rewards[agent_r] += get_step_reward(R_engage_B[agent_r, agent_b], B_engage_R[agent_b, agent_r])
+                rewards[agent_r] += get_step_engage(r_engages_b=R_engage_B[agent_r, agent_b],
+                                                    b_engages_r=B_engage_R[agent_b, agent_r],
+                                                    team_switch=False, **self.rewards["step_agent"])
         return rewards
 
     def _episode_rewards(self):
@@ -316,22 +320,23 @@ class Figure8Squad(gym.Env):
 
         _health_r = [0] * self.num_red
         _damage_r = [0] * self.num_red
+        _health_full = self.configs["init_health"]
+        _thres_r = self.configs["damage_threshold_red"]
+        _thres_b = self.configs["damage_threshold_blue"]
+
         for agent_r in range(self.num_red):
             _health_r[agent_r] = self.team_red[agent_r].get_health()
             _damage_r[agent_r] = self.team_red[agent_r].damage_total()
 
             for agent_b in range(self.num_blue):
-                rewards[agent_r] += get_episode_reward_agent(_health_r[agent_r], _health_b[agent_b],
-                                                             self.configs["init_health"],
-                                                             self.configs["damage_thres"] * self.num_blue,
-                                                             self.configs["damage_thres"] * self.num_red,
-                                                             _damage_r[agent_r], _end_b[agent_b])
+                rewards[agent_r] += get_episode_reward_agent(_health_full, _health_r[agent_r], _health_b[agent_b],
+                                                             _thres_r, _thres_b, _damage_r[agent_r],
+                                                             _end_b[agent_b], **self.rewards["done_agent"])
 
-        # _team_rewards = get_episode_reward_team(_health_r, _health_b, self.configs["init_health"], _damage_r, _end_b,
-        #                                         self.configs["damage_thres"] * self.num_blue,
-        #                                         self.configs["damage_thres"] * self.num_red)
-        # for _i in range(self.num_red):
-        #     rewards[_i] += _team_rewards
+        _team_rewards = get_episode_reward_team(_health_r, _health_b, _health_full, _damage_r,
+                                                _thres_r, _thres_b, _end_b) # , self.rewards["done_team"])
+        for _i in range(self.num_red):
+            rewards[_i] += _team_rewards
         return rewards
 
     def is_in_half(self, agent_idx, route_len):
@@ -363,36 +368,93 @@ class Figure8Squad(gym.Env):
                 return True
         return False
 
-    def _reset_agents(self):
-        for idx in range(self.num_red):
-            _code = get_default_red_encoding(self.configs["init_red"][idx]["pos"], idx)
-            _node = self.map.get_index_by_name(_code)
-            _dir = get_default_dir(self.configs["init_red"][idx]["dir"])
-            self.team_red[idx].reset(_node, _code, _dir, self.configs["init_health"])
+    def _init_env_config(self, **kwargs):
+        # set default env config values if not specified in outer configs
+        _config_args = ["init_red", "init_blue", "damage_step", "damage_threshold_red", "damage_threshold_blue"]
+        INIT_REGION = {"L": 1, "R": 0}
+        self.rewards["step_agent"] = {}
+        self.rewards["done_agent"] = {}
+        _reward_agent_step = ["reward_step_RB", "reward_step_BR", "reward_step_RR", "penalty_stay"]
+        _reward_agent_done = ["reward_episode_lookup", "reward_faster_lookup"]
+        # Designed for eval. default path is None. If None, no log files will be generated during step run.
+        _log_keys = ["on", "save", "plot", "path", "prefix", "overview", "verbose"]
+        # log defaults
+        LOG_LOOKUP = {"prefix": "log_", "local_path": "logs/", "save": True,
+                      "verbose": False, "plot": False, "overview": "reward_episodes.txt"}
+        for item in kwargs:
+            if item in _config_args:
+                self.configs[item] = kwargs[item]
+            elif item in _reward_agent_step:
+                self.rewards["step_agent"][item] = kwargs[item]
+            elif item in _reward_agent_done:
+                self.rewards["done_agent"][item] = kwargs[item]
+            elif item in _log_keys:
+                self.logs[item] = kwargs[LOG_LOOKUP["prefix"]+item]
+            # else:
+            #     pass
 
-        for idx in range(self.num_blue):
-            _route = self.list_route.index(self.configs["init_blue"][idx]["route"])
-            _index = int(self.configs["init_blue"][idx]["idx"])
-            _node, _code, _dir = self.routes[_route].get_location_by_index(_index)
-            self.team_blue[idx].reset(_node, _code, _dir, self.configs["init_health"], _route, _index)
-            if self.team_blue[idx].is_learning():
-                self.learning_agent.append(self.team_blue[idx].agent_id)
+        # set default configs if not defined
+        for key in _config_args:
+            if key in self.configs:
+                continue
+            if key == "init_red":
+                self.configs[key] = [{"learn": True, "pos": None, "dir": None} for _ in range(self.num_red)]
+            elif key == "init_blue":
+                self.configs[key] = [{"learn": False, "route": "0", "idx": 0} for _ in range(self.num_blue)]
+            elif key == "damage_step":
+                self.configs[key] = INTERACT_LOOKUP["engage_damage"]
+            elif key == "damage_threshold_red":
+                self.configs[key] = INTERACT_LOOKUP["damage_maximum"]
+            elif key == "damage_threshold_blue":
+                # grant blue agents a higher damage threshold when more reds on the map
+                self.configs[key] = INTERACT_LOOKUP["damage_maximum"] * self.num_red
+            else:
+                print("[Env] Invalid config arg:{}".format(key))
 
-    def _set_learning_agents(self):
-        self.learning_agent = []
-        for idx in range(self.num_red):
-            if self.team_red[idx].is_learning():
-                self.learning_agent.append(self.team_red[idx].agent_id)
+        # check init_red init configs, must have attribute "pos":[str/tuple] for resetting agents
+        assert len(self.configs["init_red"]) == self.num_red, "Invalid init_red:{}".format(self.configs["init_red"])
+        for idx, _config in enumerate(self.configs["init_red"]):
+            # set up default init looking direction "dir":[int]
+            if "dir" not in _config:
+                self.configs["init_red"][idx]["dir"] = None
+            # parse "pos" indicator and validate range
+            _pos = _config["pos"]
+            if _pos is None:
+                continue
+            if isinstance(_pos, tuple):
+                assert check_pos_abs_range(_pos), "Pos tuple: {} out of range".format(_pos)
+            elif isinstance(_pos, str):
+                assert _pos in INIT_REGION, "Invalid init region:\'{}\' (not in {})".format(_pos, INIT_REGION.keys())
+                self.configs["init_red"][idx]["pos"] = INIT_REGION[_pos]
 
-        for idx in range(self.num_blue):
-            if self.team_blue[idx].is_learning():
-                self.learning_agent.append(self.team_blue[idx].agent_id)
 
-    def _load_map_data(self, routes):
+        # check init_blue, must have attribute "route":[str] used in loading graph files. default: '0'
+        assert len(self.configs["init_blue"]) == self.num_blue, "Invalid init_blue:{}".format(self.configs["init_blue"])
+        _route_list = []
+        for idx, _config in enumerate(self.configs["init_blue"]):
+            _route_list.append(_config["route"])
+            # set up default spwan index on the route "idx":[int]
+            if "idx" not in _config:
+                self.configs["init_red"][idx]["idx"] = 0
+        # get all unique routes. (blue agents might share patrol route)
+        self.configs["route_lookup"] = list(set(_route_list))
+
+        # turn on logger if True
+        if "on" in self.logs:
+            self.logger = self.logs["on"]
+            if self.logger is True:
+                self.logs["root_path"] = self.configs["env_path"]
+                for item in _log_keys[1:]:
+                    if item not in self.logs:
+                        self.logs[item] = LOG_LOOKUP[item]
+        return True
+
+    # load local graphs and generate routes [!!] executable after _init_env_config
+    def _load_map_data(self):
         # load graphs
         self.map, self.routes = load_graph_files(env_path=self.configs["env_path"],
-                                                 map_lookup=self.configs["map_lookup"],
-                                                 route_lookup=routes,
+                                                 map_lookup=self.configs["map_id"],
+                                                 route_lookup=self.configs["route_lookup"],
                                                  is_pickle_graph=self.configs["load_pickle"])
         # generate pos & dirs for patrol routes
         for _route in range(len(self.routes)):
@@ -410,38 +472,53 @@ class Figure8Squad(gym.Env):
             self.routes[_route].list_move = [off_dir] + list_dir
             self.routes[_route].list_next = list_dir + [off_dir]
 
-    def set_outer_configs(self, **args):
-        # Designed for eval. default path is None. If None, no log files will be generated during step run.
-        LOG_LOOKUP = {
-            "log_path": "./logs/",
-            "log_prefix": "log",
-            "log_overview": "reward_dones.txt",
-        }
-        # TODO: define keys
-        list_config_keys = []
-        list_reward_keys = ["reward_done_lookup", "reward_R_2_B", "reward_R_2_B", "reward_R_2_R", "reward_B_2_R",
-                            "reward_fast", "step_pivot", "step_decay"]
-        list_log_keys = ["log_on", "log_path", "log_prefix", "log_overview"]
-        for item in args.keys():
-            if item in list_config_keys:
-                self.configs[item] = args[item]
-            elif item in list_reward_keys:
-                self.rewards[item] = args[item]
-            elif item in list_log_keys:
-                self.logs[item] = args[item]
-        # turn on file logger
-        if list_log_keys[0] in self.logs:
-            _on_flag = self.logs[list_log_keys[0]]
-            self.logger = _on_flag
-            if _on_flag is True:
-                for item in list_log_keys[1:]:
-                    if item not in self.logs:
-                        self.logs[item] = LOG_LOOKUP[item]
-        return True
+    # initialize team red and team blue agents [!!] executable after _init_env_config
+    def _init_agents(self):
+        health = self.configs["init_health"]
+        for idx in range(self.num_red):
+            r_uid = idx
+            learn = self.configs["init_red"][idx]["learn"] if "learn" in self.configs["init_red"][idx] else True
+            if learn is True:
+                self.learning_agent.append(r_uid)
+            self.team_red.append(AgentRed(_uid=r_uid, _health=health, _learn=learn))
+
+        for idx in range(self.num_blue):
+            b_uid = (idx + self.num_red)
+            learn = self.configs["init_blue"][idx]["learn"] if "learn" in self.configs["init_blue"][idx] else False
+            if learn is True:
+                self.learning_agent.append(b_uid)
+            b_route = self.configs["route_lookup"].index(self.configs["init_blue"][idx]["route"])
+            b_index = self.configs["init_blue"][idx]["idx"]
+            self.team_blue.append(AgentBlue(_uid=b_uid, _health=health, _learn=learn, _route=b_route, _index=b_index))
+
+    # reset agents to init status for each new episode
+    def _reset_agents(self):
+        health = self.configs["init_health"]
+        for idx in range(self.num_red):
+            # parsing init position config
+            _flag = self.configs["init_red"][idx]["pos"]
+            _args = [None, 0]
+            if isinstance(_flag, int):
+                _args[1] = _flag
+            elif isinstance(_flag, tuple):
+                _args[0] = _flag
+            r_code = get_default_red_encoding(_args[0], _args[1])
+            r_node = self.map.get_index_by_name(r_code)
+            r_dir = get_default_dir(self.configs["init_red"][idx]["dir"])
+            self.team_red[idx].reset(_node=r_node, _code=r_code, _dir=r_dir, _health=health)
+
+        for idx in range(self.num_blue):
+            b_route = self.team_blue[idx].get_route()
+            b_index = int(self.configs["init_blue"][idx]["idx"])
+            b_node, b_code, b_dir = self.routes[b_route].get_location_by_index(b_index)
+            self.team_blue[idx].reset(_node=b_node, _code=b_code, _dir=b_dir, _health=health, _index=b_index, _end=-1)
+            if self.team_blue[idx].is_learning():
+                self.learning_agent.append(self.team_blue[idx].agent_id)
 
     def render(self, mode='human'):
         pass
 
+    # delete all local instances
     def close(self):
         if self.team_red is not None:
             del self.team_red
@@ -453,24 +530,26 @@ class Figure8Squad(gym.Env):
             del self.map
 
 
-# get red agent position for map initialization
-def get_default_red_encoding(red_pos=None, _region=0) -> str:
+# update agent position. return value: str of binary embedding code
+def get_default_red_encoding(red_pos=None, red_region=0) -> str:
     # providing the coordinates of red position (row, col) or sampling from init spawn position pools
-    if red_pos is not None:
+    if isinstance(red_pos, tuple):
         return get_node_name_from_pos_abs(red_pos)
     else:
-        pos_red_pool = INIT_POS_LOOKUP[_region % len(INIT_POS_LOOKUP)]
+        pos_red_pool = INIT_POS_LOOKUP[red_region % len(INIT_POS_LOOKUP)]
         idx = randint(0, len(pos_red_pool) - 1)
         R_pos = pos_red_pool[idx]
     return get_node_name_from_pos_abs(R_pos)
 
 
-def get_default_dir(red_dir=None) -> int:
-    if red_dir is not None:
-        return red_dir
+# update agent looking direction. return value: int direction indicator
+def get_default_dir(default_dir=None) -> int:
+    if default_dir is not None:
+        return default_dir
     return randint(min(ACTION_LOOKUP.keys()) + 1, max(ACTION_LOOKUP.keys()))
 
 
+# get default observation shape per agent
 def get_state_shape(n_G, n_R, n_B, obs_embed=False, obs_self_dir=True, obs_sight=True, obs_team=True) -> int:
     (bit_row, bit_col), _ = get_pos_norms()
     bit_embed = bit_row + bit_col
@@ -502,16 +581,15 @@ class AgentRed(MAgent):
 
 
 class AgentBlue(MAgent):
-    def __init__(self, _uid=0, _node=0, _code=None, _dir=0, _health=5, _learn=False):
+    def __init__(self, _uid=0, _node=0, _code=None, _dir=0, _health=5, _learn=False, _route=None, _index=None):
         super().__init__(_uid, _node, _code, _dir, _health, _learn)
-        self.route_ptr = None
-        self.route_idx = None
+        self.route_ptr = _route
+        self.route_idx = _index
         self.end_step = -1
 
-    def reset(self, _node, _code, _dir, _health, _route=0, _idx=0, _end=-1):
+    def reset(self, _node, _code, _dir, _health, _index=0, _end=-1):
         super().reset(_node=_node, _code=_code, _dir=_dir, _health=_health)
-        self.route_ptr = _route
-        self.route_idx = _idx
+        self.route_idx = _index
         self.end_step = _end
 
     def get_route(self):

@@ -6,6 +6,7 @@ class MAgent:
         self.agent_dir = _dir
         self.health = _health
         self.learnable = _learn
+        self.frozen = False
 
     def set_location(self, _node, _code, _dir):
         self.agent_node = _node
@@ -26,16 +27,22 @@ class MAgent:
 
     def take_damage(self, points):
         self.health -= points
-        return self.health
 
     def is_learning(self):
         return self.learnable
+
+    def is_frozen(self):
+        return self.frozen
+
+    def set_frozen(self, _binary_flag):
+        self.frozen = _binary_flag
 
     def reset(self, _node, _code, _dir, _health):
         self.agent_node = _node
         self.agent_code = _code
         self.agent_dir = _dir
         self.health = _health
+        self.frozen = False
 
     def close(self):
         pass

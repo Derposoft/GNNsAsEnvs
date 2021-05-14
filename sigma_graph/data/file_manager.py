@@ -238,48 +238,58 @@ def check_dir(dir_name: str) -> bool:
     return os.path.exists(dir_name)
 
 
-def generate_local_files():
-    # relative path to project root
-    local_path = "./"
-
-    # generate_graph_files(env_path=local_path, map_lookup="M", route_lookup=['0', '1'],
-    #                          is_pickle_graph=True, if_overwrite=True)
-    generate_graph_files(env_path=local_path, map_lookup="S", route_lookup=['0', '1'],
-                         is_pickle_graph=True, if_overwrite=True)
-
-
-# logger for env.step
+# logger for step runs
 def save_log_2_file(config, n_step, n_done, agents, prev_obs, actions, obs, rewards, dones=None):
-    ori_stdout = sys.stdout
-    _log_path = config["log_path"]
+    # ori_stdout = sys.stdout
+    _log_path = os.path.join(config["root_path"], config["local_path"])
     if not check_dir(_log_path):
         os.makedirs(_log_path)
-    file_path = os.path.join(_log_path, "{}_done_{}.txt".format(config["log_prefix"], n_done))
-    with open(file_path, 'a+') as stream:
-        sys.stdout = stream
-        _buffer = "Step #{:2d} | ".format(n_step)
+    file_path = os.path.join(_log_path, "{}done_{}.txt".format(config["prefix"], n_done))
+    with open(file_path, 'a+') as f:
+        # sys.stdout = f
+        _buffer = "Step #{:2d} ".format(n_step)
         for _idx in range(len(agents)):
-            _buffer += "| {} HP:{} node:{} dir:{} pos:{}".format(agents[_idx][0], agents[_idx][3],
-                                                                 agents[_idx][1][0], agents[_idx][1][1],
-                                                                 get_node_pos_from_name_abs(agents[_idx][2]))
-        print("{} | Actions {} | Step rewards {}".format(_buffer, actions, rewards))
-        print("<Obs_before>{} | <Obs_after>{}".format(prev_obs, obs))
-        sys.stdout = ori_stdout
+            _buffer += "| {} HP:{} node:{} dir:{} pos:{} ".format(agents[_idx][0], agents[_idx][3],
+                                                                  agents[_idx][1][0], agents[_idx][1][1],
+                                                                  get_node_pos_from_name_abs(agents[_idx][2]))
+        _buffer += "| Actions:{} | Step rewards:{}".format(actions, rewards)
+        # if config["save"] is True:
+        print(_buffer, file=f)
+        if config["verbose"]:
+            # print("Done:{}".format(dones), file=f)
+            _buffer_verbose = " | Obs_before:{} | Obs_after:{}".format(prev_obs, obs)
+            # if config["save"] is True:
+            print(_buffer_verbose, file=f)
+        # sys.stdout = ori_stdout
     return True
 
 
+# overview of episode rewards
 def log_done_reward(config, n_done, rewards):
-    ori_stdout = sys.stdout
-    _log_path = config["log_path"]
+    _log_path = os.path.join(config["root_path"], config["local_path"])
     if not check_dir(_log_path):
         os.makedirs(_log_path)
-    file_path = os.path.join(_log_path, config["log_overview"])
-    with open(file_path, 'a+') as stream:
-        sys.stdout = stream
-        print("Episode #{:3d} Done rewards {}".format(n_done, rewards))
-        sys.stdout = ori_stdout
+    file_episode = os.path.join(_log_path, config["overview"])
+    with open(file_episode, 'a+') as f:
+        _episode = "Episode #{:2d} ends with episode_reward:{}".format(n_done, rewards)
+        print(_episode, file=f)
+    file_step = os.path.join(_log_path, "{}done_{}.txt".format(config["prefix"], n_done))
+    with open(file_step, 'a+') as f:
+        _step = "Episode rewards:{}".format(rewards)
+        print(_step, file=f)
     return True
+
+
+def generate_parsed_data_files():
+    # relative path to project root
+    _env_path = "./"
+    _map_lookup = ["S"]  # ["S", "M", "L"]
+    _route_lookup = ['0', '1']
+
+    for _map in _map_lookup:
+        generate_graph_files(env_path=_env_path, map_lookup=_map, route_lookup=_route_lookup,
+                             is_pickle_graph=True, if_overwrite=True)
 
 
 if __name__ == "__main__":
-    generate_local_files()
+    generate_parsed_data_files()
