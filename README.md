@@ -12,7 +12,7 @@ The 'sigma-graph' package should be ready to import into python scripts. Look fo
 ### Usage:
 
 This custom Gym multi-agent environment is for team Red v.s. team Blue combat simulations. 
-Check ./sigma_graph/test/ for examples
+Check ./examples/ for more detailed use cases.
 
 
 ### I/O helper:
