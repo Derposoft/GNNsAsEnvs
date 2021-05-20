@@ -1,16 +1,44 @@
-import sys
 import os
 import re
 
-from sigma_graph.envs.figure8.maps.configs import MAP_LOOKUP
-from sigma_graph.envs.figure8.maps.data_helper import get_node_name_from_pos_abs, get_node_pos_from_name_abs
-from sigma_graph.envs.figure8.maps.skirmish_graph import MapInfo, RouteInfo
+from ..envs.figure8.maps.map_configs import MAP_LOOKUP
+from ..envs.figure8.maps.data_helper import get_node_name_from_pos_abs, get_node_pos_from_name_abs
+from ..envs.figure8.maps.skirmish_graph import MapInfo, RouteInfo
+
+
+PATH_LOOKUP = {
+    "saved": "sigma_graph/data/parsed/",
+    "raw": "sigma_graph/data/raw/",
+}
+
+# assign a large int for no connectivity to replace "null" in graph generation pipeline
+INDEX_INVAL = 911
+
+# raw data files for parsing
+RAW_MAP_DATA_LOOKUP = {
+    "connectivity": "FCNNodeData_Figure8_27wp_NSWE.txt",
+    "visibility": "visibility_nodes_Figure8_FOV120_NSWE.txt",
+    "position": "coordinate_absolute.txt"
+}
+
+MAP_AGENT_DATA_LOOKUP = {
+    "patrol_route": "wp_pat"
+}
+
+# lookup table for data types: prefixes of parsed data files for saving and loading
+DATA_LOOKUP = {
+    "connectivity": "graph_acs",
+    "visibility": "graph_vis",
+    "encoding": "info_dict_emb",
+    "position": "info_dict_pos",
+    "patrol_route": "info_list_pat"
+}
 
 
 def load_graph_files(env_path="./", map_lookup="S", route_lookup=["0"], is_pickle_graph=True):
     assert check_dir(env_path), "[GymEnv][Error] Invalid path for loading env data: \'{}\'".format(env_path)
 
-    path_data = os.path.join(env_path, "sigma_graph/data/parsed/")
+    path_data = os.path.join(env_path, PATH_LOOKUP["saved"])
     assert check_dir(path_data), "[GymEnv][Error] Can not find data in: \'{}\'".format(path_data)
 
     map_id = MAP_LOOKUP[map_lookup]
@@ -42,10 +70,10 @@ def load_graph_files(env_path="./", map_lookup="S", route_lookup=["0"], is_pickl
 
 def generate_graph_files(env_path="./", map_lookup="S", route_lookup=['0'], is_pickle_graph=True, if_overwrite=True):
     assert check_dir(env_path), "[GymEnv][Error] Invalid path for graph data files: \'{}\'".format(env_path)
-    path_file = os.path.join(env_path, "sigma_graph/data/raw/")
+    path_file = os.path.join(env_path, PATH_LOOKUP["raw"])
     assert check_dir(path_file), "[GymEnv][Error] Can not find data in: {}".format(path_file)
 
-    path_obj = os.path.join(env_path, "sigma_graph/data/parsed/")
+    path_obj = os.path.join(env_path, PATH_LOOKUP["saved"])
     if not check_dir(path_obj):
         os.mkdir(path_obj)
 
@@ -161,30 +189,6 @@ def generate_graph_files(env_path="./", map_lookup="S", route_lookup=['0'], is_p
     return cur_map, cur_pat
 
 
-# assigning an invalid index number for no connectivity to replace "null" in action lookup pipeline
-INDEX_INVAL = 911
-
-# raw data files for parsing
-RAW_MAP_DATA_LOOKUP = {
-    "connectivity": "FCNNodeData_Figure8_27wp_NSWE.txt",
-    "visibility": "visibility_nodes_Figure8_FOV120_NSWE.txt",
-    "position": "coordinate_absolute.txt"
-}
-
-MAP_AGENT_DATA_LOOKUP = {
-    "patrol_route": "wp_pat"
-}
-
-# lookup table for data types: prefixes of parsed data files for saving and loading
-DATA_LOOKUP = {
-    "connectivity": "graph_acs",
-    "visibility": "graph_vis",
-    "encoding": "info_dict_emb",
-    "position": "info_dict_pos",
-    "patrol_route": "info_list_pat"
-}
-
-
 def connection_line_parser(s):
     # change 'null' action in the raw data with a placeholder for better iterating and action matching
     s_acs = s.replace("null", "({},{})".format(INDEX_INVAL, INDEX_INVAL))
@@ -241,10 +245,10 @@ def check_dir(dir_name: str) -> bool:
 # logger for step runs
 def save_log_2_file(config, n_step, n_done, agents, prev_obs, actions, obs, rewards, dones=None):
     # ori_stdout = sys.stdout
-    _log_path = os.path.join(config["root_path"], config["local_path"])
+    _log_path = os.path.join(config["root_path"], config["log_path"])
     if not check_dir(_log_path):
         os.makedirs(_log_path)
-    file_path = os.path.join(_log_path, "{}done_{}.txt".format(config["prefix"], n_done))
+    file_path = os.path.join(_log_path, "{}done_{}.txt".format(config["log_prefix"], n_done))
     with open(file_path, 'a+') as f:
         # sys.stdout = f
         _buffer = "Step #{:2d} ".format(n_step)
@@ -255,7 +259,7 @@ def save_log_2_file(config, n_step, n_done, agents, prev_obs, actions, obs, rewa
         _buffer += "| Actions:{} | Step rewards:{}".format(actions, rewards)
         # if config["save"] is True:
         print(_buffer, file=f)
-        if config["verbose"]:
+        if config["log_verbose"]:
             # print("Done:{}".format(dones), file=f)
             _buffer_verbose = " | Obs_before:{} | Obs_after:{}".format(prev_obs, obs)
             # if config["save"] is True:
@@ -266,14 +270,14 @@ def save_log_2_file(config, n_step, n_done, agents, prev_obs, actions, obs, rewa
 
 # overview of episode rewards
 def log_done_reward(config, n_done, rewards):
-    _log_path = os.path.join(config["root_path"], config["local_path"])
+    _log_path = os.path.join(config["root_path"], config["log_path"])
     if not check_dir(_log_path):
         os.makedirs(_log_path)
-    file_episode = os.path.join(_log_path, config["overview"])
+    file_episode = os.path.join(_log_path, config["log_overview"])
     with open(file_episode, 'a+') as f:
         _episode = "Episode #{:2d} ends with episode_reward:{}".format(n_done, rewards)
         print(_episode, file=f)
-    file_step = os.path.join(_log_path, "{}done_{}.txt".format(config["prefix"], n_done))
+    file_step = os.path.join(_log_path, "{}done_{}.txt".format(config["log_prefix"], n_done))
     with open(file_step, 'a+') as f:
         _step = "Episode rewards:{}".format(rewards)
         print(_step, file=f)

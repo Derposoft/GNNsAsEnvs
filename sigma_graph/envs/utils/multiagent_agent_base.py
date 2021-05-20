@@ -1,5 +1,5 @@
 class MAgent:
-    def __init__(self, _uid=0, _node=0, _code=None, _dir=0, _health=5, _learn=True):
+    def __init__(self, _uid=0, _node=0, _code=None, _dir=0, _health=0, _learn=True):
         self.agent_id = _uid
         self.agent_node = _node
         self.agent_code = _code
@@ -32,7 +32,7 @@ class MAgent:
         return self.learnable
 
     def is_frozen(self):
-        return self.frozen
+        return self.frozens
 
     def set_frozen(self, _binary_flag):
         self.frozen = _binary_flag

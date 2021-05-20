@@ -129,7 +129,6 @@ dmypy.json
 .pyre/
 
 # local user data
-logs/archived/
-logs/temp/
+logs/
 examples/.ipynb_checkpoints/
-#data/parsed/*
+# data/parsed/

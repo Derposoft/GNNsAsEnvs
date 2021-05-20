@@ -1,4 +1,6 @@
-# default range of waypoints in the map (used for node name binary encoding in states)
+""" default range of waypoints on the map (used for node name binary encoding in states) """
+
+
 def get_pos_min_max():
     # find boundaries of X and Y coordinates in the graph
     ROW_MIN = 11
@@ -25,7 +27,7 @@ def get_node_name_from_pos(row, col):
 
 def check_pos_abs_range(pos):
     (r_min, r_max), (c_min, c_max) = get_pos_min_max()
-    assert len(pos) == 2 and r_min <=pos[0] <= r_max and c_min <=pos[1] <= c_max, "Pos range error"
+    assert len(pos) == 2 and r_min <= pos[0] <= r_max and c_min <= pos[1] <= c_max, "Pos range error"
     return True
 
 
