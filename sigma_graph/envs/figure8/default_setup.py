@@ -107,13 +107,13 @@ def check_agent_init(team, nums, configs) -> list:
 
 # get default observation shape per agent
 def get_state_shape(n_G, n_R, n_B, shape_tokens) -> int:
-    _is_embed, _has_self_dir, _has_obs_sight, _has_obs_team = list(shape_tokens.values())
+    _is_embed, _has_self_dir, _has_sight, _has_range, _has_obs_team = list(shape_tokens.values())
     (bit_row, bit_col), _ = get_pos_norms()
     bit_embed = bit_row + bit_col
     look_dir = len(ACT_LOOK_DIR)
     # agent states for local obs and global view of opponents and teammates
-    state_self = (bit_embed if _is_embed else n_G) + _has_self_dir * look_dir + (_has_obs_sight + 1) * n_B
-    state_B = (((bit_embed + look_dir) * n_B) if _is_embed else (n_G + look_dir)) + (1 + _has_obs_sight) * n_B
+    state_self = (bit_embed if _is_embed else n_G) + _has_self_dir * look_dir + (_has_sight + _has_range) * n_B
+    state_B = (((bit_embed + look_dir) * n_B) if _is_embed else (n_G + look_dir)) + (_has_sight + _has_range) * n_B
     state_R = _has_obs_team * (bit_embed * (n_R - 1) if _is_embed else n_G)
     return state_self + state_B + state_R
 
