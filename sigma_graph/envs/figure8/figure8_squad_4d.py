@@ -1,11 +1,6 @@
-import numpy as np
-import sys
-import os
-
-from .maps.skirmish_graph import MapInfo, RouteInfo
+from sigma_graph.data.graph.skirmish_graph import MapInfo, RouteInfo
 
 import gym
-from gym import spaces
 
 
 class Figure8Squad4Dir(gym.Env):

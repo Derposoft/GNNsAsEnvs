@@ -1,10 +1,15 @@
 import os
 import re
 
-from ..envs.figure8.maps.map_configs import MAP_LOOKUP
-from ..envs.figure8.maps.data_helper import get_node_name_from_pos_abs, get_node_pos_from_name_abs
-from ..envs.figure8.maps.skirmish_graph import MapInfo, RouteInfo
+from .data_helper import get_node_name_from_pos_abs, get_node_pos_from_name_abs
+from .graph.skirmish_graph import MapInfo, RouteInfo
 
+# select which map to use
+MAP_LOOKUP = {
+    "S": "_27",
+    "M": "_41",
+    "L": "_73",
+}
 
 PATH_LOOKUP = {
     "saved": "sigma_graph/data/parsed/",

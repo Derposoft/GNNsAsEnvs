@@ -2,12 +2,11 @@ import numpy as np
 import gym
 from gym import spaces
 
+from sigma_graph.data.file_manager import load_graph_files, save_log_2_file, log_done_reward
+from sigma_graph.data.graph.skirmish_graph import MapInfo
+from sigma_graph.data.data_helper import get_emb_from_name
 
 from ..utils.multiagent_space import ActionSpaces, ObservationSpaces
-from ...data.file_manager import load_graph_files, save_log_2_file, log_done_reward
-
-from .maps.skirmish_graph import MapInfo
-from .maps.data_helper import get_emb_from_name
 from .agents.skirmish_agents import AgentRed, AgentBlue
 from .rewards.rewards_simple import get_step_engage, get_step_overlay, get_episode_reward_agent
 from . import default_setup as env_setup
@@ -121,8 +120,8 @@ class Figure8Squad(gym.Env):
             if action_move != 0 and action_move not in list_act:
                 # if the action_mask turns on in the learning, invalid actions should not appear.
                 if self.invalid_masked:
-                    assert action_move, "[ActError] act{} {} {} mask{}".format(self.step_counter, action_move, prev_idx,
-                                                                               self.action_mask[agent_i])
+                    assert "[ActError] act{} {} {} mask{}".format(self.step_counter, action_move, prev_idx,
+                                                                  self.action_mask[agent_i])
                 # if the learning process doesn't have action masking, then invalid Move should be replaced by NOOP.
                 else:
                     action_move = 0

@@ -2,7 +2,7 @@ from random import randint
 
 from . import action_lookup as act
 from .maps.map_configs import INIT_POS_LOOKUP, INIT_REGION
-from .maps.data_helper import get_node_name_from_pos_abs, get_pos_norms, check_pos_abs_range
+from sigma_graph.data.data_helper import get_node_name_from_pos_abs, get_pos_norms, check_pos_abs_range
 from .rewards.rewards_simple import DEFAULT_REWARDS
 
 ACT_LOOK_DIR = [key for key, value in act.MOVE_LOOKUP.items() if value != "NOOP"]
