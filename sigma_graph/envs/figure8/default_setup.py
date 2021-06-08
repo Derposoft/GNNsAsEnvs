@@ -15,9 +15,9 @@ INIT_AGENT_RED = {"learn": True, "pos": None, "dir": None}
 INIT_AGENT_BLUE = {"learn": False, "route": "0", "idx": 0}
 INIT_CONFIGS = {
     "env_path": './', "map_id": 'S', "load_pickle": True,
-    "init_red": None, "init_blue": None, "init_health": 100, "damage_maximum": 5,
+    "init_red": None, "init_blue": None, "init_health_red": 10, "init_health_blue": 100, "damage_maximum": 5,
 }
-INIT_CONFIGS_LOCAL = ["damage_threshold_red", "damage_threshold_blue", "act_masked", "penalty_stay"]
+INIT_CONFIGS_LOCAL = ["threshold_damage_2_red", "threshold_damage_2_blue", "act_masked", "penalty_stay"]
 
 # Designed for eval logger. default path is ./logs/ no log files should be generated during training steps.
 INIT_LOGS = {

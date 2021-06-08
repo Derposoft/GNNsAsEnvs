@@ -1,9 +1,13 @@
+from math import ceil
+
 # default hyper-parameters for rewards
 DEFAULT_REWARDS = {
-    "step": {"red_2_blue": 4, "blue_2_red": -3, "red_overlay": -2, },
+    "step": {"reward_step_on": True, "red_2_blue": 4, "blue_2_red": -3, "red_overlay": -2, },
     "episode": {
+        "reward_episode_on": True, "episode_decay_soft": True,
         "health_lookup": {"type": "table", "reward": [32, 16, 8, 4, 2, 0], "damage": [0, 1, 2, 3, 4, 100]},
         "faster_lookup": {"type": "segment", "pivot_step": 10, "reward_init": 16, "reward_decay": 1},
+        "soft_bound": {"dist": [1, 2], "decay_factor": [0.25, 0.125]}
     },
 }
 
@@ -30,29 +34,40 @@ def get_episode_reward_agent(health_lost_self, health_lost_opponent, threshold_s
     assert len(rewards), "No episode rewards provided.."
     episode_reward = 0
     # discourage free loaders
-    if damage_cost_self == 0:   # agent_damage < damage_threshold:
-        return episode_reward
+    # if damage_cost_self == 0:
+    #     return episode_reward
 
-    # reward for terminating the opponent agent
-    if health_lost_opponent >= threshold_opponent:
-        # health reward for surviving
-        if health_lost_self < threshold_self:
-            _dict = rewards["health_lookup"]
-            if _dict["type"] == "table":
-                episode_reward += get_table_reward(health_lost_self, **_dict)
-            else:
-                # TODO>>> define other function types
-                assert "Reward function <episode:health> not implemented:{}".format(_dict)
+    threshold_offset = rewards["soft_bound"]["dist"][-1] if rewards["episode_decay_soft"] is True else 0
+    # give rewards for terminating the opponent agent
+    if health_lost_opponent >= threshold_opponent - threshold_offset:
+        # health based reward for surviving
+        episode_reward += get_reward_type(health_lost_self, **rewards["health_lookup"])
 
-        # speed reward for fast termination
+        # speed based reward for fast termination
         if end_step_opponent > 0:
-            _dict = rewards["faster_lookup"]
-            if _dict["type"] == "segment":
-                episode_reward += get_segment_reward(end_step_opponent, **_dict)
-            else:
-                # TODO>>> define other function types
-                assert "Reward function <episode:faster> not implemented:{}".format(_dict)
+            episode_reward += get_reward_type(end_step_opponent, **rewards["faster_lookup"])
+
+        # apply soft boundary factor
+        if rewards["episode_decay_soft"] is True and health_lost_opponent < threshold_opponent:
+            _dist = threshold_opponent - health_lost_opponent
+            index = next(_idx for _idx, _val in enumerate(rewards["soft_bound"]["dist"]) if _val >= _dist)
+            episode_reward = ceil(episode_reward * rewards["soft_bound"]["decay_factor"][index])
+
     return episode_reward
+
+
+def get_reward_type(value, **_dict):
+    _reward = 0
+    _type = _dict["type"]
+    if _type == "none":
+        return _reward
+    elif _type == "table":
+        _reward = get_table_reward(value, **_dict)
+    elif _type == "segment":
+        _reward = get_segment_reward(value, **_dict)
+    else:
+        assert f"Reward function <episode:faster> not implemented:{_dict}"
+    return _reward
 
 
 def get_table_reward(damage_taken, **_dict):

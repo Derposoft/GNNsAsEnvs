@@ -27,12 +27,14 @@ class MAgent:
 
     def take_damage(self, points):
         self.health -= points
+        if self.health <= 0:
+            self.frozen = True
 
     def is_learning(self):
         return self.learnable
 
     def is_frozen(self):
-        return self.frozens
+        return self.frozen
 
     def set_frozen(self, _binary_flag):
         self.frozen = _binary_flag
