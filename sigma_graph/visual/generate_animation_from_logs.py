@@ -63,25 +63,27 @@ def check_log_files(env_dir, log_dir, log_file):
     return log_file_dir, fig_file_dir
 
 
-def generate_picture(env_dir, log_dir, log_file, if_froze=False, max_step=40):
+def generate_picture(env_dir, log_dir, log_file, HP_red, TR_red, HP_blue, TR_blue,
+                     color_decay=True, if_froze=False, max_step=40, map_lookup="S"):
     # check file existence
     log_file_dir, fig_folder = check_log_files(env_dir, log_dir, log_file)
-    map_info, pat_info = load_graph_files(env_path=env_dir) #, map_lookup="S", route_lookup="[0]", is_pickle_graph=True)
+    map_info, _ = load_graph_files(env_path=env_dir, map_lookup=map_lookup)
     # load log info
     file = open(log_file_dir, 'r')
     lines = file.readlines()
 
-    # agent color scaled based on health point
-    h_range = 10
-    h_offset = 0.1
-    h_max = 100 + h_offset
-    h_min = 100 - h_range + h_offset
     # predetermined colors
-    h_colors = 6
     col_map_red = ['#000000', '#200000', '#400000', '#800000', '#BF0000', '#FF0000']
     col_map_blue = ['#000000', '#000020', '#000040', '#000080', '#0000BF', '#0000FF']
-    bds = np.append([0], np.linspace(h_min, h_max, num=h_colors))
-    norm = colors.BoundaryNorm(boundaries=bds, ncolors=h_colors)
+    if color_decay:
+        HP_offset = 0.1
+        red_bds = np.append([0], np.linspace(HP_red - TR_red + HP_offset, HP_red + HP_offset, num=len(col_map_red)))
+        red_norm = colors.BoundaryNorm(boundaries=red_bds, ncolors=len(col_map_red))
+        blue_bds = np.append([0], np.linspace(HP_blue - TR_blue, HP_blue + HP_offset, num=len(col_map_blue)))
+        blue_norm = colors.BoundaryNorm(boundaries=blue_bds, ncolors=len(col_map_blue))
+    else:
+        red_norm = lambda x: -1
+        blue_norm = lambda x: -1
 
     total_reward = 0
     pause_step = 0
@@ -106,21 +108,25 @@ def generate_picture(env_dir, log_dir, log_file, if_froze=False, max_step=40):
             legend_text += ["{}_{} HP:{} node:{} dir:{} pos:{}".format(agent["team"], agent["id"], agent["HP"],
                                                                        agent["node"], agent["dir"], agent["pos"])]
             if agent["team"] == 'red':
-                col_map[agent['node'] - 1] = col_map_red[norm(agent['HP'])]
+                col_map[agent['node'] - 1] = col_map_red[red_norm(agent['HP'])]
             elif agent["team"] == 'blue':
                 blue_health = agent['HP']
-                col_map[agent['node'] - 1] = col_map_blue[norm(blue_health)]
+                col_map[agent['node'] - 1] = col_map_blue[blue_norm(blue_health)]
         # set pause frame number for gif looping
-        if if_froze and (not pause_step) and (blue_health < h_min):
+        if if_froze and (not pause_step) and (blue_health <= HP_blue - TR_blue):
             pause_step = i
         # render fig and save to png
         nx.draw_networkx(map_info.g_acs, map_info.n_info, node_color=col_map, edge_color="grey", arrows=True)
         plt.legend(legend_text, bbox_to_anchor=(0.07, 0.95, 0.83, 0.1), loc='lower left', prop={'size': 8},
                    mode="expand", borderaxespad=0.)
         plt.savefig(os.path.join(fig_folder, f"{i:03d}.png"), dpi=100, transparent=True)
-        # plt.show()
         plt.close()
     return fig_folder, pause_step
+
+
+def generate_picture_route(env_dir, log_dir, log_file, route_info):
+    log_file_dir, fig_folder = check_log_files(env_dir, log_dir, log_file)
+    return fig_folder
 
 
 def frame_add_background(img_dir, gif_file, bg_file, fps, stop_frame=0, wait_frame=5):
@@ -144,16 +150,18 @@ def frame_add_background(img_dir, gif_file, bg_file, fps, stop_frame=0, wait_fra
                  save_all=True, duration=(1000 // fps), loop=(stop_frame > 0))
 
 
-def local_run(env_dir, log_dir, prefix, bg_pic, fps, froze, route_only, route_info):
+def local_run(env_dir, log_dir, prefix, bg_pic, fps, HP_red, TR_red, HP_blue, TR_blue,
+              color_decay=True, froze=False, route_only=False, route_info=None):
     directory = os.fsencode(log_dir)
     for file in os.listdir(directory):
         log_file = os.fsdecode(file)
         if log_file.endswith(".txt") and log_file.startswith(prefix):
             if route_only:
-                # fig_folder = generate_picture_route(env_dir, log_dir, log_file, route_info)
+                fig_folder = generate_picture_route(env_dir, log_dir, log_file, route_info)
                 pause_frame = 0
             else:
-                fig_folder, pause_frame = generate_picture(env_dir, log_dir, log_file, froze)
+                fig_folder, pause_frame = generate_picture(env_dir, log_dir, log_file,
+                                                           HP_red, TR_red, HP_blue, TR_blue, color_decay, froze)
             frame_add_background(fig_folder, os.path.join(log_dir, f"{log_file[:-4]}.gif"), bg_pic, fps,
                                  pause_frame)
 
@@ -166,12 +174,17 @@ if __name__ == "__main__":
     parser.add_argument('--background', type=str, default='../../logs/visuals/background.png')
     parser.add_argument('--fps', type=int, default=2)  # frame per second in animations
 
-    parser.add_argument('--HP_color_off', action='store_true', default=True, help='gradient colors for HP')
     parser.add_argument('--HP_froze_on', action='store_true', default=False, help='stop animation if agent is dead')
+    parser.add_argument('--HP_red', type=int, default=100)
+    parser.add_argument('--TR_red', type=int, default=5)
+    parser.add_argument('--HP_blue', type=int, default=100)
+    parser.add_argument('--TR_blue', type=int, default=10)
+    parser.add_argument('--HP_color_off', action='store_false', default=True, help='gradient colors for HP')
 
     parser.add_argument('--route_only', type=bool, default=False)  # exclude step info
     parser.add_argument('--route_info', type=str, default='name')  # choose from ['name', 'pos', 'idx']
     args = parser.parse_args()
 
     local_run(args.env_dir, args.log_dir, args.prefix, args.background, args.fps,
+              args.HP_red, args.TR_red, args.HP_blue, args.TR_blue, args.HP_color_off,
               args.HP_froze_on, args.route_only, args.route_info)

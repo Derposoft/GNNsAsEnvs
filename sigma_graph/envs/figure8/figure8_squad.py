@@ -515,9 +515,9 @@ class Figure8Squad(gym.Env):
 
     def _log_step_update(self, prev_obs, actions, rewards):
         if self.logger is True:
-            _r = [[f"red:{_agent.get_id()} {_agent.get_pos_dir()} {_agent.get_encoding()} {_agent.get_health()}"]
+            _r = [[f"red:{_agent.get_id()}", _agent.get_pos_dir(), _agent.get_encoding(), _agent.get_health()]
                   for _agent in self.team_red]
-            _b = [[f"blue:{_agent.get_id()} {_agent.get_pos_dir()} {_agent.get_encoding()} {_agent.get_health()}"]
+            _b = [[f"blue:{_agent.get_id()}", _agent.get_pos_dir(), _agent.get_encoding(), _agent.get_health()]
                   for _agent in self.team_blue]
             save_log_2_file(self.logs, self.step_counter, self.done_counter, _r + _b,
                             prev_obs, actions, self.states, rewards)
