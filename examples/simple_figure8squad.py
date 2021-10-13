@@ -69,7 +69,7 @@ def environment_example(config):
 
     # episode loop
     for ep in range(n_episode):
-        print(f"\n#####===> Eposide: {ep + 1} of {n_episode}\n")
+        print(f"\n#####===> Episode: {ep + 1} of {n_episode}\n")
 
         ###===> Step 2. intitial 'reset' before running 'step' functions
         # reset 'step_counter' and agent states for the next episode
@@ -93,6 +93,9 @@ def environment_example(config):
             # print updates
             print("###==> Step: {}/{} | Actions:{} | Rewards:{} | done: {}".format(env.step_counter, env.max_step,
                                                                                    rand_actions, rew, done))
+            # end this episode if we are all done
+            if all(done):
+                break
         print_agents(env)
 
 
