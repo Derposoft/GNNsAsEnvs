@@ -1,16 +1,16 @@
 '''
 
-A variant of simple_figure8squad.py using an rllib learner
+A variant of simple_figure8squad.py in which an rllib learner is fit to the 
 
 '''
 
-import gym, ray
-from ray.rllib.agents import ppo
-from ray.tune.registry import register_env
 from random import randint
 from sigma_graph.envs.figure8.action_lookup import MOVE_LOOKUP, TURN_90_LOOKUP
-from sigma_graph.envs.figure8.figure8_squad_rllib import Figure8SquadRLLib
+from ray.rllib.agents import ppo
+from ray.rllib.models import ModelCatalog
+from ..sigma_graph.envs.figure8.figure8_squad_rllib import Figure8SquadRLLib
 import argparse
+import os
 
 
 def print_lookup():
@@ -66,19 +66,26 @@ def environment_example(config):
         outer_configs["threshold_damage_2_blue"] = config.threshold_blue
     if hasattr(config, "threshold_red"):
         outer_configs["threshold_damage_2_red"] = config.threshold_red
-
-    # small sanity check
-    import json
-    print(json.dumps(outer_configs))
     
-    # register env with rllib
-    register_env('figure8squad_rllib-v0', lambda config: Figure8SquadRLLib(config))
+    # register and make env for rllib
+    ModelCatalog.register_custom_model("my_model", Figure8SquadRLLib)
 
-    # create rllib trainer for env [!!!] PROBLEM HERE WITH OBSERVATION SPACES
-    trainer = ppo.PPOTrainer(env='figure8squad_rllib-v0', config={'env_config': outer_configs})
-
-    # train
-    for _ in range(100):
+    config = {
+        "env": Figure8SquadRLLib,  # or "corridor" if registered above
+        "env_config": {
+            "corridor_length": 5,
+        },
+        # Use GPUs iff `RLLIB_NUM_GPUS` env var set to > 0.
+        "num_gpus": int(os.environ.get("RLLIB_NUM_GPUS", "0")),
+        "model": {
+            "custom_model": "my_model",
+            "vf_share_layers": True,
+        },
+        "num_workers": 1,  # parallelism
+        "framework": "torch",
+    }
+    trainer = ppo.PPOTrainer(env='figure8squad_rllib-v0', **outer_configs)
+    for ep in range(100):
         trainer.train()
     
 
