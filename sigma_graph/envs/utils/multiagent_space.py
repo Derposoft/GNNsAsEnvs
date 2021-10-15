@@ -21,10 +21,11 @@ class ObservationSpaces(list):
         super().__init__(n_obs_space)
         self._n = len(n_obs_space)
         self._obs_space = n_obs_space
-
+        self.shape = [self._obs_space[_].shape for _ in range(self._n)]
+    '''
     def shape(self):
         return [self._obs_space[_].shape for _ in range(self._n)]
-
+    '''
     def sample(self):
         return [obs_space.sample() for obs_space in self._obs_space]
 
