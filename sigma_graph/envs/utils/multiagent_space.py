@@ -6,7 +6,7 @@ class ActionSpaces(list):
     def __init__(self, n_action_space):
         for item in n_action_space:
             assert isinstance(item, (gym.spaces.Discrete, gym.spaces.MultiDiscrete))
-        super(ActionSpaces, self).__init__(n_action_space)
+        super().__init__(n_action_space)
         self._action_space = n_action_space
 
     def length(self):
@@ -21,15 +21,20 @@ class ObservationSpaces(list):
         super().__init__(n_obs_space)
         self._n = len(n_obs_space)
         self._obs_space = n_obs_space
-        self.shape = [self._obs_space[_].shape for _ in range(self._n)]
-    '''
+
     def shape(self):
         return [self._obs_space[_].shape for _ in range(self._n)]
-    '''
+    
     def sample(self):
         return [obs_space.sample() for obs_space in self._obs_space]
 
     def contains(self, obs):
+        # modified contains in case of rllib multi-agent setup
+        if type(obs) == dict:
+            _obs = []
+            for key in obs:
+                _obs.append(obs[key])
+            obs = _obs
         for space, ob in zip(self._obs_space, obs):
             if not space.contains(ob):
                 return False

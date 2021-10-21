@@ -1,5 +1,11 @@
 from sigma_graph.envs.figure8.figure8_squad import Figure8Squad
 from ray.rllib.env.multi_agent_env import MultiAgentEnv
+from gym import spaces
+import numpy as np
+
+from . import default_setup as env_setup
+local_action_move = env_setup.act.MOVE_LOOKUP
+local_action_turn = env_setup.act.TURN_90_LOOKUP
 
 # a variant of figure8_squad that can be used by rllib multiagent setups
 # reference: https://github.com/ray-project/ray/blob/master/rllib/examples/custom_env.py
@@ -7,6 +13,8 @@ class Figure8SquadRLLib(Figure8Squad, MultiAgentEnv):
     def __init__(self, config=None):
         config = config or {}
         super().__init__(**config)
+        self.action_space = spaces.MultiDiscrete([len(local_action_move), len(local_action_turn)])
+        self.observation_space = spaces.Box(low=0, high=1, shape=(self.state_shape,), dtype=np.int8)
 
     def reset(self):
         _resets = super().reset()

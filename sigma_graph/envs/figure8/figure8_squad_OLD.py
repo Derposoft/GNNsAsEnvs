@@ -1,12 +1,14 @@
+from networkx.utils.misc import flatten
 import numpy as np
 import gym
 from gym import spaces
+from gym.spaces.dict import Dict
 
 from sigma_graph.data.file_manager import load_graph_files, save_log_2_file, log_done_reward
 from sigma_graph.data.graph.skirmish_graph import MapInfo
 from sigma_graph.data.data_helper import get_emb_from_name
 
-from ..utils.multiagent_space import ActionSpaces, ObservationSpaces
+#from ..utils.multiagent_space import ActionSpaces, ObservationSpaces
 from .agents.skirmish_agents import AgentRed, AgentBlue
 from .rewards.rewards_simple import get_step_engage, get_step_overlay, get_episode_reward_agent
 from . import default_setup as env_setup
@@ -47,13 +49,29 @@ class Figure8Squad(gym.Env):
         self._init_agents()
 
         # init spaces
-        self.__action_space = ActionSpaces([spaces.MultiDiscrete([len(local_action_move), len(local_action_turn)])
-                                          for _ in range(len(self.learning_agent))])
+
+        # helper method turns [{'agent1':space1}, {'agent2':space2}, ...] -> {'agent1':space1, 'agent2':space2, ...}
+        def flatten_dict_array(dict_array: list):
+            return {**dict_array[0], **flatten_dict_array(dict_array[1:])} if len(dict_array) > 1 else dict_array[0]
+    
+        # BIG CHANGES FOR RLLIB: 
+        # (a) can't use a custom space unless it inherits from some special subset of RLLib spaces.
+        #     therefore, spaces changed.
+        # (b) SPACES AREN'T LISTS ANYMORE! I couldn't find a way to enforce different possible actions on 
+        #     each agent, since RLLib doesn't play well unless spaces are same for each agent.
+        #     (at least, inferred from trial and error + the highlight at this URL, ctrl+f for "unsupported args":
+        #     https://docs.ray.io/en/latest/_modules/ray/rllib/models/catalog.html?highlight=Unsupported%20args%3A%20%7B%7D)
+
+
+        self.action_space = Dict(flatten_dict_array([{a: spaces.MultiDiscrete([len(local_action_move), len(local_action_turn)])}
+                                for a in self.learning_agent]))
+        self.action_space = spaces.MultiDiscrete([len(local_action_move), len(local_action_turn)])
         # <default>: all agents have identical observation shape
         self.state_shape = env_setup.get_state_shape(self.map.get_graph_size(), n_red, n_blue, self.obs_token)
         # agent obs size: [self: pos(6or27)+dir(4)+flags(2*B) +teamB: pos+next_move(4)+flags(2*B) +teamR: 6*(n_R-1)or27]
-        self.__observation_space = ObservationSpaces([spaces.Box(low=0, high=1, shape=(self.state_shape,), dtype=np.int8)
-                                                    for _ in range(len(self.learning_agent))])
+        self.observation_space = Dict(flatten_dict_array([{a: spaces.Box(low=0, high=1, shape=(self.state_shape,), dtype=np.int8)}
+                                    for a in self.learning_agent]))
+        self.observation_space = spaces.Box(low=0, high=1, shape=(self.state_shape,), dtype=np.int8)
         self.states = [[] for _ in range(len(self.learning_agent))]
 
     def reset(self, force=False):
@@ -101,7 +119,9 @@ class Figure8Squad(gym.Env):
 
         for agent_i, actions in enumerate(n_actions):
             # check input action if in range of the desired discrete action space
-            assert self.__action_space[agent_i].contains(actions), f"{actions}: action out of range"
+            # TODO USED TO BE self.action_space[agent_i].contains(actions) BUT CHANGED TO self.action_space.contains
+            for actions in n_actions:
+                assert self.action_space.contains(actions), f"{actions}: action out of range"
             if self.team_red[agent_i].is_frozen():
                 continue
             action_move, action_turn = actions
@@ -159,7 +179,8 @@ class Figure8Squad(gym.Env):
         R_nodes = [0] * self.num_red
         R_overlay = [False] * self.num_red
         if self.invalid_masked:
-            self.action_mask = [np.zeros(sum(tuple(self.__action_space[_].nvec)), dtype=np.bool_)
+            # TODO EDIT: USED TO BE self.action_space[_].nvec - BUT action_space IS CHANGED NOW!
+            self.action_mask = [np.zeros(sum(tuple(self.action_space.nvec)), dtype=np.bool_)
                                 for _ in range(len(self.learning_agent))]
         for _r in range(self.num_red):
             node_r, _ = self.team_red[_r].get_pos_dir()
@@ -172,7 +193,7 @@ class Figure8Squad(gym.Env):
                 B_engage_R[_b, _r] = self.is_in_range(node_b, node_r, self.team_blue[_b].agent_dir)
             # update action masking
             if self.invalid_masked:
-                # self.action_mask[_r] = np.zeros(sum(tuple(self.__action_space[_r].nvec)), dtype=np.bool_)
+                # self.action_mask[_r] = np.zeros(sum(tuple(self.action_space[_r].nvec)), dtype=np.bool_)
                 mask_idx = self.learning_agent.index(self.team_red[_r].get_id())
                 # masking invalid movements on the given node
                 acts = set(local_action_move.keys())
