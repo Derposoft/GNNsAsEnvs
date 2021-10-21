@@ -3,13 +3,15 @@
 A variant of simple_figure8squad.py in which an rllib learner is fit to the 
 
 '''
-
-from random import randint
+from numpy.core.numeric import outer
+from ray.rllib.models.catalog import MODEL_DEFAULTS
 from sigma_graph.envs.figure8.action_lookup import MOVE_LOOKUP, TURN_90_LOOKUP
 from ray.rllib.agents import ppo
 from ray.rllib.models import ModelCatalog
-from ..sigma_graph.envs.figure8.figure8_squad_rllib import Figure8SquadRLLib
+from ray.tune.logger import pretty_print
+from sigma_graph.envs.figure8.figure8_squad_rllib import Figure8SquadRLLib
 import argparse
+import gym
 import os
 
 
@@ -43,6 +45,7 @@ def print_agents(env):
 
 
 def environment_example(config):
+
     n_episode = config.n_episode
     # init_red and init_blue should have number of agents dictionary elements if you want to specify it
 
@@ -67,26 +70,44 @@ def environment_example(config):
     if hasattr(config, "threshold_red"):
         outer_configs["threshold_damage_2_red"] = config.threshold_red
     
-    # register and make env for rllib
-    ModelCatalog.register_custom_model("my_model", Figure8SquadRLLib)
-
+    # policy mapping function
+    # from https://medium.com/@vermashresth/craft-and-solve-multi-agent-problems-using-rllib-and-tensorforce-a3bd1bb6f556
+    setup_env = gym.make('figure8squad-v3', **outer_configs)
+    obs_space = setup_env.observation_space
+    act_space = setup_env.action_space
+    policies = {}
+    for agent_id in setup_env.learning_agent:
+        policies[str(agent_id)] = (None, obs_space, act_space, {})
+    def policy_mapping_fn(agent_id, episode, worker, **kwargs):
+        return str(agent_id)
+    # create trainer config
     config = {
-        "env": Figure8SquadRLLib,  # or "corridor" if registered above
+        "env": Figure8SquadRLLib,
         "env_config": {
-            "corridor_length": 5,
+            **outer_configs
         },
         # Use GPUs iff `RLLIB_NUM_GPUS` env var set to > 0.
         "num_gpus": int(os.environ.get("RLLIB_NUM_GPUS", "0")),
-        "model": {
-            "custom_model": "my_model",
-            "vf_share_layers": True,
-        },
+        "model": MODEL_DEFAULTS,
         "num_workers": 1,  # parallelism
         "framework": "torch",
+        "multiagent": {
+            "policies": policies,
+            "policy_mapping_fn": policy_mapping_fn,
+        },
+        #"observation_space": None,
+        #"action_space": None,
     }
-    trainer = ppo.PPOTrainer(env='figure8squad_rllib-v0', **outer_configs)
-    for ep in range(100):
-        trainer.train()
+    # use ppo config+ppo and model+env to create trainer
+    ppo_config = ppo.DEFAULT_CONFIG.copy()
+    ppo_config.update(config)
+    # use fixed learning rate instead of grid search (needs tune)
+    ppo_config["lr"] = 1e-3
+    trainer = ppo.PPOTrainer(config=ppo_config, env=Figure8SquadRLLib)
+    print('custom gym loaded into rllib!')
+    # train and print results
+    result = trainer.train()
+    print(pretty_print(result))
     
 
 
@@ -137,3 +158,18 @@ if __name__ == "__main__":
     # demo run
     config = parser.parse_args()
     environment_example(config)
+
+
+'''
+# register and make env for rllib
+# reference: https://github.com/ray-project/ray/blob/master/rllib/examples/custom_env.py
+
+# change required to run our own model
+ModelCatalog.register_custom_model("my_model", MyCustomModelWithGNN)
+
+# config change required to run our own model
+"model": MODEL_DEFAULTS {
+    "custom_model": "my_model",
+    "vf_share_layers": True,
+}
+'''
