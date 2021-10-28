@@ -9,6 +9,7 @@ from ray.rllib.models.catalog import MODEL_DEFAULTS
 from sigma_graph.envs.figure8.action_lookup import MOVE_LOOKUP, TURN_90_LOOKUP
 from sigma_graph.envs.figure8.figure8_squad_rllib import Figure8SquadRLLib
 import argparse
+import time
 import gym
 import os
 
@@ -17,8 +18,14 @@ import tensorboard as tb
 from ray.tune.logger import pretty_print
 
 # algorithms to test
+from ray.rllib.agents import pg
+from ray.rllib.agents import a3c
 from ray.rllib.agents import ppo
-from ray.rllib.agents import impala
+from ray.rllib.agents import impala # single-threaded stuff only for now
+
+# tuning
+from ray.tune.stopper import TimeoutStopper
+from ray import tune
 from ray.rllib.models import ModelCatalog
 
 # print current agent states
@@ -92,9 +99,9 @@ def run_baselines(config):
     
     # STEP 2: make rllib configs and trainers
 
-    # for impala
-    def create_impala_config(outer_configs):
-        impala_extra_config_settings = {
+    # for pg
+    def create_pg_config(outer_configs):
+        pg_extra_config_settings = {
             "env": Figure8SquadRLLib,
             "env_config": {
                 **outer_configs
@@ -107,14 +114,40 @@ def run_baselines(config):
             "evaluation_interval": 1,
             "evaluation_num_episodes": 10,
             "evaluation_num_workers": 1,
-            "train_batch_size": 128
+            "rollout_fragment_length": 200,
+            "train_batch_size": 200
         }
-        impala_config = impala.DEFAULT_CONFIG.copy()
-        impala_config.update(impala_extra_config_settings)
-        impala_config["lr"] = 1e-3
-        return impala_config
-    impala_trainer = impala.ImpalaTrainer(config=create_impala_config(outer_configs), env=Figure8SquadRLLib)
-    print('impala trainer loaded...')
+        pg_config = pg.DEFAULT_CONFIG.copy()
+        pg_config.update(pg_extra_config_settings)
+        pg_config["lr"] = 1e-3
+        return pg_config
+    pg_trainer = pg.PGTrainer(config=create_pg_config(outer_configs), env=Figure8SquadRLLib)
+    print('pg trainer loaded...')
+
+    # for impala
+    def create_a2c_config(outer_configs):
+        a2c_extra_config_settings = {
+            "env": Figure8SquadRLLib,
+            "env_config": {
+                **outer_configs
+            },
+            # Use GPUs iff `RLLIB_NUM_GPUS` env var set to > 0.
+            "num_gpus": int(os.environ.get("RLLIB_NUM_GPUS", "0")),
+            "model": MODEL_DEFAULTS,
+            "num_workers": 1,  # parallelism
+            "framework": "torch",
+            "evaluation_interval": 1,
+            "evaluation_num_episodes": 10,
+            "evaluation_num_workers": 1,
+            "rollout_fragment_length": 50,
+            "train_batch_size": 200
+        }
+        a2c_config = a3c.DEFAULT_CONFIG.copy()
+        a2c_config.update(a2c_extra_config_settings)
+        a2c_config["lr"] = 1e-3
+        return a2c_config
+    a2c_trainer = a3c.A2CTrainer(config=create_a2c_config(outer_configs), env=Figure8SquadRLLib)
+    print('a2c trainer loaded...')
 
     # for ppo
     def create_ppo_config(outer_configs):
@@ -126,7 +159,7 @@ def run_baselines(config):
         policies = {}
         for agent_id in setup_env.learning_agent:
             policies[str(agent_id)] = (None, obs_space, act_space, {})
-        policies['default_policy'] = (None, obs_space, act_space, {}) # necessary for impala
+        #policies['default_policy'] = (None, obs_space, act_space, {}) # necessary for impala
         def policy_mapping_fn(agent_id, episode, worker, **kwargs):
             return str(agent_id)
         # create trainer config
@@ -147,7 +180,8 @@ def run_baselines(config):
             "evaluation_interval": 1,
             "evaluation_num_episodes": 10,
             "evaluation_num_workers": 1,
-            "train_batch_size": 128
+            "rollout_fragment_length": 200,
+            "train_batch_size": 200
         }
         ppo_config = ppo.DEFAULT_CONFIG.copy()
         ppo_config.update(ppo_extra_config_settings)
@@ -157,20 +191,24 @@ def run_baselines(config):
     print('ppo trainer loaded...')
 
     # STEP 3: train each trainer
+    max_train_seconds = 60*15 # train each trainer for exactly 15 min
     print('beginning training.')
-
+    def train(trainer):
+        start = time.time()
+        while(True):
+            result = trainer.train()
+            print(pretty_print(result))
+            if (time.time() - start) > max_train_seconds: break
+        trainer.save(checkpoint_dir='models/'+str(type(trainer)))
+    # train ddpg
+    print('training pg')
+    train(pg_trainer)
     # train impala
     print('training impala')
-    for _ in range(n_episodes):
-        result = impala_trainer.train()
-        print(pretty_print(result))
+    train(a2c_trainer)
+    # train ppo
     print('training ppo')
-    for _ in range(n_episodes):
-        result = ppo_trainer.train()
-        print(pretty_print(result))
-    
-    
-    
+    train(ppo_trainer)
 
 
 if __name__ == "__main__":
@@ -180,7 +218,7 @@ if __name__ == "__main__":
     parser.add_argument('--env_path', type=str, default='../', help='path of the project root')
     parser.add_argument('--n_red', type=int, default=2, help='numbers of red agent')
     parser.add_argument('--n_blue', type=int, default=1, help='numbers of blue agent')
-    parser.add_argument('--n_episode', type=int, default=40, help='numbers of episode')
+    parser.add_argument('--n_episode', type=int, default=128, help='numbers of episodes per training cycle')
     parser.add_argument('--max_step', type=int, default=20, help='max step for each episode')
     parser.add_argument('--init_health', type=int, default=20, help='initial HP for all agents')
     # advanced configs
