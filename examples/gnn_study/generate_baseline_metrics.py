@@ -52,6 +52,31 @@ def print_agents(env):
         print("# Agent blue #{} at pos_index #{} @node: <{}> dir: <{}:\'{}\'> "
               "health: <{}> death_step: <{}>\n".format(_id, _idx, _node, _dir, _look, _hp, _end))
 
+# create env configuration
+def create_env_config(config):
+    n_episodes = config.n_episode
+    # init_red and init_blue should have number of agents dictionary elements if you want to specify it
+    # [!!] remember to update this dict if adding new args in parser
+    outer_configs = {"env_path": config.env_path, "max_step": config.max_step, "act_masked": config.act_masked,
+                    "n_red": config.n_red, "n_blue": config.n_blue,
+                    "init_red": config.init_red, "init_blue": config.init_blue,
+                    "init_health_red": config.init_health, "init_health_blue": config.init_health,
+                    "obs_embed": config.obs_embed, "obs_dir": config.obs_dir, "obs_team": config.obs_team,
+                    "obs_sight": config.obs_sight,
+                    "log_on": config.log_on, "log_path": config.log_path,
+                    # "reward_step_on": False, "reward_episode_on": True, "episode_decay_soft": True,
+                    # "health_lookup": {"type": "table", "reward": [8, 4, 2, 0], "damage": [0, 1, 2, 100]},
+                    # "faster_lookup": {"type": "none"},
+                    }
+    ## i.e. init_red 'pos': tuple(x, z) or "L"/"R" region of the map
+    # "init_red": [{"pos": (11, 1), "dir": 1}, {"pos": None}, {"pos": "L", "dir": None}]
+    if hasattr(config, "penalty_stay"):
+        outer_configs["penalty_stay"] = config.penalty_stay
+    if hasattr(config, "threshold_blue"):
+        outer_configs["threshold_damage_2_blue"] = config.threshold_blue
+    if hasattr(config, "threshold_red"):
+        outer_configs["threshold_damage_2_red"] = config.threshold_red
+    return outer_configs, n_episodes
 # run baseline tests with a few different algorithms
 def run_baselines(config):
     '''
@@ -71,30 +96,6 @@ def run_baselines(config):
 
     '''
     # STEP 1: env config construction
-    def create_env_config(config):
-        n_episodes = config.n_episode
-        # init_red and init_blue should have number of agents dictionary elements if you want to specify it
-        # [!!] remember to update this dict if adding new args in parser
-        outer_configs = {"env_path": config.env_path, "max_step": config.max_step, "act_masked": config.act_masked,
-                        "n_red": config.n_red, "n_blue": config.n_blue,
-                        "init_red": config.init_red, "init_blue": config.init_blue,
-                        "init_health_red": config.init_health, "init_health_blue": config.init_health,
-                        "obs_embed": config.obs_embed, "obs_dir": config.obs_dir, "obs_team": config.obs_team,
-                        "obs_sight": config.obs_sight,
-                        "log_on": config.log_on, "log_path": config.log_path,
-                        # "reward_step_on": False, "reward_episode_on": True, "episode_decay_soft": True,
-                        # "health_lookup": {"type": "table", "reward": [8, 4, 2, 0], "damage": [0, 1, 2, 100]},
-                        # "faster_lookup": {"type": "none"},
-                        }
-        ## i.e. init_red 'pos': tuple(x, z) or "L"/"R" region of the map
-        # "init_red": [{"pos": (11, 1), "dir": 1}, {"pos": None}, {"pos": "L", "dir": None}]
-        if hasattr(config, "penalty_stay"):
-            outer_configs["penalty_stay"] = config.penalty_stay
-        if hasattr(config, "threshold_blue"):
-            outer_configs["threshold_damage_2_blue"] = config.threshold_blue
-        if hasattr(config, "threshold_red"):
-            outer_configs["threshold_damage_2_red"] = config.threshold_red
-        return outer_configs, n_episodes
     outer_configs, n_episodes = create_env_config(config)
     
     # STEP 2: make rllib configs and trainers
@@ -199,7 +200,7 @@ def run_baselines(config):
             result = trainer.train()
             print(pretty_print(result))
             if (time.time() - start) > max_train_seconds: break
-        trainer.save(checkpoint_dir='models/'+str(type(trainer)))
+        trainer.save(checkpoint_dir='model_checkpoints/'+str(type(trainer)))
     # train ddpg
     print('training pg')
     train(pg_trainer)
@@ -210,9 +211,8 @@ def run_baselines(config):
     print('training ppo')
     train(ppo_trainer)
 
-
-if __name__ == "__main__":
-    # STEP 0: parse cmdline args
+# parse arguments
+def parse_arguments():
     parser = argparse.ArgumentParser()
     # basic configs
     parser.add_argument('--env_path', type=str, default='../', help='path of the project root')
@@ -255,7 +255,11 @@ if __name__ == "__main__":
     parser.add_argument('--penalty_stay', type=int, default=0, help='penalty for take stay action [0: "NOOP"]')
     parser.add_argument('--threshold_blue', default=2)
     parser.add_argument('--threshold_red', default=5)
+    return parser
 
+if __name__ == "__main__":
+    # STEP 0: parse cmdline args
+    parser = parse_arguments()
     # run baselines
     config = parser.parse_args()
     run_baselines(config)
