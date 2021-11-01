@@ -1,6 +1,9 @@
 '''
+REQUIRES torch-geometric PACKAGE. INSTALLATION INSTRUCTIONS HERE:
+https://pytorch-geometric.readthedocs.io/en/latest/notes/installation.html
+
 simplified variant of https://github.com/ray-project/ray/blob/master/rllib/models/torch/fcnet.py
-with certain parts of netwrok switched out for gnn layers. "policy.py" has the policy FCs switched
+with certain parts of network switched out for gnn layers. "policy.py" has the policy FCs switched
 for gnns; "value.py" has the value FCs switched for gnns; "policy_value.py" has both branch's FCs
 switched out for gnns.
 
@@ -17,7 +20,7 @@ from ray.rllib.models.catalog import ModelCatalog
 from ray.rllib.agents import ppo
 import gym
 import torch.nn as nn
-import torch
+import torch_geometric.nn as gnn
 # our code imports
 from examples.gnn_study.generate_baseline_metrics import parse_arguments, create_env_config
 from sigma_graph.envs.figure8.figure8_squad_rllib import Figure8SquadRLLib
@@ -26,15 +29,16 @@ import numpy as np
 import os
 from ray.rllib.models.torch.fcnet import FullyConnectedNetwork
 
-class PolicyGNN(TMv2.TorchModelV2, nn.Module):
+class ValueGNN(TMv2.TorchModelV2, nn.Module):
     def __init__(self, obs_space: gym.spaces.Space,
                  action_space: gym.spaces.Space, num_outputs: int,
                  model_config: ModelConfigDict, name: str):
         TMv2.TorchModelV2.__init__(self, obs_space, action_space, num_outputs,
-                              model_config, name)
+            model_config, name)
         nn.Module.__init__(self)
 
         # STEP 0: parse model_config args
+        gnns = [10]
         hiddens = list(model_config.get("fcnet_hiddens", [])) + \
             list(model_config.get("post_fcnet_hiddens", []))
         activation = model_config.get("fcnet_activation")
@@ -139,7 +143,7 @@ class PolicyGNN(TMv2.TorchModelV2, nn.Module):
 if __name__ == "__main__":
     # register our model (put in an __init__ file later)
     # https://docs.ray.io/en/latest/rllib-models.html#customizing-preprocessors-and-models
-    ModelCatalog.register_custom_model("policy_gnn", PolicyGNN)
+    ModelCatalog.register_custom_model("policy_gnn", ValueGNN)
 
     # STEP 0: parse arguments
     parser = parse_arguments()
