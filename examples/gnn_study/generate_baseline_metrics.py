@@ -124,7 +124,7 @@ def run_baselines(config):
         dqn_config["lr"] = 1e-3
         return dqn_config
     dqn_trainer = dqn.DQNTrainer(config=create_dqn_config(outer_configs), env=Figure8SquadRLLib)
-    print('pg trainer loaded...')
+    print('dqn trainer loaded...')
     
     # for pg
     def create_pg_config(outer_configs):
@@ -218,7 +218,7 @@ def run_baselines(config):
     print('ppo trainer loaded...')
 
     # STEP 3: train each trainer
-    max_train_seconds = 60*0.1 # train each trainer for exactly 15 min
+    max_train_seconds = 60*15 # train each trainer for exactly 15 min
     print('beginning training.')
     def train(trainer):
         start = time.time()

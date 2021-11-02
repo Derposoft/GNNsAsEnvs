@@ -21,7 +21,7 @@ class Figure8SquadRLLib(Figure8Squad, MultiAgentEnv):
 
     # return an arbitrary encoding from the "flat" action space to the normal action space
     def convert_discrete_action_to_multidiscrete(self, action):
-        return [action // len(local_action_move), action % len(local_action_move)]
+        return [action % len(local_action_move), action // len(local_action_move)]
 
     def reset(self):
         _resets = super().reset()

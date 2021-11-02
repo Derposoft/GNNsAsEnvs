@@ -38,7 +38,7 @@ class PolicyGNN(TMv2.TorchModelV2, nn.Module):
         nn.Module.__init__(self)
 
         # STEP 0: parse model_config args
-        gnns = [10]
+        gnns = 10
         hiddens = list(model_config.get("fcnet_hiddens", [])) + \
             list(model_config.get("post_fcnet_hiddens", []))
         activation = model_config.get("fcnet_activation")
@@ -52,6 +52,16 @@ class PolicyGNN(TMv2.TorchModelV2, nn.Module):
         layers = []
         prev_layer_size = int(np.product(obs_space.shape))
         self._logits = None
+        
+        # STEP 1.1 EXPERIMENTAL: throw a few gnns before the policy net, i suppose? TODO
+        for i in range(gnns):
+            layer = gnn.Sequential('x, edge_index, batch', [
+                (gnn.GCNConv(prev_layer_size, 64), 'x, edge_index -> x'),
+                nn.ReLU(inplace=True),
+            ])
+            layers.append(layer)
+            prev_layer_size = 64
+
         # create layers 0->n-1
         for size in hiddens[:-1]:
             layers.append(
