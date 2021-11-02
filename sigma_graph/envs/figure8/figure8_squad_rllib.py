@@ -13,8 +13,15 @@ class Figure8SquadRLLib(Figure8Squad, MultiAgentEnv):
     def __init__(self, config=None):
         config = config or {}
         super().__init__(**config)
-        self.action_space = spaces.MultiDiscrete([len(local_action_move), len(local_action_turn)])
+
+        # self.action_space = spaces.MultiDiscrete([len(local_action_move), len(local_action_turn)])
+        # "flatten" the above action space into the below discrete action space
+        self.action_space = spaces.Discrete(len(local_action_move)*len(local_action_turn))
         self.observation_space = spaces.Box(low=0, high=1, shape=(self.state_shape,), dtype=np.int8)
+
+    # return an arbitrary encoding from the "flat" action space to the normal action space
+    def convert_discrete_action_to_multidiscrete(self, action):
+        return [action % len(local_action_move), action // len(local_action_move)]
 
     def reset(self):
         _resets = super().reset()
@@ -27,7 +34,7 @@ class Figure8SquadRLLib(Figure8Squad, MultiAgentEnv):
         # undictify the actions to interface with rllib
         n_actions = []
         for a in self.learning_agent:
-            n_actions.append(_n_actions.get(str(a)))
+            n_actions.append(self.convert_discrete_action_to_multidiscrete(_n_actions.get(str(a))))
         _obs, _rew, _done, _ = super().step(n_actions)
 
         # dictify the observations to interface with rllib

@@ -18,6 +18,7 @@ import tensorboard as tb
 from ray.tune.logger import pretty_print
 
 # algorithms to test
+from ray.rllib.agents import dqn
 from ray.rllib.agents import pg
 from ray.rllib.agents import a3c
 from ray.rllib.agents import ppo
@@ -100,6 +101,31 @@ def run_baselines(config):
     
     # STEP 2: make rllib configs and trainers
 
+    # for pg
+    def create_dqn_config(outer_configs):
+        dqn_extra_config_settings = {
+            "env": Figure8SquadRLLib,
+            "env_config": {
+                **outer_configs
+            },
+            # Use GPUs iff `RLLIB_NUM_GPUS` env var set to > 0.
+            "num_gpus": int(os.environ.get("RLLIB_NUM_GPUS", "0")),
+            "model": MODEL_DEFAULTS,
+            "num_workers": 1,  # parallelism
+            "framework": "torch",
+            "evaluation_interval": 1,
+            "evaluation_num_episodes": 10,
+            "evaluation_num_workers": 1,
+            "rollout_fragment_length": 200,
+            "train_batch_size": 200
+        }
+        dqn_config = dqn.DEFAULT_CONFIG.copy()
+        dqn_config.update(dqn_extra_config_settings)
+        dqn_config["lr"] = 1e-3
+        return dqn_config
+    dqn_trainer = dqn.DQNTrainer(config=create_dqn_config(outer_configs), env=Figure8SquadRLLib)
+    print('pg trainer loaded...')
+    
     # for pg
     def create_pg_config(outer_configs):
         pg_extra_config_settings = {
@@ -192,7 +218,7 @@ def run_baselines(config):
     print('ppo trainer loaded...')
 
     # STEP 3: train each trainer
-    max_train_seconds = 60*15 # train each trainer for exactly 15 min
+    max_train_seconds = 60*0.1 # train each trainer for exactly 15 min
     print('beginning training.')
     def train(trainer):
         start = time.time()
@@ -201,7 +227,10 @@ def run_baselines(config):
             print(pretty_print(result))
             if (time.time() - start) > max_train_seconds: break
         trainer.save(checkpoint_dir='model_checkpoints/'+str(type(trainer)))
-    # train ddpg
+    # train dqn
+    print('training dqn')
+    train(dqn_trainer)
+    # train pg
     print('training pg')
     train(pg_trainer)
     # train impala
