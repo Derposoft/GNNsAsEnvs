@@ -14,8 +14,10 @@ CREDIT:
 # our imports
 
 # Dai et. al imports
+from torch import optim
 from gnn_libraries.pytorch_structure2vec.s2v_lib.embedding import EmbedMeanField, EmbedLoopyBP
 from gnn_libraries.pytorch_structure2vec.s2v_lib.mlp import MLPRegression
+from gnn_libraries.pytorch_structure2vec.harvard_cep.util import resampling_idxes
 # other imports
 import torch.nn as nn
 import torch
@@ -23,6 +25,7 @@ import numpy as np
 import random
 import sys
 import os
+
 
 MODE = 'cpu'
 
@@ -55,7 +58,9 @@ class S2VRegressor(nn.Module):
         return self.mlp(embed, labels)
 
 # a function to train an instance of the s2v regressor above.
-def TrainRegressor(regressor: S2VRegressor, data, seed=0, saved_model='', phase='train'):
+def TrainRegressor(regressor: S2VRegressor, data, 
+                seed=0, saved_model='', save_dir='./s2v_model', phase='train', 
+                batch_size=1, learning_rate=0.0001, num_epochs=1000):
     random.seed(seed)
     np.random.seed(seed)
     torch.manual_seed(seed)
@@ -81,12 +86,12 @@ def TrainRegressor(regressor: S2VRegressor, data, seed=0, saved_model='', phase=
     cooked_data_dict = {}
     for d in raw_data_dict:
         cooked_data_dict[d] = MOLLIB.LoadMolGraph(d, raw_data_dict[d])
-
-    optimizer = optim.Adam(regressor.parameters(), lr=cmd_args.learning_rate)
-    iter_train = (len(train_idxes) + (cmd_args.batch_size - 1)) // cmd_args.batch_size
+    
+    optimizer = optim.Adam(regressor.parameters(), lr=learning_rate)
+    iter_train = (len(train_idxes) + (batch_size - 1)) // batch_size
 
     best_valid_loss = None
-    for epoch in range(cmd_args.num_epochs):        
+    for epoch in range(num_epochs):        
         valid_interval = 10000
         for i in range(0, iter_train, valid_interval):
             avg_loss = loop_dataset(cooked_data_dict['train'], regressor, train_idxes, optimizer, start_iter=i, n_iters=valid_interval)
@@ -98,6 +103,6 @@ def TrainRegressor(regressor: S2VRegressor, data, seed=0, saved_model='', phase=
             if best_valid_loss is None or valid_loss[0] < best_valid_loss:
                 best_valid_loss = valid_loss[0]
                 print('----saving to best model since this is the best valid loss so far.----')
-                torch.save(regressor.state_dict(), cmd_args.save_dir + '/epoch-best.model')
+                torch.save(regressor.state_dict(), save_dir + '/epoch-best.model')
 
         random.shuffle(train_idxes)
