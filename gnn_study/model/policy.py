@@ -2,6 +2,13 @@
 REQUIRES torch-geometric PACKAGE. INSTALLATION INSTRUCTIONS HERE:
 https://pytorch-geometric.readthedocs.io/en/latest/notes/installation.html
 
+@inproceedings{Fey/Lenssen/2019,
+  title={Fast Graph Representation Learning with {PyTorch Geometric}},
+  author={Fey, Matthias and Lenssen, Jan E.},
+  booktitle={ICLR Workshop on Representation Learning on Graphs and Manifolds},
+  year={2019},
+}
+
 simplified variant of https://github.com/ray-project/ray/blob/master/rllib/models/torch/fcnet.py
 with certain parts of network switched out for gnn layers. "policy.py" has the policy FCs switched
 for gnns; "value.py" has the value FCs switched for gnns; "policy_value.py" has both branch's FCs
@@ -19,26 +26,31 @@ from ray.rllib.utils.typing import Dict, TensorType, List, ModelConfigDict
 from ray.rllib.models.catalog import ModelCatalog
 from ray.rllib.agents import ppo
 import gym
+import torch
 import torch.nn as nn
 import torch_geometric.nn as gnn
 # our code imports
-from examples.gnn_study.generate_baseline_metrics import parse_arguments, create_env_config
+from gnn_study.generate_baseline_metrics import parse_arguments, create_env_config
+from sigma_graph.data.graph.skirmish_graph import MapInfo
 from sigma_graph.envs.figure8.figure8_squad_rllib import Figure8SquadRLLib
+# 3rd party library imports (s2v, rdkit, etc?)
+from gnn_study.gnn_libraries.pytorch_structure2vec.s2v_lib.embedding import EmbedMeanField, EmbedLoopyBP
 # other imports
 import numpy as np
 import os
 from ray.rllib.models.torch.fcnet import FullyConnectedNetwork
 
-class PolicyValueGNN(TMv2.TorchModelV2, nn.Module):
+class PolicyGNN(TMv2.TorchModelV2, nn.Module):
     def __init__(self, obs_space: gym.spaces.Space,
                  action_space: gym.spaces.Space, num_outputs: int,
-                 model_config: ModelConfigDict, name: str):
+                 model_config: ModelConfigDict, name: str, map: MapInfo):#**kwargs):
         TMv2.TorchModelV2.__init__(self, obs_space, action_space, num_outputs,
             model_config, name)
         nn.Module.__init__(self)
 
         # STEP 0: parse model_config args
-        gnns = [10]
+        # STEP 0.1: parse boilerplate
+        gnns = 10
         hiddens = list(model_config.get("fcnet_hiddens", [])) + \
             list(model_config.get("post_fcnet_hiddens", []))
         activation = model_config.get("fcnet_activation")
@@ -47,11 +59,44 @@ class PolicyValueGNN(TMv2.TorchModelV2, nn.Module):
         no_final_linear = model_config.get("no_final_linear")
         self.vf_share_layers = model_config.get("vf_share_layers") # this is usually 0
         self.free_log_std = model_config.get("free_log_std") # skip worrying about log std
+        # STEP 0.2: IMPORTANT!!!!: get adjacency matrix from map, and use structure2vec to create node embeddings.
+        # 0.2.1: get adjacency matrix from map
+        self.map = map
+        # pull adjacency matrix
+        adjacencies = []
+        adjacency_iter = self.map.g_acs.adjacency()
+        for edge in adjacency_iter:
+            adjacencies.append(edge)
+        # massage adjacency matrix into right format for pyG
+        adjacency_matrix = []
+        nodes = []
+        for node in adjacencies:
+            # for an edge e=(u, v)
+            u = node[0]
+            for adjacency in node[1]:
+                v = adjacency
+                adjacency_matrix.append([u, v])
+            nodes.append(u)
+        self.edge_index = torch.tensor(adjacency_matrix).t().contiguous() # now in right format for pyG
+        # 0.2.2: use s2v to create node embeddings (inspiration from Khalil et al, 2017)
+        embedding = EmbedMeanField(64, 1024, len(nodes), len(adjacency_matrix)).forward([1], nodes, adjacency_matrix)
+        print(embedding)
+        
 
         # STEP 1: build policy net
         layers = []
         prev_layer_size = int(np.product(obs_space.shape))
         self._logits = None
+        
+        # STEP 1.1 EXPERIMENTAL: throw a few gnns before the policy net, i suppose? TODO
+        for i in range(gnns):
+            layer = gnn.Sequential('x, edge_index, batch', [
+                (gnn.GCNConv(prev_layer_size, 64), 'x, edge_index -> x'),
+                nn.ReLU(inplace=True),
+            ])
+            layers.append(layer)
+            prev_layer_size = 64
+
         # create layers 0->n-1
         for size in hiddens[:-1]:
             layers.append(
@@ -143,7 +188,7 @@ class PolicyValueGNN(TMv2.TorchModelV2, nn.Module):
 if __name__ == "__main__":
     # register our model (put in an __init__ file later)
     # https://docs.ray.io/en/latest/rllib-models.html#customizing-preprocessors-and-models
-    ModelCatalog.register_custom_model("policy_gnn", PolicyValueGNN)
+    ModelCatalog.register_custom_model("policy_gnn", PolicyGNN)
 
     # STEP 0: parse arguments
     parser = parse_arguments()
@@ -174,7 +219,9 @@ if __name__ == "__main__":
             "model": {
                 "custom_model": "policy_gnn",
                 # Extra kwargs to be passed to your model's c'tor.
-                "custom_model_config": {},
+                "custom_model_config": {
+                    "map": setup_env.map
+                },
             },
             "num_workers": 1,  # parallelism
             "framework": "torch",

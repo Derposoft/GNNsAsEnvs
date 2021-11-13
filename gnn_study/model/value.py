@@ -22,7 +22,7 @@ import gym
 import torch.nn as nn
 import torch_geometric.nn as gnn
 # our code imports
-from examples.gnn_study.generate_baseline_metrics import parse_arguments, create_env_config
+from gnn_study.generate_baseline_metrics import parse_arguments, create_env_config
 from sigma_graph.envs.figure8.figure8_squad_rllib import Figure8SquadRLLib
 # other imports
 import numpy as np

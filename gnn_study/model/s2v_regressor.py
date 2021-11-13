@@ -77,9 +77,7 @@ def TrainRegressor(regressor: S2VRegressor, data,
                 regressor.load_state_dict(torch.load(saved_model))
 
     if phase == 'test':
-        test_data = MOLLIB.LoadMolGraph('test', raw_data_dict['test'])
-        test_loss = loop_dataset(test_data, regressor, list(range(len(test_data))))
-        print('\033[93maverage test loss: mae %.5f rmse %.5f\033[0m' % (test_loss[0], test_loss[1]))
+        print('s2v testing not implemented yet!')
         sys.exit()
 
     train_idxes = resampling_idxes(raw_data_dict)
