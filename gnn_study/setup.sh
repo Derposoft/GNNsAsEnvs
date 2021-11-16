@@ -16,4 +16,4 @@ pip install -U ray[rllib]
 
 # 2. github repos that we use
 mkdir gnn_libraries/
-git clone https://github.com/Hanjun-Dai/pytorch_structure2vec.git gnn_libraries/pytorch_structure2vec
+git clone https://github.com/Hanjun-Dai/pytorch_structure2vec.git gnn_libraries/s2v
