@@ -18,6 +18,7 @@ most of this code is the same as the code on the linked github repo above; there
 rebuild one from scratch when one existed. 
 '''
 # RL/AI imports
+from ray.rllib.models.torch.fcnet import FullyConnectedNetwork
 import ray.rllib.models.torch.torch_modelv2 as TMv2
 from ray.rllib.models.torch.misc import SlimFC, AppendBiasLayer, \
     normc_initializer
@@ -29,16 +30,20 @@ import gym
 import torch
 import torch.nn as nn
 import torch_geometric.nn as gnn
+from ray.tune.logger import pretty_print
 # our code imports
 from gnn_study.generate_baseline_metrics import parse_arguments, create_env_config
+from gnn_study.model.s2v.s2v_graph import S2VGraph
 from sigma_graph.data.graph.skirmish_graph import MapInfo
 from sigma_graph.envs.figure8.figure8_squad_rllib import Figure8SquadRLLib
 # 3rd party library imports (s2v, rdkit, etc?)
-from gnn_study.gnn_libraries.pytorch_structure2vec.s2v_lib.embedding import EmbedMeanField, EmbedLoopyBP
+from gnn_study.gnn_libraries.s2v.embedding import EmbedMeanField, EmbedLoopyBP
 # other imports
 import numpy as np
 import os
-from ray.rllib.models.torch.fcnet import FullyConnectedNetwork
+import time
+
+NUM_NODE_FEATURES = 1 # DETERMINED BY S2V!!!!!
 
 class PolicyGNN(TMv2.TorchModelV2, nn.Module):
     def __init__(self, obs_space: gym.spaces.Space,
@@ -59,6 +64,8 @@ class PolicyGNN(TMv2.TorchModelV2, nn.Module):
         no_final_linear = model_config.get("no_final_linear")
         self.vf_share_layers = model_config.get("vf_share_layers") # this is usually 0
         self.free_log_std = model_config.get("free_log_std") # skip worrying about log std
+
+        # TODO ######################################################################################################################################
         # STEP 0.2: IMPORTANT!!!!: get adjacency matrix from map, and use structure2vec to create node embeddings.
         # 0.2.1: get adjacency matrix from map
         self.map = map
@@ -75,27 +82,36 @@ class PolicyGNN(TMv2.TorchModelV2, nn.Module):
             u = node[0]
             for adjacency in node[1]:
                 v = adjacency
-                adjacency_matrix.append([u, v])
-            nodes.append(u)
+                adjacency_matrix.append([u-1, v-1]) # -1 since we index by 0
+            nodes.append([u])
         self.edge_index = torch.tensor(adjacency_matrix).t().contiguous() # now in right format for pyG
-        # 0.2.2: use s2v to create node embeddings (inspiration from Khalil et al, 2017)
-        embedding = EmbedMeanField(64, 1024, len(nodes), len(adjacency_matrix)).forward([1], nodes, adjacency_matrix)
-        print(embedding)
-        
+        self.edge_pairs = np.array(adjacency_matrix)
+        self.nodes = torch.tensor(nodes)
+        # 0.2.2: create s2v
+        self.s2v = EmbedMeanField(64, NUM_NODE_FEATURES, len(nodes), len(adjacency_matrix))
 
         # STEP 1: build policy net
-        layers = []
-        prev_layer_size = int(np.product(obs_space.shape))
-        self._logits = None
-        
         # STEP 1.1 EXPERIMENTAL: throw a few gnns before the policy net, i suppose? TODO
+        graphs = gnn.GCNConv(NUM_NODE_FEATURES, 64)
+        self._graph_layers = graphs
+        '''
+        graphs = gnn.Sequential('x, edge_index, batch', [
+                (gnn.GCNConv(int(np.product(obs_space.shape)), 64), 'x, edge_index -> x'),
+                nn.ReLU(inplace=True),
+            ])
         for i in range(gnns):
             layer = gnn.Sequential('x, edge_index, batch', [
                 (gnn.GCNConv(prev_layer_size, 64), 'x, edge_index -> x'),
                 nn.ReLU(inplace=True),
             ])
-            layers.append(layer)
+            graphs.append(layer)
             prev_layer_size = 64
+        '''
+        
+        # STEP 1.2: fc layers post gcn layers
+        layers = []
+        prev_layer_size = int(np.product(obs_space.shape))
+        self._logits = None
 
         # create layers 0->n-1
         for size in hiddens[:-1]:
@@ -168,9 +184,21 @@ class PolicyGNN(TMv2.TorchModelV2, nn.Module):
     def forward(self, input_dict: Dict[str, TensorType],
                 state: List[TensorType],
                 seq_lens: TensorType):
+
+        # 1: use s2v to create node embeddings (inspiration from Khalil et al, 2017)
+        #input_graph = S2VGraph(len(self.nodes), len(self.edge_pairs), self.edge_pairs)
+        #embedding = self.s2v([input_graph], self.nodes, self.edge_pairs)
+        #print(embedding)
+        # 2: run through gnn layers
         obs = input_dict["obs_flat"].float()
+        print(obs)
+        print(input_dict)
+        print(input_dict['obs'])
+        self._graph_layers(self.nodes, self.edge_index)#, input_dict['obs'])
+
+        # 3: run thru fc layers
         self._last_flat_in = obs.reshape(obs.shape[0], -1)
-        self._features = self._hidden_layers(self._last_flat_in)
+        self._features = self._hidden_layers(self._last_flat_in)#, self.nodes, self.edge_index)
         logits = self._logits(self._features) if self._logits else \
             self._features
         return logits, state
@@ -240,4 +268,17 @@ if __name__ == "__main__":
         ppo_config["lr"] = 1e-3 # fixed lr instead of schedule, tune this
         return ppo_config
     ppo_trainer = ppo.PPOTrainer(config=create_ppo_config(outer_configs), env=Figure8SquadRLLib)
+    ppo_trainer.train()
     print('ppo trainer loaded...')
+    max_train_seconds = 60*15 # train each trainer for exactly 15 min
+    print('beginning training.')
+    def train(trainer):
+        start = time.time()
+        while(True):
+            result = trainer.train()
+            print(pretty_print(result))
+            if (time.time() - start) > max_train_seconds: break
+        trainer.save(checkpoint_dir='model_checkpoints/'+str(type(trainer)))
+    # train dqn
+    print('training dqn')
+    train(ppo_trainer)
