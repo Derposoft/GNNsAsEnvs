@@ -28,6 +28,7 @@ from ray.rllib.models.catalog import ModelCatalog
 from ray.rllib.agents import ppo
 import gym
 import torch
+from torch._C import dtype
 import torch.nn as nn
 import torch_geometric.nn as gnn
 from ray.tune.logger import pretty_print
@@ -84,9 +85,9 @@ class PolicyGNN(TMv2.TorchModelV2, nn.Module):
                 v = adjacency
                 adjacency_matrix.append([u-1, v-1]) # -1 since we index by 0
             nodes.append([u])
-        self.edge_index = torch.tensor(adjacency_matrix).t().contiguous() # now in right format for pyG
+        self.edge_index = torch.tensor(adjacency_matrix, dtype=torch.long).t().contiguous() # now in right format for pyG
         self.edge_pairs = np.array(adjacency_matrix)
-        self.nodes = torch.tensor(nodes)
+        self.nodes = torch.tensor(nodes, dtype=torch.float)
         # 0.2.2: create s2v
         self.s2v = EmbedMeanField(64, NUM_NODE_FEATURES, len(nodes), len(adjacency_matrix))
 
@@ -191,9 +192,6 @@ class PolicyGNN(TMv2.TorchModelV2, nn.Module):
         #print(embedding)
         # 2: run through gnn layers
         obs = input_dict["obs_flat"].float()
-        print(obs)
-        print(input_dict)
-        print(input_dict['obs'])
         self._graph_layers(self.nodes, self.edge_index)#, input_dict['obs'])
 
         # 3: run thru fc layers
@@ -270,7 +268,7 @@ if __name__ == "__main__":
     ppo_trainer = ppo.PPOTrainer(config=create_ppo_config(outer_configs), env=Figure8SquadRLLib)
     ppo_trainer.train()
     print('ppo trainer loaded...')
-    max_train_seconds = 60*15 # train each trainer for exactly 15 min
+    max_train_seconds = 60*0.05 # train each trainer for exactly 3 sec
     print('beginning training.')
     def train(trainer):
         start = time.time()
