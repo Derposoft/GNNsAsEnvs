@@ -1,4 +1,4 @@
 model_checkpoints/
 data/
-gnn_libraries/
+libraries/
 test.py
