@@ -33,12 +33,14 @@ import torch.nn as nn
 import torch_geometric.nn as gnn
 from ray.tune.logger import pretty_print
 # our code imports
-from gnn_study.generate_baseline_metrics import parse_arguments, create_env_config
-from gnn_study.model.s2v.s2v_graph import S2VGraph
+#from gnn_study.generate_baseline_metrics import parse_arguments, create_env_config
+#from gnn_study.model.s2v.s2v_graph import S2VGraph
 from sigma_graph.data.graph.skirmish_graph import MapInfo
 from sigma_graph.envs.figure8.figure8_squad_rllib import Figure8SquadRLLib
-# 3rd party library imports (s2v, rdkit, etc?)
-from gnn_study.gnn_libraries.s2v.embedding import EmbedMeanField, EmbedLoopyBP
+# 3rd party library imports (s2v, attention model rdkit, etc?)
+#from gnn_study.gnn_libraries.s2v.embedding import EmbedMeanField, EmbedLoopyBP
+from attention_routing.nets.attention_model import AttentionModel
+
 # other imports
 import numpy as np
 import os
@@ -46,13 +48,15 @@ import time
 
 NUM_NODE_FEATURES = 1 # DETERMINED BY S2V!!!!!
 
-class PolicyGNN(TMv2.TorchModelV2, nn.Module):
+class PolicyGNN(TMv2.TorchModelV2, AttentionModel):
     def __init__(self, obs_space: gym.spaces.Space,
                  action_space: gym.spaces.Space, num_outputs: int,
                  model_config: ModelConfigDict, name: str, map: MapInfo):#**kwargs):
         TMv2.TorchModelV2.__init__(self, obs_space, action_space, num_outputs,
             model_config, name)
-        nn.Module.__init__(self)
+        with open('./args.json') as args:
+            print(args)
+            AttentionModel.__init__(self, args)
 
         # STEP 0: parse model_config args
         # STEP 0.1: parse boilerplate
@@ -66,32 +70,7 @@ class PolicyGNN(TMv2.TorchModelV2, nn.Module):
         self.vf_share_layers = model_config.get("vf_share_layers") # this is usually 0
         self.free_log_std = model_config.get("free_log_std") # skip worrying about log std
 
-        # TODO ######################################################################################################################################
-        # STEP 0.2: IMPORTANT!!!!: get adjacency matrix from map, and use structure2vec to create node embeddings.
-        # 0.2.1: get adjacency matrix from map
-        self.map = map
-        # pull adjacency matrix
-        adjacencies = []
-        adjacency_iter = self.map.g_acs.adjacency()
-        for edge in adjacency_iter:
-            adjacencies.append(edge)
-        # massage adjacency matrix into right format for pyG
-        adjacency_matrix = []
-        nodes = []
-        for node in adjacencies:
-            # for an edge e=(u, v)
-            u = node[0]
-            for adjacency in node[1]:
-                v = adjacency
-                adjacency_matrix.append([u-1, v-1]) # -1 since we index by 0
-            nodes.append([u])
-        self.edge_index = torch.tensor(adjacency_matrix, dtype=torch.long).t().contiguous() # now in right format for pyG
-        self.edge_pairs = np.array(adjacency_matrix)
-        self.nodes = torch.tensor(nodes, dtype=torch.float)
-        # 0.2.2: create s2v
-        self.s2v = EmbedMeanField(64, NUM_NODE_FEATURES, len(nodes), len(adjacency_matrix))
-
-        # STEP 1: build policy net
+        # STEP 1: build policy net -- GAT + FF
         # STEP 1.1 EXPERIMENTAL: throw a few gnns before the policy net, i suppose? TODO
         graphs = gnn.GCNConv(NUM_NODE_FEATURES, 64)
         self._graph_layers = graphs
@@ -192,6 +171,15 @@ class PolicyGNN(TMv2.TorchModelV2, nn.Module):
         #print(embedding)
         # 2: run through gnn layers
         obs = input_dict["obs_flat"].float()
+        print(input_dict)
+        print('obs',input_dict['obs'].shape)
+        print('new_obs',input_dict['new_obs'].shape)
+        print('actions',input_dict['actions'].shape)
+        print('dones',input_dict['dones'].shape)
+        print('infos',input_dict['infos'].shape)
+        print('actions',input_dict['actions'].shape)
+        import sys
+        sys.exit()
         self._graph_layers(self.nodes, self.edge_index)#, input_dict['obs'])
 
         # 3: run thru fc layers
@@ -226,9 +214,12 @@ if __name__ == "__main__":
     def create_ppo_config(outer_configs):
         # policy mapping function
         # from https://medium.com/@vermashresth/craft-and-solve-multi-agent-problems-using-rllib-and-tensorforce-a3bd1bb6f556
-        setup_env = gym.make('figure8squad-v3', **outer_configs)
+        #setup_env = gym.make('figure8squad-v3', **outer_configs)
+        setup_env = Figure8SquadRLLib(outer_configs)
+        print(setup_env.num_blue, setup_env.num_blue)
         obs_space = setup_env.observation_space
         act_space = setup_env.action_space
+        print('SPACES:', obs_space, act_space)
         policies = {}
         for agent_id in setup_env.learning_agent:
             policies[str(agent_id)] = (None, obs_space, act_space, {})
@@ -267,16 +258,4 @@ if __name__ == "__main__":
         return ppo_config
     ppo_trainer = ppo.PPOTrainer(config=create_ppo_config(outer_configs), env=Figure8SquadRLLib)
     ppo_trainer.train()
-    print('ppo trainer loaded...')
-    max_train_seconds = 60*0.05 # train each trainer for exactly 3 sec
-    print('beginning training.')
-    def train(trainer):
-        start = time.time()
-        while(True):
-            result = trainer.train()
-            print(pretty_print(result))
-            if (time.time() - start) > max_train_seconds: break
-        trainer.save(checkpoint_dir='model_checkpoints/'+str(type(trainer)))
-    # train dqn
-    print('training dqn')
-    train(ppo_trainer)
+    
