@@ -12,7 +12,7 @@ https://pytorch-geometric.readthedocs.io/en/latest/notes/installation.html
 simplified variant of https://github.com/ray-project/ray/blob/master/rllib/models/torch/fcnet.py
 with certain parts of network switched out for gnn layers. "policy.py" has the policy FCs switched
 for gnns; "value.py" has the value FCs switched for gnns; "policy_value.py" has both branch's FCs
-switched out for gnns.
+switched out for gats   .
 
 most of this code is the same as the code on the linked github repo above; there was no reason to
 rebuild one from scratch when one existed. 
@@ -30,14 +30,14 @@ import gym
 import torch
 from torch._C import dtype
 import torch.nn as nn
-import torch_geometric.nn as gnn
+#import torch_geometric.nn as gnn
 from ray.tune.logger import pretty_print
 # our code imports
-#from gnn_study.generate_baseline_metrics import parse_arguments, create_env_config
-#from gnn_study.model.s2v.s2v_graph import S2VGraph
+from attention_study.generate_baseline_metrics import parse_arguments, create_env_config
 from sigma_graph.data.graph.skirmish_graph import MapInfo
 from sigma_graph.envs.figure8.figure8_squad_rllib import Figure8SquadRLLib
 # 3rd party library imports (s2v, attention model rdkit, etc?)
+#from gnn_study.model.s2v.s2v_graph import S2VGraph
 #from gnn_study.gnn_libraries.s2v.embedding import EmbedMeanField, EmbedLoopyBP
 from attention_routing.nets.attention_model import AttentionModel
 
@@ -48,7 +48,7 @@ import time
 
 NUM_NODE_FEATURES = 1 # DETERMINED BY S2V!!!!!
 
-class PolicyGNN(TMv2.TorchModelV2, AttentionModel):
+class PolicyModel(TMv2.TorchModelV2, AttentionModel):
     def __init__(self, obs_space: gym.spaces.Space,
                  action_space: gym.spaces.Space, num_outputs: int,
                  model_config: ModelConfigDict, name: str, map: MapInfo):#**kwargs):
@@ -72,8 +72,8 @@ class PolicyGNN(TMv2.TorchModelV2, AttentionModel):
 
         # STEP 1: build policy net -- GAT + FF
         # STEP 1.1 EXPERIMENTAL: throw a few gnns before the policy net, i suppose? TODO
-        graphs = gnn.GCNConv(NUM_NODE_FEATURES, 64)
-        self._graph_layers = graphs
+        #graphs = gnn.GCNConv(NUM_NODE_FEATURES, 64)
+        #self._graph_layers = graphs
         '''
         graphs = gnn.Sequential('x, edge_index, batch', [
                 (gnn.GCNConv(int(np.product(obs_space.shape)), 64), 'x, edge_index -> x'),
@@ -164,23 +164,18 @@ class PolicyGNN(TMv2.TorchModelV2, AttentionModel):
     def forward(self, input_dict: Dict[str, TensorType],
                 state: List[TensorType],
                 seq_lens: TensorType):
-
+        print(input_dict)
+        # 1. run attention model's forward
+        # input: (batch_size, graph_size, node_dim) input node features or dictionary with multiple tensors
+        cost, log_likelihood = super(AttentionModel).forward(input_dict)
+        
+        # 2. 
         # 1: use s2v to create node embeddings (inspiration from Khalil et al, 2017)
         #input_graph = S2VGraph(len(self.nodes), len(self.edge_pairs), self.edge_pairs)
         #embedding = self.s2v([input_graph], self.nodes, self.edge_pairs)
         #print(embedding)
         # 2: run through gnn layers
         obs = input_dict["obs_flat"].float()
-        print(input_dict)
-        print('obs',input_dict['obs'].shape)
-        print('new_obs',input_dict['new_obs'].shape)
-        print('actions',input_dict['actions'].shape)
-        print('dones',input_dict['dones'].shape)
-        print('infos',input_dict['infos'].shape)
-        print('actions',input_dict['actions'].shape)
-        import sys
-        sys.exit()
-        self._graph_layers(self.nodes, self.edge_index)#, input_dict['obs'])
 
         # 3: run thru fc layers
         self._last_flat_in = obs.reshape(obs.shape[0], -1)
@@ -202,7 +197,7 @@ class PolicyGNN(TMv2.TorchModelV2, AttentionModel):
 if __name__ == "__main__":
     # register our model (put in an __init__ file later)
     # https://docs.ray.io/en/latest/rllib-models.html#customizing-preprocessors-and-models
-    ModelCatalog.register_custom_model("policy_gnn", PolicyGNN)
+    ModelCatalog.register_custom_model("policy_model", PolicyModel)
 
     # STEP 0: parse arguments
     parser = parse_arguments()
