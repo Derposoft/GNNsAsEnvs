@@ -26,37 +26,37 @@ from ray.rllib.utils.annotations import override
 from ray.rllib.utils.typing import Dict, TensorType, List, ModelConfigDict
 from ray.rllib.models.catalog import ModelCatalog
 from ray.rllib.agents import ppo
-import gym
-import torch
-from torch._C import dtype
 import torch.nn as nn
-#import torch_geometric.nn as gnn
+import torch
+import gym
 from ray.tune.logger import pretty_print
+
 # our code imports
 from attention_study.generate_baseline_metrics import parse_arguments, create_env_config
 from sigma_graph.data.graph.skirmish_graph import MapInfo
 from sigma_graph.envs.figure8.figure8_squad_rllib import Figure8SquadRLLib
+
 # 3rd party library imports (s2v, attention model rdkit, etc?)
-#from gnn_study.model.s2v.s2v_graph import S2VGraph
-#from gnn_study.gnn_libraries.s2v.embedding import EmbedMeanField, EmbedLoopyBP
+#from attention_study.model.s2v.s2v_graph import S2VGraph
+#from attention_study.gnn_libraries.s2v.embedding import EmbedMeanField, EmbedLoopyBP
 from attention_routing.nets.attention_model import AttentionModel
+from attention_routing.problems.tsp.problem_tsp import TSP
 
 # other imports
 import numpy as np
 import os
 import time
+import sys
 
 NUM_NODE_FEATURES = 1 # DETERMINED BY S2V!!!!!
 
-class PolicyModel(TMv2.TorchModelV2, AttentionModel):
+class PolicyModel(TMv2.TorchModelV2, nn.Module):
     def __init__(self, obs_space: gym.spaces.Space,
                  action_space: gym.spaces.Space, num_outputs: int,
                  model_config: ModelConfigDict, name: str, map: MapInfo):#**kwargs):
         TMv2.TorchModelV2.__init__(self, obs_space, action_space, num_outputs,
             model_config, name)
-        with open('./args.json') as args:
-            print(args)
-            AttentionModel.__init__(self, args)
+        nn.Module.__init__(self)
 
         # STEP 0: parse model_config args
         # STEP 0.1: parse boilerplate
@@ -69,26 +69,18 @@ class PolicyModel(TMv2.TorchModelV2, AttentionModel):
         no_final_linear = model_config.get("no_final_linear")
         self.vf_share_layers = model_config.get("vf_share_layers") # this is usually 0
         self.free_log_std = model_config.get("free_log_std") # skip worrying about log std
+        self.map = map
 
         # STEP 1: build policy net -- GAT + FF
-        # STEP 1.1 EXPERIMENTAL: throw a few gnns before the policy net, i suppose? TODO
-        #graphs = gnn.GCNConv(NUM_NODE_FEATURES, 64)
-        #self._graph_layers = graphs
-        '''
-        graphs = gnn.Sequential('x, edge_index, batch', [
-                (gnn.GCNConv(int(np.product(obs_space.shape)), 64), 'x, edge_index -> x'),
-                nn.ReLU(inplace=True),
-            ])
-        for i in range(gnns):
-            layer = gnn.Sequential('x, edge_index, batch', [
-                (gnn.GCNConv(prev_layer_size, 64), 'x, edge_index -> x'),
-                nn.ReLU(inplace=True),
-            ])
-            graphs.append(layer)
-            prev_layer_size = 64
-        '''
-        
-        # STEP 1.2: fc layers post gcn layers
+        with open('./args.json') as file:
+            import json
+            file = dict(json.load(file))
+            self.attention = AttentionModel(
+                embedding_dim=file['embedding_dim'],
+                hidden_dim=file['hidden_dim'],
+                problem=TSP)
+
+        # STEP 2: fc layers post attention layers
         layers = []
         prev_layer_size = int(np.product(obs_space.shape))
         self._logits = None
@@ -134,7 +126,7 @@ class PolicyModel(TMv2.TorchModelV2, AttentionModel):
 
         self._hidden_layers = nn.Sequential(*layers)
 
-        # STEP 2: build value net
+        # STEP 3: build value net
         self._value_branch_separate = None
         # create value network with equal number of hidden layers as policy net
         if not self.vf_share_layers:
@@ -167,22 +159,19 @@ class PolicyModel(TMv2.TorchModelV2, AttentionModel):
         print(input_dict)
         # 1. run attention model's forward
         # input: (batch_size, graph_size, node_dim) input node features or dictionary with multiple tensors
-        cost, log_likelihood = super(AttentionModel).forward(input_dict)
-        
-        # 2. 
-        # 1: use s2v to create node embeddings (inspiration from Khalil et al, 2017)
-        #input_graph = S2VGraph(len(self.nodes), len(self.edge_pairs), self.edge_pairs)
-        #embedding = self.s2v([input_graph], self.nodes, self.edge_pairs)
-        #print(embedding)
-        # 2: run through gnn layers
         obs = input_dict["obs_flat"].float()
+        print(obs)
+        print(f'observation length: {len(obs)}')
+        sys.exit()
+        cost, log_likelihood = self.attention.forward(obs)
 
-        # 3: run thru fc layers
+        # 2: run thru fc layers
         self._last_flat_in = obs.reshape(obs.shape[0], -1)
         self._features = self._hidden_layers(self._last_flat_in)#, self.nodes, self.edge_index)
         logits = self._logits(self._features) if self._logits else \
             self._features
         return logits, state
+        
 
     @override(TMv2.TorchModelV2)
     def value_function(self):
@@ -211,10 +200,8 @@ if __name__ == "__main__":
         # from https://medium.com/@vermashresth/craft-and-solve-multi-agent-problems-using-rllib-and-tensorforce-a3bd1bb6f556
         #setup_env = gym.make('figure8squad-v3', **outer_configs)
         setup_env = Figure8SquadRLLib(outer_configs)
-        print(setup_env.num_blue, setup_env.num_blue)
         obs_space = setup_env.observation_space
         act_space = setup_env.action_space
-        print('SPACES:', obs_space, act_space)
         policies = {}
         for agent_id in setup_env.learning_agent:
             policies[str(agent_id)] = (None, obs_space, act_space, {})
@@ -229,7 +216,7 @@ if __name__ == "__main__":
             # Use GPUs iff `RLLIB_NUM_GPUS` env var set to > 0.
             "num_gpus": int(os.environ.get("RLLIB_NUM_GPUS", "0")),
             "model": {
-                "custom_model": "policy_gnn",
+                "custom_model": "policy_model",
                 # Extra kwargs to be passed to your model's c'tor.
                 "custom_model_config": {
                     "map": setup_env.map
@@ -254,3 +241,14 @@ if __name__ == "__main__":
     ppo_trainer = ppo.PPOTrainer(config=create_ppo_config(outer_configs), env=Figure8SquadRLLib)
     ppo_trainer.train()
     
+
+'''
+# GARBAGE ZONE
+
+# 2. 
+# 1: use s2v to create node embeddings (inspiration from Khalil et al, 2017)
+#input_graph = S2VGraph(len(self.nodes), len(self.edge_pairs), self.edge_pairs)
+#embedding = self.s2v([input_graph], self.nodes, self.edge_pairs)
+#print(embedding)
+# 
+'''
