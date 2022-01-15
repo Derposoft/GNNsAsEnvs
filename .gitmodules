@@ -1,0 +1,3 @@
+[submodule "attention_study/libraries/attention-learn-to-route"]
+	path = attention_study/libraries/attention-learn-to-route
+	url = https://github.com/Derposoft/attention-learn-to-route
