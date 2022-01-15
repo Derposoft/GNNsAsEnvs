@@ -1,4 +1,3 @@
 model_checkpoints/
 data/
-# libraries/ # have to take this out for now. made too many changes to the library.
 test.py
