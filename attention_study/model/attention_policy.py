@@ -35,6 +35,7 @@ from ray.tune.logger import pretty_print
 from attention_study.generate_baseline_metrics import parse_arguments, create_env_config
 from sigma_graph.data.graph.skirmish_graph import MapInfo
 from sigma_graph.envs.figure8.figure8_squad_rllib import Figure8SquadRLLib
+from attention_study.model.utils import embed_obs_in_map
 
 # 3rd party library imports (s2v, attention model rdkit, etc?)
 #from attention_study.model.s2v.s2v_graph import S2VGraph
@@ -156,14 +157,12 @@ class PolicyModel(TMv2.TorchModelV2, nn.Module):
     def forward(self, input_dict: Dict[str, TensorType],
                 state: List[TensorType],
                 seq_lens: TensorType):
-        print(input_dict)
         # 1. run attention model's forward
         # input: (batch_size, graph_size, node_dim) input node features or dictionary with multiple tensors
         obs = input_dict["obs_flat"].float()
-        print(obs)
-        print(f'observation length: {len(obs)}')
+        attention_input = embed_obs_in_map(obs, self.map)
         sys.exit()
-        cost, log_likelihood = self.attention.forward(obs)
+        cost, log_likelihood = self.attention.forward(attention_input)
 
         # 2: run thru fc layers
         self._last_flat_in = obs.reshape(obs.shape[0], -1)
