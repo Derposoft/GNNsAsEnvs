@@ -17,19 +17,20 @@ switched out for gats   .
 most of this code is the same as the code on the linked github repo above; there was no reason to
 rebuild one from scratch when one existed. 
 '''
+print('starting import process')
 # RL/AI imports
-from ray.rllib.models.torch.fcnet import FullyConnectedNetwork
+#from ray.rllib.models.torch.fcnet import FullyConnectedNetwork
 import ray.rllib.models.torch.torch_modelv2 as TMv2
-from ray.rllib.models.torch.misc import SlimFC, AppendBiasLayer, \
-    normc_initializer
+from ray.rllib.models.torch.misc import SlimFC, normc_initializer #AppendBiasLayer, \
 from ray.rllib.utils.annotations import override
 from ray.rllib.utils.typing import Dict, TensorType, List, ModelConfigDict
 from ray.rllib.models.catalog import ModelCatalog
 from ray.rllib.agents import ppo
 import torch.nn as nn
-import torch
+#import torch
 import gym
-from ray.tune.logger import pretty_print
+#from ray.tune.logger import pretty_print
+print('imported rl imports')
 
 # our code imports
 from attention_study.generate_baseline_metrics import parse_arguments, create_env_config
@@ -43,10 +44,12 @@ from attention_study.model.utils import embed_obs_in_map
 from attention_routing.nets.attention_model import AttentionModel
 from attention_routing.problems.tsp.problem_tsp import TSP
 
+print('import our code+3rd party')
+
 # other imports
 import numpy as np
 import os
-import time
+#import time
 import sys
 
 NUM_NODE_FEATURES = 1 # DETERMINED BY S2V!!!!!
@@ -80,7 +83,7 @@ class PolicyModel(TMv2.TorchModelV2, nn.Module):
                 embedding_dim=file['embedding_dim'],
                 hidden_dim=file['hidden_dim'],
                 problem=TSP)
-
+        print('attention model initiated')
         # STEP 2: fc layers post attention layers
         layers = []
         prev_layer_size = int(np.product(obs_space.shape))
@@ -152,6 +155,7 @@ class PolicyModel(TMv2.TorchModelV2, nn.Module):
         self._features = None
         # Holds the last input, in case value branch is separate.
         self._last_flat_in = None
+        print('policy model initiated')
 
     @override(TMv2.TorchModelV2)
     def forward(self, input_dict: Dict[str, TensorType],
@@ -161,7 +165,7 @@ class PolicyModel(TMv2.TorchModelV2, nn.Module):
         # input: (batch_size, graph_size, node_dim) input node features or dictionary with multiple tensors
         obs = input_dict["obs_flat"].float()
         attention_input = embed_obs_in_map(obs, self.map)
-        sys.exit()
+        # TODO change attention model to work with multi-node embedding input
         cost, log_likelihood = self.attention.forward(attention_input)
 
         # 2: run thru fc layers

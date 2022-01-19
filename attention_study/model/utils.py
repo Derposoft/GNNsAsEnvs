@@ -5,10 +5,13 @@ from copy import deepcopy
 import sigma_graph.envs.figure8.default_setup as env_setup
 from sigma_graph.data.graph.skirmish_graph import MapInfo
 
-# TODO read obs using obs_token instead of hardcoding.
-#      figure8_squad.py:_update():line ~250
+# constants/helper functions
+SUPPRESS_WARNINGS = False
 NODE_EMBEDDING_SIZE = 4
 def ERROR_MSG(e): return f'ERROR READING OBS: {e}'
+
+# TODO read obs using obs_token instead of hardcoding.
+#      figure8_squad.py:_update():line ~250
 def embed_obs_in_map(obs: torch.Tensor, map: MapInfo):
     """
     obs: a batch of inputs
@@ -37,8 +40,6 @@ def embed_obs_in_map(obs: torch.Tensor, map: MapInfo):
 
     # TODO get edges
     edges = None
-    print(node_embeddings)
-    sys.exit()
     return node_embeddings, edges
 
 EMBED_IDX = {
@@ -60,10 +61,16 @@ def embed(obs, g):
 
     returns None
     """
+    global SUPPRESS_WARNINGS
     # get obs parts
     pos_obs_size = len(g)
     look_dir_shape = len(env_setup.ACT_LOOK_DIR)
-    self_shape, red_shape, blue_shape, n_red, n_blue = obs[:5]
+    self_shape, red_shape, blue_shape, n_red, n_blue = obs[:5].int().tolist()
+    if self_shape < pos_obs_size or red_shape < pos_obs_size or blue_shape < pos_obs_size:
+        if SUPPRESS_WARNINGS:
+            print(ERROR_MSG('skipping embedding. test batch detected'))
+            SUPPRESS_WARNINGS = True
+        return
     #assert(red_shape % n_red == 0)
     #assert(blue_shape % n_blue == 0)
     obs = obs[5:]
@@ -79,7 +86,7 @@ def embed(obs, g):
             _node = i
             break
     if _node == -1:
-        print(ERROR_MSG('agent not found'))
+        print(ERROR_MSG('agent not found ('))
     g[_node][EMBED_IDX['is_agent_pos']] = 1
     # embed direction TODO embed direction in one hot instead of int
     _dir = self_obs[pos_obs_size:(pos_obs_size+look_dir_shape)]
