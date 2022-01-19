@@ -188,11 +188,13 @@ if __name__ == "__main__":
     ModelCatalog.register_custom_model("policy_model", PolicyModel)
 
     # STEP 0: parse arguments
+    print('creating config')
     parser = parse_arguments()
     config = parser.parse_args()
     outer_configs, n_episodes = create_env_config(config)
     
     # STEP 1: test custom model above with an rllib trainer
+    print('creating trainer')
     # (using ppo to test)
     def create_ppo_config(outer_configs):
         # policy mapping function

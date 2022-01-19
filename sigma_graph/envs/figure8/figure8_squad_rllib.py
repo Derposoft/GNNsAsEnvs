@@ -1,6 +1,8 @@
+from typing import overload
 from gym import spaces
 from ray.rllib.env.multi_agent_env import MultiAgentEnv
 from ray.rllib.models.catalog import MODEL_DEFAULTS
+from sigma_graph.data.data_helper import get_emb_from_name
 import numpy as np
 import os
 
@@ -33,16 +35,16 @@ class Figure8SquadRLLib(Figure8Squad, MultiAgentEnv):
         for idx in range(len(_resets)):
             resets[str(self.learning_agent[idx])] = _resets[idx]
         return resets
-
+    
     def step(self, _n_actions: dict):
-        # undictify the actions to interface with rllib
+        # reference: https://docs.ray.io/en/latest/rllib-env.html#pettingzoo-multi-agent-environments
+        # undictify the actions to interface rllib -> env input
         n_actions = []
         for a in self.learning_agent:
             n_actions.append(self.convert_discrete_action_to_multidiscrete(_n_actions.get(str(a))))
         _obs, _rew, _done, _ = super().step(n_actions)
 
-        # dictify the observations to interface with rllib
-        # reference: https://docs.ray.io/en/latest/rllib-env.html#pettingzoo-multi-agent-environments
+        # dictify the observations to interface env output -> rllib
         obs, rew, done = {}, {}, {}
         all_done = True
         for a_id in self.learning_agent:
@@ -65,7 +67,6 @@ class Figure8SquadRLLib(Figure8Squad, MultiAgentEnv):
             all_done = all_done and _done[a_id]
         done['__all__'] = all_done
         return obs, rew, done, {}
-
 
 
 from ray.rllib.agents import dqn
