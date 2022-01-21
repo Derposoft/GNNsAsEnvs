@@ -27,7 +27,7 @@ from ray.rllib.utils.typing import Dict, TensorType, List, ModelConfigDict
 from ray.rllib.models.catalog import ModelCatalog
 from ray.rllib.agents import ppo
 import torch.nn as nn
-#import torch
+import torch
 import gym
 #from ray.tune.logger import pretty_print
 print('imported rl imports')
@@ -63,7 +63,7 @@ class PolicyModel(TMv2.TorchModelV2, nn.Module):
         nn.Module.__init__(self)
 
         # STEP 0: parse model_config args
-        # STEP 0.1: parse boilerplate
+        # STEP 0.1: parse args
         gnns = 10
         hiddens = list(model_config.get("fcnet_hiddens", [])) + \
             list(model_config.get("post_fcnet_hiddens", []))
@@ -73,7 +73,21 @@ class PolicyModel(TMv2.TorchModelV2, nn.Module):
         no_final_linear = model_config.get("no_final_linear")
         self.vf_share_layers = model_config.get("vf_share_layers") # this is usually 0
         self.free_log_std = model_config.get("free_log_std") # skip worrying about log std
-        self.map = map
+        self.map = map # map+edges parsing
+        self.acs_edges = []
+        self.vis_edges = []
+        for k, v in zip(self.map.g_acs.adj.keys(), self.map.g_acs.adj.values()):
+            self.acs_edges += [[k, vi] for vi in v.keys()]
+        for k, v in zip(self.map.g_acs.adj.keys(), self.map.g_acs.adj.values()):
+            self.vis_edges += [[k, vi] for vi in v.keys()]
+        self.acs_edges_dict = {}
+        self.vis_edges_dict = {}
+        for edge in self.acs_edges:
+            if edge[0] not in self.acs_edges_dict: self.acs_edges_dict[edge[0]] = set([])
+            self.acs_edges_dict[edge[0]].add(edge[1])
+        for edge in self.vis_edges:
+            if edge[0] not in self.vis_edges_dict: self.vis_edges_dict[edge[0]] = set([])
+            self.vis_edges_dict[edge[0]].add(edge[1])
 
         # STEP 1: build policy net -- GAT + FF
         with open('./args.json') as file:
@@ -82,13 +96,15 @@ class PolicyModel(TMv2.TorchModelV2, nn.Module):
             self.attention = AttentionModel(
                 embedding_dim=file['embedding_dim'],
                 hidden_dim=file['hidden_dim'],
-                problem=TSP)
+                problem=TSP
+            )
+            self.attention.set_decode_type('greedy')
         print('attention model initiated')
+
         # STEP 2: fc layers post attention layers
         layers = []
         prev_layer_size = int(np.product(obs_space.shape))
         self._logits = None
-
         # create layers 0->n-1
         for size in hiddens[:-1]:
             layers.append(
@@ -161,14 +177,32 @@ class PolicyModel(TMv2.TorchModelV2, nn.Module):
     def forward(self, input_dict: Dict[str, TensorType],
                 state: List[TensorType],
                 seq_lens: TensorType):
-        # 1. run attention model's forward
-        # input: (batch_size, graph_size, node_dim) input node features or dictionary with multiple tensors
-        obs = input_dict["obs_flat"].float()
+        obs = input_dict['obs_flat'].float()
+        batch_size = len(obs)
+        
+        # run attention model's forward
         attention_input = embed_obs_in_map(obs, self.map)
-        # TODO change attention model to work with multi-node embedding input
-        cost, log_likelihood = self.attention.forward(attention_input)
+        costs = []
+        lls = []
+        print(attention_input.shape)
+        #costs, lls = self.attention.forward(attention_input, edges=self.acs_edges_dict)
+        costs, lls = self.attention.forward(attention_input[0:1], edges=self.acs_edges_dict)
+        # TODO get this to output log_p instead; use model._inner?
+        print(costs, lls)
+        sys.exit()
+        # add mask
+        for b_i in range(batch_size):
+            # input: (batch_size, graph_size, node_dim) input node features tensor size
+            print(attention_input[b_i])
+            cost, log_likelihood = self.attention.forward(attention_input[b_i])
+            costs.append(cost)
+            lls.append(log_likelihood)
+        print(costs)
+        print(lls)
 
-        # 2: run thru fc layers
+        sys.exit()
+
+        # run thru fc layers
         self._last_flat_in = obs.reshape(obs.shape[0], -1)
         self._features = self._hidden_layers(self._last_flat_in)#, self.nodes, self.edge_index)
         logits = self._logits(self._features) if self._logits else \

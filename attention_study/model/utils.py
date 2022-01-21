@@ -7,7 +7,17 @@ from sigma_graph.data.graph.skirmish_graph import MapInfo
 
 # constants/helper functions
 SUPPRESS_WARNINGS = False
+GRAPH_OBS_TOKEN = {
+    'obs_embed': False,
+    'embedding_size': 4,
+}
 NODE_EMBEDDING_SIZE = 4
+EMBED_IDX = {
+    'is_agent_pos': 2,
+    'agent_dir': 3, # 0 if agent is not here
+    'is_red_here': 4,
+    'is_blue_here': 5,
+}
 def ERROR_MSG(e): return f'ERROR READING OBS: {e}'
 
 # TODO read obs using obs_token instead of hardcoding.
@@ -28,26 +38,24 @@ def embed_obs_in_map(obs: torch.Tensor, map: MapInfo):
     batch_size = len(obs)
     g = []
     for i in range(pos_obs_size):
-        g.append(list(map.n_info[i + 1]) + [0] * NODE_EMBEDDING_SIZE)
+        g_ij = list(map.n_info[i + 1])
+        if GRAPH_OBS_TOKEN['obs_embed']:
+            g_ij += [0] * GRAPH_OBS_TOKEN['embedding_size']
+        g.append(g_ij)
     # embed nodes using obs
     node_embeddings = []
     for i in range(batch_size):
         g_i = deepcopy(g)
-        obs_i = obs[i]
-        embed(obs_i, g_i)
+        if GRAPH_OBS_TOKEN['obs_embed']:
+            obs_i = obs[i]
+            embed(obs_i, g_i)
         node_embeddings.append(g_i)
-    node_embeddings = torch.tensor(node_embeddings).cuda()
+    node_embeddings = torch.tensor(node_embeddings)#.cuda()
 
-    # TODO get edges
+    # TODO edges?
     edges = None
-    return node_embeddings, edges
+    return node_embeddings
 
-EMBED_IDX = {
-    'is_agent_pos': 2,
-    'agent_dir': 3, # 0 if agent is not here
-    'is_red_here': 4,
-    'is_blue_here': 5
-}
 
 def embed(obs, g):
     """
