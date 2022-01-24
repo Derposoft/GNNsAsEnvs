@@ -36,7 +36,8 @@ print('imported rl/torch')
 from attention_study.generate_baseline_metrics import parse_arguments, create_env_config
 from sigma_graph.data.graph.skirmish_graph import MapInfo
 from sigma_graph.envs.figure8.figure8_squad_rllib import Figure8SquadRLLib
-from attention_study.model.utils import embed_obs_in_map, get_loc, NETWORK_SETTINGS
+from attention_study.model.utils import embed_obs_in_map, get_loc, load_edge_dictionary, \
+    NETWORK_SETTINGS
 
 # 3rd party library imports (s2v, attention model rdkit, etc?)
 #from attention_study.model.s2v.s2v_graph import S2VGraph
@@ -45,6 +46,7 @@ from attention_routing.nets.attention_model import AttentionModel
 from attention_routing.problems.tsp.problem_tsp import TSP
 
 print('imported our code+3rd party')
+
 # other imports
 import numpy as np
 import os
@@ -58,9 +60,8 @@ class PolicyModel(TMv2.TorchModelV2, nn.Module):
             model_config, name)
         nn.Module.__init__(self)
 
-        # STEP 0: parse model_config args
-        # STEP 0.1: parse args
-        gnns = 10
+        # STEP 0: set config
+        # original config
         hiddens = list(model_config.get("fcnet_hiddens", [])) + \
             list(model_config.get("post_fcnet_hiddens", []))
         activation = model_config.get("fcnet_activation")
@@ -69,21 +70,14 @@ class PolicyModel(TMv2.TorchModelV2, nn.Module):
         no_final_linear = model_config.get("no_final_linear")
         self.vf_share_layers = model_config.get("vf_share_layers") # this is usually 0
         self.free_log_std = model_config.get("free_log_std") # skip worrying about log std
+        
+        # my settings
+        gnns = 10
+        self.has_final_layer = NETWORK_SETTINGS['has_final_layer']
         self.map = map # map+edges parsing
-        self.acs_edges = []
-        self.vis_edges = []
-        for k, v in zip(self.map.g_acs.adj.keys(), self.map.g_acs.adj.values()):
-            self.acs_edges += [[k, vi] for vi in v.keys()]
-        for k, v in zip(self.map.g_acs.adj.keys(), self.map.g_acs.adj.values()):
-            self.vis_edges += [[k, vi] for vi in v.keys()]
-        self.acs_edges_dict = {}
-        self.vis_edges_dict = {}
-        for edge in self.acs_edges:
-            if edge[0] not in self.acs_edges_dict: self.acs_edges_dict[edge[0]] = set([])
-            self.acs_edges_dict[edge[0]].add(edge[1])
-        for edge in self.vis_edges:
-            if edge[0] not in self.vis_edges_dict: self.vis_edges_dict[edge[0]] = set([])
-            self.vis_edges_dict[edge[0]].add(edge[1])
+        self.acs_edges_dict = load_edge_dictionary(self.map.g_acs.adj)
+        self.vis_edges_dict = load_edge_dictionary(self.map.g_vis.adj)
+        
 
         # STEP 1: build policy net -- GAT + FF
         with open('./args.json') as file:
@@ -96,12 +90,12 @@ class PolicyModel(TMv2.TorchModelV2, nn.Module):
             )
             self.attention.set_decode_type('greedy')
         print('attention model initiated')
-
+        # create logits if we are using logits
         prev_layer_size = int(np.product(obs_space.shape))
         self._logits = None
-        if NETWORK_SETTINGS['has_final_layer']:
+        if self.has_final_layer:
             self._logits = SlimFC(
-                in_size=prev_layer_size,
+                in_size=map.get_graph_size(),
                 out_size=num_outputs,
                 initializer=normc_initializer(0.01),
                 activation_fn=None)                
@@ -142,19 +136,20 @@ class PolicyModel(TMv2.TorchModelV2, nn.Module):
         # run attention model
         attention_input = embed_obs_in_map(obs, self.map)
         agent_nodes = [get_loc(gx, self.map.get_graph_size()) for gx in obs]
-        costs, lls, log_ps = self.attention(attention_input, edges=self.acs_edges_dict, agent_nodes=agent_nodes, return_log_p=True)
-        # TODO get this to output log_p instead; use model._inner?
-        print(log_ps)
-        sys.exit()
-        # add mask
-        
-        # run thru fc layers
+        _, _, log_ps = self.attention(attention_input, edges=self.acs_edges_dict, agent_nodes=agent_nodes, return_log_p=True)
+
+        # run thru fc layers if necessary
         self._last_flat_in = obs.reshape(obs.shape[0], -1)
-        self._features = self._hidden_layers(self._last_flat_in)#, self.nodes, self.edge_index)
-        logits = self._logits(self._features) if self._logits else \
+        self._features = log_ps #self._hidden_layers(self._last_flat_in)#, self.nodes, self.edge_index)
+        logits = None
+        if self._logits:
+            logits = self._logits(self._features)
+            print(logits)
+            sys.exit()
+        else:
+            # transform log_p outputs into actual action TODO
             self._features
         return logits, state
-        
 
     @override(TMv2.TorchModelV2)
     def value_function(self):

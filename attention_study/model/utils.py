@@ -7,7 +7,15 @@ import sigma_graph.envs.figure8.default_setup as env_setup
 from sigma_graph.data.graph.skirmish_graph import MapInfo
 
 # constants/helper functions
-SUPPRESS_WARNINGS = False
+NETWORK_SETTINGS = {
+    'has_final_layer': True,
+    'use_altr_model': True,
+    'use_s2v': False,
+}
+SUPPRESS_WARNINGS = {
+    'embed': False,
+    'decode': False,
+}
 GRAPH_OBS_TOKEN = {
     'obs_embed': False,
     'embedding_size': 4,
@@ -18,11 +26,6 @@ EMBED_IDX = {
     'agent_dir': 3, # 0 if agent is not here
     'is_red_here': 4,
     'is_blue_here': 5,
-}
-NETWORK_SETTINGS = {
-    'has_final_layer': False,
-    'use_altr_model': True,
-    'use_s2v': False,
 }
 def ERROR_MSG(e): return f'ERROR READING OBS: {e}'
 
@@ -80,9 +83,9 @@ def embed(obs, g):
     look_dir_shape = len(env_setup.ACT_LOOK_DIR)
     self_shape, red_shape, blue_shape, n_red, n_blue = obs[:5].int().tolist()
     if self_shape < pos_obs_size or red_shape < pos_obs_size or blue_shape < pos_obs_size:
-        if SUPPRESS_WARNINGS:
-            print(ERROR_MSG('skipping embedding. test batch detected'))
-            SUPPRESS_WARNINGS = True
+        if SUPPRESS_WARNINGS['embed']:
+            print(ERROR_MSG('test batch detected while embedding. skipping embed and suppressing this warning.'))
+            SUPPRESS_WARNINGS['embed'] = True
         return
     #assert(red_shape % n_red == 0)
     #assert(blue_shape % n_blue == 0)
@@ -113,11 +116,33 @@ def embed(obs, g):
         if red_obs[i]:
             g[i][EMBED_IDX['is_red_here']] = 1
 
-# get location of an agent given one-hot positional encoding on graph
-def get_loc(one_hot_graph, graph_size, default=1):
+# get location of an agent given one-hot positional encoding on graph (1-indexed)
+def get_loc(one_hot_graph, graph_size, default=0):
+    global SUPPRESS_WARNINGS
     for i in range(graph_size):
         if one_hot_graph[i]:
             return i
-    if not SUPPRESS_WARNINGS:
-        print(f'debug input detected. agent not found. returning default={default}')
+    if not SUPPRESS_WARNINGS['decode']:
+        print(f'test batch detected while decoding. agent not found. returning default={default} and suppressing this warning.')
+        SUPPRESS_WARNINGS['decode'] = True
     return default
+
+# load edge dictionary from a map (0-indexed)
+def load_edge_dictionary(map_edges):
+    '''
+    :param map_edges: edges from a graph from MapInfo. input should be 1-indexed MapInfo map_edge dictionary.
+    :return the 0-indexed edge dictionary for quick lookups.
+    '''
+    # create initial edge_array and TODO edge_to_action mappings
+    edge_array = []
+    for k, v in zip(map_edges.keys(), map_edges.values()):
+        edge_array += [[k-1, vi-1] for vi in v.keys()]
+    
+    # create edge_dictionary
+    edge_dictionary = {}
+    for edge in edge_array:
+        if edge[0] not in edge_dictionary: edge_dictionary[edge[0]] = set([])
+        edge_dictionary[edge[0]].add(edge[1])
+    
+    # TODO create edge_to_action dictionary
+    return edge_dictionary
