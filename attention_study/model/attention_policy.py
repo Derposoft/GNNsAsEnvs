@@ -77,7 +77,7 @@ class PolicyModel(TMv2.TorchModelV2, nn.Module):
         self.map = map # map+edges parsing
         self.acs_edges_dict = load_edge_dictionary(self.map.g_acs.adj)
         self.vis_edges_dict = load_edge_dictionary(self.map.g_vis.adj)
-        
+        self.edge_to_action = None # TODO INITIALIZA THIS
 
         # STEP 1: build policy net -- GAT + FF
         with open('./args.json') as file:
@@ -138,17 +138,19 @@ class PolicyModel(TMv2.TorchModelV2, nn.Module):
         agent_nodes = [get_loc(gx, self.map.get_graph_size()) for gx in obs]
         _, _, log_ps = self.attention(attention_input, edges=self.acs_edges_dict, agent_nodes=agent_nodes, return_log_p=True)
 
-        # run thru fc layers if necessary
+        # decode actions
         self._last_flat_in = obs.reshape(obs.shape[0], -1)
-        self._features = log_ps #self._hidden_layers(self._last_flat_in)#, self.nodes, self.edge_index)
+        self._features = log_ps
         logits = None
         if self._logits:
+            # action decoding via logits
             logits = self._logits(self._features)
-            print(logits)
-            sys.exit()
         else:
-            # transform log_p outputs into actual action TODO
+            # action decoding via direct action mappings
+            # transform log_p outputs into actual action TODO THIS!!!
             self._features
+            move_action = [self.edge_to_action[(agent_node + 1, np.argmax(self._features) + 1)] for agent_node in agent_nodes]
+            sys.exit()
         return logits, state
 
     @override(TMv2.TorchModelV2)

@@ -8,7 +8,7 @@ from sigma_graph.data.graph.skirmish_graph import MapInfo
 
 # constants/helper functions
 NETWORK_SETTINGS = {
-    'has_final_layer': True,
+    'has_final_layer': False,
     'use_altr_model': True,
     'use_s2v': False,
 }
