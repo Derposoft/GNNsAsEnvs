@@ -1,3 +1,4 @@
+from os import posix_fadvise
 import sys
 import torch.nn as nn
 import torch
@@ -17,6 +18,11 @@ EMBED_IDX = {
     'agent_dir': 3, # 0 if agent is not here
     'is_red_here': 4,
     'is_blue_here': 5,
+}
+NETWORK_SETTINGS = {
+    'has_final_layer': False,
+    'use_altr_model': True,
+    'use_s2v': False,
 }
 def ERROR_MSG(e): return f'ERROR READING OBS: {e}'
 
@@ -56,7 +62,6 @@ def embed_obs_in_map(obs: torch.Tensor, map: MapInfo):
     edges = None
     return node_embeddings
 
-
 def embed(obs, g):
     """
     obs: a single input
@@ -88,11 +93,7 @@ def embed(obs, g):
     
     # embed self info
     # embed location
-    _node = -1
-    for i in range(pos_obs_size):
-        if self_obs[i]:
-            _node = i
-            break
+    _node = get_loc(self_obs, pos_obs_size)
     if _node == -1:
         print(ERROR_MSG('agent not found ('))
     g[_node][EMBED_IDX['is_agent_pos']] = 1
@@ -111,3 +112,12 @@ def embed(obs, g):
     for i in range(pos_obs_size):
         if red_obs[i]:
             g[i][EMBED_IDX['is_red_here']] = 1
+
+# get location of an agent given one-hot positional encoding on graph
+def get_loc(one_hot_graph, graph_size, default=1):
+    for i in range(graph_size):
+        if one_hot_graph[i]:
+            return i
+    if not SUPPRESS_WARNINGS:
+        print(f'debug input detected. agent not found. returning default={default}')
+    return default

@@ -30,13 +30,13 @@ import torch.nn as nn
 import torch
 import gym
 #from ray.tune.logger import pretty_print
-print('imported rl imports')
+print('imported rl/torch')
 
 # our code imports
 from attention_study.generate_baseline_metrics import parse_arguments, create_env_config
 from sigma_graph.data.graph.skirmish_graph import MapInfo
 from sigma_graph.envs.figure8.figure8_squad_rllib import Figure8SquadRLLib
-from attention_study.model.utils import embed_obs_in_map
+from attention_study.model.utils import embed_obs_in_map, get_loc, NETWORK_SETTINGS
 
 # 3rd party library imports (s2v, attention model rdkit, etc?)
 #from attention_study.model.s2v.s2v_graph import S2VGraph
@@ -44,15 +44,11 @@ from attention_study.model.utils import embed_obs_in_map
 from attention_routing.nets.attention_model import AttentionModel
 from attention_routing.problems.tsp.problem_tsp import TSP
 
-print('import our code+3rd party')
-
+print('imported our code+3rd party')
 # other imports
 import numpy as np
 import os
-#import time
 import sys
-
-NUM_NODE_FEATURES = 1 # DETERMINED BY S2V!!!!!
 
 class PolicyModel(TMv2.TorchModelV2, nn.Module):
     def __init__(self, obs_space: gym.spaces.Space,
@@ -101,52 +97,16 @@ class PolicyModel(TMv2.TorchModelV2, nn.Module):
             self.attention.set_decode_type('greedy')
         print('attention model initiated')
 
-        # STEP 2: fc layers post attention layers
-        layers = []
         prev_layer_size = int(np.product(obs_space.shape))
         self._logits = None
-        # create layers 0->n-1
-        for size in hiddens[:-1]:
-            layers.append(
-                SlimFC(
-                    in_size=prev_layer_size,
-                    out_size=size,
-                    initializer=normc_initializer(1.0),
-                    activation_fn=activation))
-            prev_layer_size = size
-        # create last layer
-        if no_final_linear and num_outputs:
-            layers.append(
-                SlimFC(
-                    in_size=prev_layer_size,
-                    out_size=num_outputs,
-                    initializer=normc_initializer(1.0),
-                    activation_fn=activation))
-            prev_layer_size = num_outputs
-        # Finish the layers with the provided sizes (`hiddens`), plus -
-        # iff num_outputs > 0 - a last linear layer of size num_outputs.
-        else:
-            if len(hiddens) > 0:
-                layers.append(
-                    SlimFC(
-                        in_size=prev_layer_size,
-                        out_size=hiddens[-1],
-                        initializer=normc_initializer(1.0),
-                        activation_fn=activation))
-                prev_layer_size = hiddens[-1]
-            if num_outputs:
-                self._logits = SlimFC(
-                    in_size=prev_layer_size,
-                    out_size=num_outputs,
-                    initializer=normc_initializer(0.01),
-                    activation_fn=None)
-            else:
-                self.num_outputs = (
-                    [int(np.product(obs_space.shape))] + hiddens[-1:])[-1]
+        if NETWORK_SETTINGS['has_final_layer']:
+            self._logits = SlimFC(
+                in_size=prev_layer_size,
+                out_size=num_outputs,
+                initializer=normc_initializer(0.01),
+                activation_fn=None)                
 
-        self._hidden_layers = nn.Sequential(*layers)
-
-        # STEP 3: build value net
+        # STEP 2: build value net
         self._value_branch_separate = None
         # create value network with equal number of hidden layers as policy net
         if not self.vf_share_layers:
@@ -178,30 +138,16 @@ class PolicyModel(TMv2.TorchModelV2, nn.Module):
                 state: List[TensorType],
                 seq_lens: TensorType):
         obs = input_dict['obs_flat'].float()
-        batch_size = len(obs)
         
-        # run attention model's forward
+        # run attention model
         attention_input = embed_obs_in_map(obs, self.map)
-        costs = []
-        lls = []
-        print(attention_input.shape)
-        #costs, lls = self.attention.forward(attention_input, edges=self.acs_edges_dict)
-        costs, lls = self.attention.forward(attention_input[0:1], edges=self.acs_edges_dict)
+        agent_nodes = [get_loc(gx, self.map.get_graph_size()) for gx in obs]
+        costs, lls, log_ps = self.attention(attention_input, edges=self.acs_edges_dict, agent_nodes=agent_nodes, return_log_p=True)
         # TODO get this to output log_p instead; use model._inner?
-        print(costs, lls)
+        print(log_ps)
         sys.exit()
         # add mask
-        for b_i in range(batch_size):
-            # input: (batch_size, graph_size, node_dim) input node features tensor size
-            print(attention_input[b_i])
-            cost, log_likelihood = self.attention.forward(attention_input[b_i])
-            costs.append(cost)
-            lls.append(log_likelihood)
-        print(costs)
-        print(lls)
-
-        sys.exit()
-
+        
         # run thru fc layers
         self._last_flat_in = obs.reshape(obs.shape[0], -1)
         self._features = self._hidden_layers(self._last_flat_in)#, self.nodes, self.edge_index)
