@@ -91,7 +91,8 @@ class PolicyModel(TMv2.TorchModelV2, nn.Module):
             self.attention.set_decode_type('greedy')
         print('attention model initiated')
         # create logits if we are using logits
-        prev_layer_size = int(np.product(obs_space.shape))
+        #prev_layer_size = int(np.product(obs_space.shape))
+        #prev_layer_size = int(map.get_graph_size())
         self._logits = None
         if self.has_final_layer:
             self._logits = SlimFC(
@@ -116,6 +117,7 @@ class PolicyModel(TMv2.TorchModelV2, nn.Module):
                 prev_vf_layer_size = size
             self._value_branch_separate = nn.Sequential(*vf_layers)
         # layer which outputs 1 value
+        prev_layer_size = hiddens[-1]
         self._value_branch = SlimFC(
             in_size=prev_layer_size,
             out_size=1,
@@ -132,6 +134,7 @@ class PolicyModel(TMv2.TorchModelV2, nn.Module):
                 state: List[TensorType],
                 seq_lens: TensorType):
         obs = input_dict['obs_flat'].float()
+        self._last_flat_in = obs.reshape(obs.shape[0], -1)
         
         # run attention model
         attention_input = embed_obs_in_map(obs, self.map)
@@ -146,11 +149,21 @@ class PolicyModel(TMv2.TorchModelV2, nn.Module):
             # action decoding via logits
             logits = self._logits(self._features)
         else:
-            # action decoding via direct action mappings
-            # transform log_p outputs into actual action TODO THIS!!!
-            self._features
-            move_action = [self.edge_to_action[(agent_node + 1, np.argmax(self._features) + 1)] for agent_node in agent_nodes]
-            sys.exit()
+            actions = []
+            # move_action decoding. get max prob moves from map
+            transformed_features = self._features.clone()
+            transformed_features[transformed_features == 0] = -float('inf')
+            optimal_destination = torch.argmax(transformed_features, dim=1)
+            # collect move actions
+            for i in range(len(agent_nodes)):
+                curr_loc = agent_nodes[i] + 1
+                next_loc = optimal_destination[i].item() + 1
+                move_action = self.map.g_acs.adj[curr_loc][next_loc]['action']
+                look_action = 1 # TODO!!!!!!!!
+                action = Figure8SquadRLLib.convert_multidiscrete_action_to_discrete(move_action, look_action)
+                actions.append(action)
+            logits = torch.tensor(np.eye(self.num_outputs)[actions])
+        
         return logits, state
 
     @override(TMv2.TorchModelV2)
@@ -221,6 +234,8 @@ if __name__ == "__main__":
         ppo_config["lr"] = 1e-3 # fixed lr instead of schedule, tune this
         return ppo_config
     ppo_trainer = ppo.PPOTrainer(config=create_ppo_config(outer_configs), env=Figure8SquadRLLib)
+
+    print('trainer created')
     ppo_trainer.train()
     
 

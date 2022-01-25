@@ -1,5 +1,3 @@
-from os import posix_fadvise
-import sys
 import torch.nn as nn
 import torch
 from copy import deepcopy
@@ -41,7 +39,7 @@ def embed_obs_in_map(obs: torch.Tensor, map: MapInfo):
     [...],
     ...]
     """
-    print('starting embedding process')
+    #print('starting embedding process')
     # init node embeddings
     pos_obs_size = map.get_graph_size()
     batch_size = len(obs)
@@ -116,7 +114,7 @@ def embed(obs, g):
         if red_obs[i]:
             g[i][EMBED_IDX['is_red_here']] = 1
 
-# get location of an agent given one-hot positional encoding on graph (1-indexed)
+# get location of an agent given one-hot positional encoding on graph (0-indexed)
 def get_loc(one_hot_graph, graph_size, default=0):
     global SUPPRESS_WARNINGS
     for i in range(graph_size):
@@ -144,5 +142,4 @@ def load_edge_dictionary(map_edges):
         if edge[0] not in edge_dictionary: edge_dictionary[edge[0]] = set([])
         edge_dictionary[edge[0]].add(edge[1])
     
-    # TODO create edge_to_action dictionary
     return edge_dictionary

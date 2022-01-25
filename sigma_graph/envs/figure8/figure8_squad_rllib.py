@@ -19,15 +19,17 @@ class Figure8SquadRLLib(Figure8Squad, MultiAgentEnv):
         config = config or {}
         super().__init__(**config)
         # extra values to make graph embedding viable
-        num_extra_graph_obs = 5 if self.obs_token["obs_graph"] else 0
+        num_extra_graph_obs = 0 #5 if self.obs_token["obs_graph"] else 0
         # self.action_space = spaces.MultiDiscrete([len(local_action_move), len(local_action_turn)])
         # "flatten" the above action space into the below discrete action space
         self.action_space = spaces.Discrete(len(local_action_move)*len(local_action_turn))
         self.observation_space = spaces.Box(low=0, high=1, shape=(self.state_shape + num_extra_graph_obs,), dtype=np.int8)
 
-    # return an arbitrary encoding from the "flat" action space to the normal action space
+    # return an arbitrary encoding from the "flat" action space to the normal action space 0-indexed
     def convert_discrete_action_to_multidiscrete(self, action):
         return [action % len(local_action_move), action // len(local_action_move)]
+    def convert_multidiscrete_action_to_discrete(move_action, turn_action):
+        return turn_action * len(local_action_move) + move_action
 
     def reset(self):
         _resets = super().reset()
@@ -51,12 +53,12 @@ class Figure8SquadRLLib(Figure8Squad, MultiAgentEnv):
             # obs for graph nns
             if self.obs_token["obs_graph"]:
                 # info to allow for easy obs dissection for graph embedding
-                self_shape, red_shape, blue_shape = env_setup.get_state_shapes()
+                self_shape, red_shape, blue_shape = env_setup.get_state_shapes(self.map.get_graph_size(), self.num_red, self.num_blue, env_setup.OBS_TOKEN)
                 # get info about self
                 n_red = self.num_red
                 n_blue = self.num_blue
                 # return obs that is easy for node embedding
-                _obs_a = [self_shape, red_shape, blue_shape, n_red, n_blue] + _obs[a_id]
+                _obs_a = _obs[a_id] #[self_shape, red_shape, blue_shape, n_red, n_blue] + _obs[a_id]
                 obs[str(a_id)] = _obs_a
             # obs for normal ff nns
             else:
