@@ -17,7 +17,6 @@ switched out for gats   .
 most of this code is the same as the code on the linked github repo above; there was no reason to
 rebuild one from scratch when one existed. 
 '''
-print('starting import process')
 # RL/AI imports
 #from ray.rllib.models.torch.fcnet import FullyConnectedNetwork
 import ray.rllib.models.torch.torch_modelv2 as TMv2
@@ -30,7 +29,6 @@ import torch.nn as nn
 import torch
 import gym
 #from ray.tune.logger import pretty_print
-print('imported rl/torch')
 
 # our code imports
 from attention_study.generate_baseline_metrics import parse_arguments, create_env_config
@@ -45,12 +43,12 @@ from attention_study.model.utils import embed_obs_in_map, get_loc, load_edge_dic
 from attention_routing.nets.attention_model import AttentionModel
 from attention_routing.problems.tsp.problem_tsp import TSP
 
-print('imported our code+3rd party')
-
 # other imports
 import numpy as np
 import os
 import sys
+
+print('imports done')
 
 class PolicyModel(TMv2.TorchModelV2, nn.Module):
     def __init__(self, obs_space: gym.spaces.Space,
@@ -117,7 +115,7 @@ class PolicyModel(TMv2.TorchModelV2, nn.Module):
                 prev_vf_layer_size = size
             self._value_branch_separate = nn.Sequential(*vf_layers)
         # layer which outputs 1 value
-        prev_layer_size = hiddens[-1]
+        prev_layer_size = hiddens[-1] if self._value_branch_separate else self.map.get_graph_size()
         self._value_branch = SlimFC(
             in_size=prev_layer_size,
             out_size=1,
@@ -142,8 +140,7 @@ class PolicyModel(TMv2.TorchModelV2, nn.Module):
         _, _, log_ps = self.attention(attention_input, edges=self.acs_edges_dict, agent_nodes=agent_nodes, return_log_p=True)
 
         # decode actions
-        self._last_flat_in = obs.reshape(obs.shape[0], -1)
-        self._features = log_ps
+        self._features = log_ps # set features for value branch later
         logits = None
         if self._logits:
             # action decoding via logits
@@ -237,15 +234,3 @@ if __name__ == "__main__":
 
     print('trainer created')
     ppo_trainer.train()
-    
-
-'''
-# GARBAGE ZONE
-
-# 2. 
-# 1: use s2v to create node embeddings (inspiration from Khalil et al, 2017)
-#input_graph = S2VGraph(len(self.nodes), len(self.edge_pairs), self.edge_pairs)
-#embedding = self.s2v([input_graph], self.nodes, self.edge_pairs)
-#print(embedding)
-# 
-'''

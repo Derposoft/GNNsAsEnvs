@@ -8,6 +8,7 @@ from numpy.core.numeric import outer
 from ray.rllib.models.catalog import MODEL_DEFAULTS
 from sigma_graph.envs.figure8.action_lookup import MOVE_LOOKUP, TURN_90_LOOKUP
 from sigma_graph.envs.figure8.figure8_squad_rllib import Figure8SquadRLLib
+import attention_study.model
 import argparse
 import time
 import gym
@@ -78,8 +79,57 @@ def create_env_config(config):
     if hasattr(config, "threshold_red"):
         outer_configs["threshold_damage_2_red"] = config.threshold_red
     return outer_configs, n_episodes
+
+# create trainer configuration
+def create_trainer_config(outer_configs, trainer_type=None, custom_model=False):
+    trainer_types = [dqn, pg, a3c, ppo]
+    assert trainer_type != None, f'trainer_type must be one of {trainer_types}'
+
+    # initialize env and required config settings
+    setup_env = Figure8SquadRLLib(outer_configs)
+    obs_space = setup_env.observation_space
+    act_space = setup_env.action_space
+    policies = {}
+    for agent_id in setup_env.learning_agent:
+        policies[str(agent_id)] = (None, obs_space, act_space, {})
+    def policy_mapping_fn(agent_id, episode, worker, **kwargs):
+        return str(agent_id)
+    CUSTOM_DEFAULTS = {
+        "custom_model": "policy_model",
+        # Extra kwargs to be passed to your model's c'tor.
+        "custom_model_config": {
+            "map": setup_env.map
+        },
+    }
+    init_trainer_config = {
+        "env": Figure8SquadRLLib,
+        "env_config": {
+            **outer_configs
+        },
+        # Use GPUs iff `RLLIB_NUM_GPUS` env var set to > 0.
+        "num_gpus": int(os.environ.get("RLLIB_NUM_GPUS", "0")),
+        "model": CUSTOM_DEFAULTS if custom_model else MODEL_DEFAULTS,
+        "num_workers": 1,  # parallelism
+        "framework": "torch",
+        "evaluation_interval": 1,
+        "evaluation_num_episodes": 10,
+        "evaluation_num_workers": 1,
+        "rollout_fragment_length": 50, # 50 for a2c, 200 for everyone else?
+        "train_batch_size": 200
+    }
+
+    # initialize specific trainer type config
+    trainer_type_config = {}
+    trainer_type_config = trainer_type.DEFAULT_CONFIG.copy()
+    trainer_type_config.update(init_trainer_config)
+    trainer_type_config["lr"] = 1e-3  # fixed lr instead of schedule, tune this
+
+    # merge init config and trainer-specific config and return
+    trainer_config = { **init_trainer_config, **trainer_type_config }
+    return trainer_config
+
 # run baseline tests with a few different algorithms
-def run_baselines(config):
+def run_baselines(config, run_default_baseline_metrics=False, train_time=60*5, checkpoint_models=True):
     '''
     runs a set of baseline algorithms on the red v blue gym environment using rllib. the
     chosen algorithms are from the following list of algorithms:
@@ -90,155 +140,37 @@ def run_baselines(config):
         perhaps we can get rid of this requirement by "flattening" our action space into
         a more simple Discrete action space in the future)
     (b) Multi-Agent - Yes. Because the red v blue is a multi-agent environment.
-
-    the "STEPs" done in individual functions are mostly dont that way only so they can
-    be minimized in an IDE/text editor (like vs code) for cleanliness, for no other reason
-    than the fact that i like it that way.
-
     '''
-    # STEP 1: env config construction
+    # STEP 1: env config construction, helper functions
     outer_configs, n_episodes = create_env_config(config)
-    
-    # STEP 2: make rllib configs and trainers
-
-    # for pg
-    def create_dqn_config(outer_configs):
-        dqn_extra_config_settings = {
-            "env": Figure8SquadRLLib,
-            "env_config": {
-                **outer_configs
-            },
-            # Use GPUs iff `RLLIB_NUM_GPUS` env var set to > 0.
-            "num_gpus": int(os.environ.get("RLLIB_NUM_GPUS", "0")),
-            "model": MODEL_DEFAULTS,
-            "num_workers": 1,  # parallelism
-            "framework": "torch",
-            "evaluation_interval": 1,
-            "evaluation_num_episodes": 10,
-            "evaluation_num_workers": 1,
-            "rollout_fragment_length": 200,
-            "train_batch_size": 200
-        }
-        dqn_config = dqn.DEFAULT_CONFIG.copy()
-        dqn_config.update(dqn_extra_config_settings)
-        dqn_config["lr"] = 1e-3
-        return dqn_config
-    dqn_trainer = dqn.DQNTrainer(config=create_dqn_config(outer_configs), env=Figure8SquadRLLib)
-    print('dqn trainer loaded...')
-    
-    # for pg
-    def create_pg_config(outer_configs):
-        pg_extra_config_settings = {
-            "env": Figure8SquadRLLib,
-            "env_config": {
-                **outer_configs
-            },
-            # Use GPUs iff `RLLIB_NUM_GPUS` env var set to > 0.
-            "num_gpus": int(os.environ.get("RLLIB_NUM_GPUS", "0")),
-            "model": MODEL_DEFAULTS,
-            "num_workers": 1,  # parallelism
-            "framework": "torch",
-            "evaluation_interval": 1,
-            "evaluation_num_episodes": 10,
-            "evaluation_num_workers": 1,
-            "rollout_fragment_length": 200,
-            "train_batch_size": 200
-        }
-        pg_config = pg.DEFAULT_CONFIG.copy()
-        pg_config.update(pg_extra_config_settings)
-        pg_config["lr"] = 1e-3
-        return pg_config
-    pg_trainer = pg.PGTrainer(config=create_pg_config(outer_configs), env=Figure8SquadRLLib)
-    print('pg trainer loaded...')
-
-    # for impala
-    def create_a2c_config(outer_configs):
-        a2c_extra_config_settings = {
-            "env": Figure8SquadRLLib,
-            "env_config": {
-                **outer_configs
-            },
-            # Use GPUs iff `RLLIB_NUM_GPUS` env var set to > 0.
-            "num_gpus": int(os.environ.get("RLLIB_NUM_GPUS", "0")),
-            "model": MODEL_DEFAULTS,
-            "num_workers": 1,  # parallelism
-            "framework": "torch",
-            "evaluation_interval": 1,
-            "evaluation_num_episodes": 10,
-            "evaluation_num_workers": 1,
-            "rollout_fragment_length": 50,
-            "train_batch_size": 200
-        }
-        a2c_config = a3c.DEFAULT_CONFIG.copy()
-        a2c_config.update(a2c_extra_config_settings)
-        a2c_config["lr"] = 1e-3
-        return a2c_config
-    a2c_trainer = a3c.A2CTrainer(config=create_a2c_config(outer_configs), env=Figure8SquadRLLib)
-    print('a2c trainer loaded...')
-
-    # for ppo
-    def create_ppo_config(outer_configs):
-        # policy mapping function
-        # from https://medium.com/@vermashresth/craft-and-solve-multi-agent-problems-using-rllib-and-tensorforce-a3bd1bb6f556
-        setup_env = gym.make('figure8squad-v3', **outer_configs)
-        obs_space = setup_env.observation_space
-        act_space = setup_env.action_space
-        policies = {}
-        for agent_id in setup_env.learning_agent:
-            policies[str(agent_id)] = (None, obs_space, act_space, {})
-        #policies['default_policy'] = (None, obs_space, act_space, {}) # necessary for impala
-        def policy_mapping_fn(agent_id, episode, worker, **kwargs):
-            return str(agent_id)
-        # create trainer config
-        ppo_extra_config_settings = {
-            "env": Figure8SquadRLLib,
-            "env_config": {
-                **outer_configs
-            },
-            # Use GPUs iff `RLLIB_NUM_GPUS` env var set to > 0.
-            "num_gpus": int(os.environ.get("RLLIB_NUM_GPUS", "0")),
-            "model": MODEL_DEFAULTS,
-            "num_workers": 1,  # parallelism
-            "framework": "torch",
-            "multiagent": {
-                "policies": policies,
-                "policy_mapping_fn": policy_mapping_fn,
-            },
-            "evaluation_interval": 1,
-            "evaluation_num_episodes": 10,
-            "evaluation_num_workers": 1,
-            "rollout_fragment_length": 200,
-            "train_batch_size": 200
-        }
-        ppo_config = ppo.DEFAULT_CONFIG.copy()
-        ppo_config.update(ppo_extra_config_settings)
-        ppo_config["lr"] = 1e-3 # fixed lr instead of schedule, tune this
-        return ppo_config
-    ppo_trainer = ppo.PPOTrainer(config=create_ppo_config(outer_configs), env=Figure8SquadRLLib)
-    print('ppo trainer loaded...')
-
-    # STEP 3: train each trainer
-    max_train_seconds = 60*15 # train each trainer for exactly 15 min
-    print('beginning training.')
-    def train(trainer):
+    def train(trainer, model_name):
         start = time.time()
         while(True):
             result = trainer.train()
             print(pretty_print(result))
-            if (time.time() - start) > max_train_seconds: break
-        trainer.save(checkpoint_dir='model_checkpoints/'+str(type(trainer)))
-    # train dqn
-    print('training dqn')
-    train(dqn_trainer)
-    # train pg
-    print('training pg')
-    train(pg_trainer)
-    # train impala
-    print('training impala')
-    train(a2c_trainer)
-    # train ppo
-    print('training ppo')
-    train(ppo_trainer)
+            if (time.time() - start) > train_time: break
+        if checkpoint_models:
+            trainer.save(checkpoint_dir='model_checkpoints/'+model_name)
+    
+    # STEP 2: create and train trainers
+    if run_default_baseline_metrics:
+        ppo_trainer_default = ppo.PPOTrainer(config=create_trainer_config(outer_configs, trainer_type=ppo), env=Figure8SquadRLLib)
+        a2c_trainer_default = a3c.A2CTrainer(config=create_trainer_config(outer_configs, trainer_type=a3c), env=Figure8SquadRLLib)
+        #pg_trainer_default = pg.PGTrainer(config=create_trainer_config(outer_configs, trainer_type=pg), env=Figure8SquadRLLib)
+        #dqn_trainer_default = dqn.DQNTrainer(config=create_trainer_config(outer_configs, trainer_type=dqn), env=Figure8SquadRLLib)
+        train(ppo_trainer_default, 'ppo_default')
+        train(a2c_trainer_default, 'a2c_default')
+        #train(pg_trainer_default)
+        #train(dqn_trainer_default)
+    else:
+        ppo_trainer_custom = ppo.PPOTrainer(config=create_trainer_config(outer_configs, trainer_type=ppo, custom_model=True), env=Figure8SquadRLLib)
+        a2c_trainer_custom = a3c.A2CTrainer(config=create_trainer_config(outer_configs, trainer_type=a3c, custom_model=True), env=Figure8SquadRLLib)
+        #pg_trainer_custom = pg.PGTrainer(config=create_trainer_config(outer_configs, trainer_type=pg, custom_model=True), env=Figure8SquadRLLib)
+        #dqn_trainer_custom = dqn.DQNTrainer(config=create_trainer_config(outer_configs, trainer_type=dqn, custom_model=True), env=Figure8SquadRLLib)
+        train(ppo_trainer_custom, 'ppo_custom')
+        train(a2c_trainer_custom, 'a2c_custom')
+        #train(pg_trainer_custom)
+        #train(dqn_trainer_custom)
 
 # parse arguments
 def parse_arguments():
