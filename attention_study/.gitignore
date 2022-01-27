@@ -1,3 +1,4 @@
 model_checkpoints/
 data/
+outputs/
 test.py

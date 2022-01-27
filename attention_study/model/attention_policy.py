@@ -23,15 +23,12 @@ import ray.rllib.models.torch.torch_modelv2 as TMv2
 from ray.rllib.models.torch.misc import SlimFC, normc_initializer #AppendBiasLayer, \
 from ray.rllib.utils.annotations import override
 from ray.rllib.utils.typing import Dict, TensorType, List, ModelConfigDict
-from ray.rllib.models.catalog import ModelCatalog
-from ray.rllib.agents import ppo
 import torch.nn as nn
 import torch
 import gym
 #from ray.tune.logger import pretty_print
 
 # our code imports
-from attention_study.generate_baseline_metrics import parse_arguments, create_env_config
 from sigma_graph.data.graph.skirmish_graph import MapInfo
 from sigma_graph.envs.figure8.figure8_squad_rllib import Figure8SquadRLLib
 from attention_study.model.utils import embed_obs_in_map, get_loc, load_edge_dictionary, \
@@ -45,7 +42,6 @@ from attention_routing.problems.tsp.problem_tsp import TSP
 
 # other imports
 import numpy as np
-import os
 import sys
 
 print('imports done')
@@ -171,66 +167,3 @@ class PolicyModel(TMv2.TorchModelV2, nn.Module):
                 self._value_branch_separate(self._last_flat_in)).squeeze(1)
         else:
             return self._value_branch(self._features).squeeze(1)
-
-
-if __name__ == "__main__":
-    # register our model (put in an __init__ file later)
-    # https://docs.ray.io/en/latest/rllib-models.html#customizing-preprocessors-and-models
-    ModelCatalog.register_custom_model("policy_model", PolicyModel)
-
-    # STEP 0: parse arguments
-    print('creating config')
-    parser = parse_arguments()
-    config = parser.parse_args()
-    outer_configs, n_episodes = create_env_config(config)
-    
-    # STEP 1: test custom model above with an rllib trainer
-    print('creating trainer')
-    # (using ppo to test)
-    def create_ppo_config(outer_configs):
-        # policy mapping function
-        # from https://medium.com/@vermashresth/craft-and-solve-multi-agent-problems-using-rllib-and-tensorforce-a3bd1bb6f556
-        #setup_env = gym.make('figure8squad-v3', **outer_configs)
-        setup_env = Figure8SquadRLLib(outer_configs)
-        obs_space = setup_env.observation_space
-        act_space = setup_env.action_space
-        policies = {}
-        for agent_id in setup_env.learning_agent:
-            policies[str(agent_id)] = (None, obs_space, act_space, {})
-        def policy_mapping_fn(agent_id, episode, worker, **kwargs):
-            return str(agent_id)
-        # create trainer config
-        ppo_extra_config_settings = {
-            "env": Figure8SquadRLLib,
-            "env_config": {
-                **outer_configs
-            },
-            # Use GPUs iff `RLLIB_NUM_GPUS` env var set to > 0.
-            "num_gpus": int(os.environ.get("RLLIB_NUM_GPUS", "0")),
-            "model": {
-                "custom_model": "policy_model",
-                # Extra kwargs to be passed to your model's c'tor.
-                "custom_model_config": {
-                    "map": setup_env.map
-                },
-            },
-            "num_workers": 1,  # parallelism
-            "framework": "torch",
-            "multiagent": {
-                "policies": policies,
-                "policy_mapping_fn": policy_mapping_fn,
-            },
-            "evaluation_interval": 1,
-            "evaluation_num_episodes": 10,
-            "evaluation_num_workers": 1,
-            "rollout_fragment_length": 200,
-            "train_batch_size": 200
-        }
-        ppo_config = ppo.DEFAULT_CONFIG.copy()
-        ppo_config.update(ppo_extra_config_settings)
-        ppo_config["lr"] = 1e-3 # fixed lr instead of schedule, tune this
-        return ppo_config
-    ppo_trainer = ppo.PPOTrainer(config=create_ppo_config(outer_configs), env=Figure8SquadRLLib)
-
-    print('trainer created')
-    ppo_trainer.train()
