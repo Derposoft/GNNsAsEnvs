@@ -7,7 +7,7 @@ import os
 from sigma_graph.envs.figure8.figure8_squad_rllib import Figure8SquadRLLib
 from attention_study.model.attention_policy import PolicyModel
 from attention_study.generate_baseline_metrics import parse_arguments, create_env_config, create_trainer_config
-from attention_study.model.utils import load_edge_dictionary
+from attention_study.model.utils import embed_obs_in_map, load_edge_dictionary
 
 # 3rd party
 from attention_routing.nets.attention_model import AttentionModel
@@ -162,7 +162,6 @@ def initialize_train_artifacts(opts):
     return model, optimizer, baseline, lr_scheduler, tb_logger
 
 
-
 TEST_SETTINGS = {
     'is_standalone': True, # are we training it in rllib, or standalone?
 }
@@ -174,12 +173,14 @@ if __name__ == "__main__":
     config = parser.parse_args()
     outer_configs, n_episodes = create_env_config(config)
     
-    # 
+    # train model standalone
     if TEST_SETTINGS['is_standalone']:
         # create model and training artifacts
         opts = get_options()
         model, optimizer, baseline, lr_scheduler, tb_logger =\
             initialize_train_artifacts(opts)
+        model.train()
+        model.set_decode_type("sampling")
         
         # create model environment
         training_env = Figure8SquadRLLib(outer_configs)
@@ -189,26 +190,47 @@ if __name__ == "__main__":
         print('training')
         episode_length = 40
         num_training_episodes = 100
+        # generate training data
         for episode in range(num_training_episodes):
             agent_node = 0
             obs = [0] * np.product(training_env.observation_space.shape)
             rew = 0
             for step in range(episode_length):
-                # TODO
-                train_batch(
-                    model,
-                    optimizer,
-                    baseline,
-                    0,
-                    episode,
-                    step,
-                    batch,
-                    tb_logger,
-                    opts,
-                    rew=rew,
-                    edges=acs_edges_dict,
-                    agent_nodes=[agent_node]
-                )
+                # TODO If we have a reward in a reinforcement learning scenario, train on that instead
+                attention_input = embed_obs_in_map(obs, training_env.map)
+                _, ll, log_ps = model(attention_input, acs_edges_dict, [agent_node], return_log_p=True)
+
+                # move_action decoding. get max prob moves from map
+                features = log_ps # set features for value branch later
+                transformed_features = features.clone()
+                transformed_features[transformed_features == 0] = -float('inf')
+                optimal_destination = torch.argmax(transformed_features, dim=1)
+                
+                # decode move/turn action
+                curr_loc = agent_node + 1
+                next_loc = optimal_destination[0].item() + 1
+                move_action = training_env.map.g_acs.adj[curr_loc][next_loc]['action']
+                look_action = 1 # TODO!!!!!!!!
+                action = Figure8SquadRLLib.convert_multidiscrete_action_to_discrete(move_action, look_action)
+                print(len(training_env.action_space))
+                logits = torch.tensor(np.eye(int(np.product(training_env.action_space.shape)))[action])
+                print(logits)
+                # step through environment to update obs/rew
+                actions = {}
+                for a in training_env.learning_agent:
+                    actions[str(a)] = logits
+                obs, rew, done, _ = training_env.step(actions)
+
+                # set reinforcement loss
+                cost = -rew
+                bl_val, bl_loss = baseline.eval(attention_input, cost) if bl_val is None else (bl_val, 0) # critic loss
+                reinforce_loss = ((cost - bl_val) * ll).mean()
+                loss = reinforce_loss + bl_loss
+
+                # Perform backward pass and optimization step
+                optimizer.zero_grad()
+                loss.backward()
+                optimizer.step()
     else:
         # create model
         ppo_trainer = ppo.PPOTrainer(config=create_trainer_config(outer_configs, trainer_type=ppo, custom_model=True), env=Figure8SquadRLLib)
@@ -217,14 +239,3 @@ if __name__ == "__main__":
         ppo_trainer.train()
         print('model trained')
 
-'''
-
-        # 
-        # Start the actual training loop
-        val_dataset = problem.make_dataset(
-            size=opts.graph_size, num_samples=opts.val_size, filename=opts.val_dataset, distribution=opts.data_distribution)
-        # Generate new training data for each epoch
-        training_dataset = baseline.wrap_dataset(problem.make_dataset(
-            size=opts.graph_size, num_samples=opts.epoch_size, distribution=opts.data_distribution))
-
-'''

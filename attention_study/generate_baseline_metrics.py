@@ -177,7 +177,7 @@ def parse_arguments():
     parser = argparse.ArgumentParser()
     # basic configs
     parser.add_argument('--env_path', type=str, default='../', help='path of the project root')
-    parser.add_argument('--n_red', type=int, default=2, help='numbers of red agent')
+    parser.add_argument('--n_red', type=int, default=1, help='numbers of red agent')
     parser.add_argument('--n_blue', type=int, default=1, help='numbers of blue agent')
     parser.add_argument('--n_episode', type=int, default=128, help='numbers of episodes per training cycle')
     parser.add_argument('--max_step', type=int, default=20, help='max step for each episode')
