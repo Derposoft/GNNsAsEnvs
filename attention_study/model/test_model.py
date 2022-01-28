@@ -42,8 +42,9 @@ def initialize_train_artifacts(opts):
     # Optionally configure tensorboard
     tb_logger = None
     if not opts.no_tensorboard:
+        #print(os.path.join(opts.log_dir, "{}_{}".format(opts.problem, opts.graph_size), opts.run_name))
         tb_logger = TbLogger(os.path.join(opts.log_dir, "{}_{}".format(opts.problem, opts.graph_size), opts.run_name))
-
+    
     os.makedirs(opts.save_dir)
     # Save arguments so exact configuration can always be found
     with open(os.path.join(opts.save_dir, "args.json"), 'w') as f:
@@ -194,12 +195,13 @@ if __name__ == "__main__":
         # train using num_training_episodes episodes of episode_length length
         print('training')
         episode_length = 40
-        num_training_episodes = 100
+        num_training_episodes = 10000
         # generate training data
         for episode in range(num_training_episodes):
             agent_node = 0
             obs = [[0] * np.product(training_env.observation_space.shape)]
             rew = 0
+            cost = 0
             for step in range(episode_length):
                 # TODO If we have a reward in a reinforcement learning scenario, train on that instead
                 attention_input = embed_obs_in_map(obs, training_env.map)
@@ -224,25 +226,26 @@ if __name__ == "__main__":
                     actions[str(a)] = action
                 obs, rew, done, _ = training_env.step(actions)
 
-                # set reinforcement loss
-                cost = 0
+                # collect rewards
                 for a in training_env.learning_agent:
                     cost -= rew[str(a)]
-                cost = torch.tensor(cost, dtype=torch.float32)
-                bl_val, bl_loss = baseline.eval(attention_input, cost) #if bl_val is None else (bl_val, 0) # critic loss
-                reinforce_loss = ((cost - bl_val) * ll).mean()
-                loss = reinforce_loss + bl_loss
+            # set costs for model
+            cost = torch.tensor(cost, dtype=torch.float32)
+            bl_val, bl_loss = baseline.eval(attention_input, cost) #if bl_val is None else (bl_val, 0) # critic loss
+            reinforce_loss = ((cost - bl_val) * ll).mean()
+            loss = reinforce_loss + bl_loss
 
-                # Perform backward pass and optimization step
-                optimizer.zero_grad()
-                loss.backward()
-                grad_norms = clip_grad_norms(optimizer.param_groups, opts.max_grad_norm)
-                optimizer.step()
-                
-                # log step in tb for metrics
-                if step % int(opts.log_step) == 0:
-                    log_values(cost, grad_norms, episode, step, step,
-                            ll, reinforce_loss, bl_loss, tb_logger, opts)
+            # Perform backward pass and optimization step
+            optimizer.zero_grad()
+            loss.backward()
+            grad_norms = clip_grad_norms(optimizer.param_groups, opts.max_grad_norm)
+            optimizer.step()
+            
+            print(cost)
+            # log step in tb for metrics
+            if episode % int(opts.log_step) == 0:
+                log_values(-cost, grad_norms, episode, episode, episode,
+                        ll, reinforce_loss, bl_loss, tb_logger, opts)
     else:
         # create model
         ppo_trainer = ppo.PPOTrainer(config=create_trainer_config(outer_configs, trainer_type=ppo, custom_model=True), env=Figure8SquadRLLib)
