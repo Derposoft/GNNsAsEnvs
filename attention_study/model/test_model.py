@@ -1,8 +1,11 @@
-import gym
+# rl/ai imports
 from ray.rllib.agents import ppo
 import numpy as np
 import json
 import os
+import torch
+import torch.optim as optim
+from tensorboard_logger import Logger as TbLogger
 
 # our code
 from sigma_graph.envs.figure8.figure8_squad_rllib import Figure8SquadRLLib
@@ -15,12 +18,7 @@ from sigma_graph.data.file_manager import set_visibility
 from attention_routing.nets.attention_model import AttentionModel
 from attention_routing.problems.tsp.problem_tsp import TSP
 from attention_routing.train import train_batch
-
-# train artifact initialization imports
-import torch
-import torch.optim as optim
-from tensorboard_logger import Logger as TbLogger
-
+from attention_routing.utils.log_utils import log_values
 from attention_routing.nets.critic_network import CriticNetwork
 from attention_routing.options import get_options
 from attention_routing.train import train_epoch, validate, get_inner_model
@@ -28,6 +26,8 @@ from attention_routing.reinforce_baselines import NoBaseline, ExponentialBaselin
 from attention_routing.nets.attention_model import AttentionModel
 from attention_routing.nets.pointer_network import PointerNetwork, CriticNetworkLSTM
 from attention_routing.utils import torch_load_cpu, load_problem
+from attention_routing.train import clip_grad_norms
+
 
 def initialize_train_artifacts(opts):
     '''
@@ -187,7 +187,6 @@ if __name__ == "__main__":
         model.set_decode_type("sampling")
         
         # create model environment
-        #training_env = gym.make('figure8squadrllib-v1', **outer_configs)
         training_env = Figure8SquadRLLib(outer_configs)
         training_env.reset()
         acs_edges_dict = load_edge_dictionary(training_env.map.g_acs.adj)
@@ -199,13 +198,13 @@ if __name__ == "__main__":
         # generate training data
         for episode in range(num_training_episodes):
             agent_node = 0
-            obs = [0] * np.product(training_env.observation_space.shape)
+            obs = [[0] * np.product(training_env.observation_space.shape)]
             rew = 0
             for step in range(episode_length):
                 # TODO If we have a reward in a reinforcement learning scenario, train on that instead
                 attention_input = embed_obs_in_map(obs, training_env.map)
-                _, ll, log_ps = model(attention_input, acs_edges_dict, [agent_node], return_log_p=True)
-
+                cost, ll, log_ps = model(attention_input, acs_edges_dict, [agent_node], return_log_p=True)
+                
                 # move_action decoding. get max prob moves from map
                 features = log_ps # set features for value branch later
                 transformed_features = features.clone()
@@ -218,7 +217,6 @@ if __name__ == "__main__":
                 move_action = training_env.map.g_acs.adj[curr_loc][next_loc]['action']
                 look_action = 1 # TODO!!!!!!!! currently uses all-way look
                 action = Figure8SquadRLLib.convert_multidiscrete_action_to_discrete(move_action, look_action)
-                #logits = torch.tensor(np.eye(training_env.action_space.n)[action]).int().numpy()
 
                 # step through environment to update obs/rew
                 actions = {}
@@ -230,6 +228,7 @@ if __name__ == "__main__":
                 cost = 0
                 for a in training_env.learning_agent:
                     cost -= rew[str(a)]
+                cost = torch.tensor(cost, dtype=torch.float32)
                 bl_val, bl_loss = baseline.eval(attention_input, cost) #if bl_val is None else (bl_val, 0) # critic loss
                 reinforce_loss = ((cost - bl_val) * ll).mean()
                 loss = reinforce_loss + bl_loss
@@ -237,8 +236,13 @@ if __name__ == "__main__":
                 # Perform backward pass and optimization step
                 optimizer.zero_grad()
                 loss.backward()
+                grad_norms = clip_grad_norms(optimizer.param_groups, opts.max_grad_norm)
                 optimizer.step()
-                print(f'ep {episode} step {step}')
+                
+                # log step in tb for metrics
+                if step % int(opts.log_step) == 0:
+                    log_values(cost, grad_norms, episode, step, step,
+                            ll, reinforce_loss, bl_loss, tb_logger, opts)
     else:
         # create model
         ppo_trainer = ppo.PPOTrainer(config=create_trainer_config(outer_configs, trainer_type=ppo, custom_model=True), env=Figure8SquadRLLib)
