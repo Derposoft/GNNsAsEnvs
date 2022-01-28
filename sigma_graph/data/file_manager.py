@@ -1,5 +1,6 @@
 import os
 import re
+from typing import Tuple
 
 from .data_helper import get_node_name_from_pos_abs, get_node_pos_from_name_abs
 from .graph.skirmish_graph import MapInfo, RouteInfo
@@ -30,15 +31,21 @@ MAP_AGENT_DATA_LOOKUP = {
     "patrol_route": "wp_pat"
 }
 
+VISIBILITY_IS_360 = True
+
+
 # lookup table for data types: prefixes of parsed data files for saving and loading
 DATA_LOOKUP = {
     "connectivity": "graph_acs",
-    "visibility": "graph_vis",
+    "visibility": "graph_vis_360" if VISIBILITY_IS_360 else "graph_vis",
     "encoding": "info_dict_emb",
     "position": "info_dict_pos",
     "patrol_route": "info_list_pat"
 }
 
+def set_visibility(visibility):
+    VISIBILITY_IS_360 = visibility;
+    DATA_LOOKUP["visibility"] = "graph_vis_360" if VISIBILITY_IS_360 else "graph_vis"
 
 def load_graph_files(env_path="./", map_lookup="S", route_lookup=["0"], is_pickle_graph=True):
     assert check_dir(env_path), "[GymEnv][Error] Invalid path for loading env data: \'{}\'".format(env_path)
@@ -238,7 +245,7 @@ def find_file_in_dir(dir_name: str, file_name: str) -> str:
     return path
 
 
-def check_file_in_dir(dir_name: str, file_name: str) -> (str, bool):
+def check_file_in_dir(dir_name: str, file_name: str) -> Tuple[str, bool]:
     path = os.path.join(dir_name, file_name)
     return path, os.path.isfile(path)
 

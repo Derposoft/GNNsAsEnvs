@@ -18,6 +18,7 @@ class Figure8SquadRLLib(Figure8Squad, MultiAgentEnv):
     def __init__(self, config=None):
         config = config or {}
         super().__init__(**config)
+        
         # extra values to make graph embedding viable
         num_extra_graph_obs = 0 #5 if self.obs_token["obs_graph"] else 0
         # self.action_space = spaces.MultiDiscrete([len(local_action_move), len(local_action_turn)])

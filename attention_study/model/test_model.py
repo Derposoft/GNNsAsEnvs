@@ -1,3 +1,4 @@
+import gym
 from ray.rllib.agents import ppo
 import numpy as np
 import json
@@ -8,6 +9,7 @@ from sigma_graph.envs.figure8.figure8_squad_rllib import Figure8SquadRLLib
 from attention_study.model.attention_policy import PolicyModel
 from attention_study.generate_baseline_metrics import parse_arguments, create_env_config, create_trainer_config
 from attention_study.model.utils import embed_obs_in_map, load_edge_dictionary
+from sigma_graph.data.file_manager import set_visibility
 
 # 3rd party
 from attention_routing.nets.attention_model import AttentionModel
@@ -164,6 +166,7 @@ def initialize_train_artifacts(opts):
 
 TEST_SETTINGS = {
     'is_standalone': True, # are we training it in rllib, or standalone?
+    'is_360_view': True, # can the agent see in all directions at once?
 }
 
 if __name__ == "__main__":
@@ -172,6 +175,7 @@ if __name__ == "__main__":
     parser = parse_arguments()
     config = parser.parse_args()
     outer_configs, n_episodes = create_env_config(config)
+    set_visibility(TEST_SETTINGS['is_360_view'])
     
     # train model standalone
     if TEST_SETTINGS['is_standalone']:
@@ -183,7 +187,9 @@ if __name__ == "__main__":
         model.set_decode_type("sampling")
         
         # create model environment
+        #training_env = gym.make('figure8squadrllib-v1', **outer_configs)
         training_env = Figure8SquadRLLib(outer_configs)
+        training_env.reset()
         acs_edges_dict = load_edge_dictionary(training_env.map.g_acs.adj)
         
         # train using num_training_episodes episodes of episode_length length
@@ -210,20 +216,21 @@ if __name__ == "__main__":
                 curr_loc = agent_node + 1
                 next_loc = optimal_destination[0].item() + 1
                 move_action = training_env.map.g_acs.adj[curr_loc][next_loc]['action']
-                look_action = 1 # TODO!!!!!!!!
+                look_action = 1 # TODO!!!!!!!! currently uses all-way look
                 action = Figure8SquadRLLib.convert_multidiscrete_action_to_discrete(move_action, look_action)
-                print(len(training_env.action_space))
-                logits = torch.tensor(np.eye(int(np.product(training_env.action_space.shape)))[action])
-                print(logits)
+                #logits = torch.tensor(np.eye(training_env.action_space.n)[action]).int().numpy()
+
                 # step through environment to update obs/rew
                 actions = {}
                 for a in training_env.learning_agent:
-                    actions[str(a)] = logits
+                    actions[str(a)] = action
                 obs, rew, done, _ = training_env.step(actions)
 
                 # set reinforcement loss
-                cost = -rew
-                bl_val, bl_loss = baseline.eval(attention_input, cost) if bl_val is None else (bl_val, 0) # critic loss
+                cost = 0
+                for a in training_env.learning_agent:
+                    cost -= rew[str(a)]
+                bl_val, bl_loss = baseline.eval(attention_input, cost) #if bl_val is None else (bl_val, 0) # critic loss
                 reinforce_loss = ((cost - bl_val) * ll).mean()
                 loss = reinforce_loss + bl_loss
 
@@ -231,6 +238,7 @@ if __name__ == "__main__":
                 optimizer.zero_grad()
                 loss.backward()
                 optimizer.step()
+                print(f'ep {episode} step {step}')
     else:
         # create model
         ppo_trainer = ppo.PPOTrainer(config=create_trainer_config(outer_configs, trainer_type=ppo, custom_model=True), env=Figure8SquadRLLib)
@@ -238,4 +246,3 @@ if __name__ == "__main__":
         # test model
         ppo_trainer.train()
         print('model trained')
-
