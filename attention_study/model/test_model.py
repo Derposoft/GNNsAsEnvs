@@ -168,6 +168,7 @@ def initialize_train_artifacts(opts):
 TEST_SETTINGS = {
     'is_standalone': True, # are we training it in rllib, or standalone?
     'is_360_view': True, # can the agent see in all directions at once?
+    'is_obs_embedded': False, # are our observations embedded into the graph?
 }
 
 if __name__ == "__main__":
@@ -197,15 +198,24 @@ if __name__ == "__main__":
         episode_length = 40
         num_training_episodes = 10000
         # generate training data
+        obs = [[0] * np.product(training_env.observation_space.shape)]
+        if not TEST_SETTINGS['is_obs_embedded']:
+            attention_input = embed_obs_in_map(obs, training_env.map) # can be done here if not embedded
+        
         for episode in range(num_training_episodes):
             agent_node = 0
-            obs = [[0] * np.product(training_env.observation_space.shape)]
             rew = 0
-            cost = 0
+            batch_cost = 0
+            batch_ll = None
             for step in range(episode_length):
-                # TODO If we have a reward in a reinforcement learning scenario, train on that instead
-                attention_input = embed_obs_in_map(obs, training_env.map)
+                # if we have a reward in a reinforcement learning scenario, train on that instead
+                if TEST_SETTINGS['is_obs_embedded']:
+                    attention_input = embed_obs_in_map(obs, training_env.map) # embed obs every time we get a new obs
                 cost, ll, log_ps = model(attention_input, acs_edges_dict, [agent_node], return_log_p=True)
+                if not batch_ll:
+                    batch_ll = ll
+                else:
+                    batch_ll += ll
                 
                 # move_action decoding. get max prob moves from map
                 features = log_ps # set features for value branch later
@@ -228,13 +238,14 @@ if __name__ == "__main__":
 
                 # collect rewards
                 for a in training_env.learning_agent:
-                    cost -= rew[str(a)]
+                    batch_cost -= rew[str(a)]
             # set costs for model
-            cost = torch.tensor(cost, dtype=torch.float32)
-            bl_val, bl_loss = baseline.eval(attention_input, cost) #if bl_val is None else (bl_val, 0) # critic loss
-            reinforce_loss = ((cost - bl_val) * ll).mean()
+            batch_cost  /= episode_length
+            batch_ll /= episode_length
+            bl_val, bl_loss = baseline.eval(attention_input, batch_cost) #if bl_val is None else (bl_val, 0) # critic loss
+            reinforce_loss = ((cost - bl_val) * batch_ll).mean()
             loss = reinforce_loss + bl_loss
-
+            print(loss, 'LOSS')
             # Perform backward pass and optimization step
             optimizer.zero_grad()
             loss.backward()
@@ -253,3 +264,27 @@ if __name__ == "__main__":
         # test model
         ppo_trainer.train()
         print('model trained')
+
+
+
+'''
+# TEST CODE
+
+        print('WARNING: training without environment for tsp on env map!')
+        for i in range(num_training_episodes):
+            cost, ll = model(attention_input)
+            bl_val, bl_loss = baseline.eval(attention_input, cost) #if bl_val is None else (bl_val, 0) # critic loss
+            reinforce_loss = ((cost - bl_val) * ll).mean()
+            loss = reinforce_loss + bl_loss
+            print(loss, 'LOSS')
+            # Perform backward pass and optimization step
+            optimizer.zero_grad()
+            loss.backward()
+            grad_norms = clip_grad_norms(optimizer.param_groups, opts.max_grad_norm)
+            optimizer.step()
+            # log step in tb for metrics
+            if i % int(opts.log_step) == 0:
+                log_values(-cost, grad_norms, i, i, i,
+                        ll, reinforce_loss, bl_loss, tb_logger, opts)
+        
+'''
