@@ -6,6 +6,7 @@ import os
 import torch
 import torch.optim as optim
 from tensorboard_logger import Logger as TbLogger
+import sys
 
 # our code
 from sigma_graph.envs.figure8.figure8_squad_rllib import Figure8SquadRLLib
@@ -185,12 +186,11 @@ if __name__ == "__main__":
         opts = get_options()
         model, optimizer, baseline, lr_scheduler, tb_logger =\
             initialize_train_artifacts(opts)
-        model.train()
-        model.set_decode_type("sampling")
+        #model.train()
+        model.set_decode_type("greedy")
         
         # create model environment
         training_env = Figure8SquadRLLib(outer_configs)
-        training_env.reset()
         acs_edges_dict = load_edge_dictionary(training_env.map.g_acs.adj)
         
         # train using num_training_episodes episodes of episode_length length
@@ -203,15 +203,16 @@ if __name__ == "__main__":
             attention_input = embed_obs_in_map(obs, training_env.map) # can be done here if not embedded
         
         for episode in range(num_training_episodes):
-            agent_node = 0
+            training_env.reset();
+            agent_node = training_env.team_red[training_env.learning_agent[0]].agent_node # 1-indexed value
             rew = 0
-            batch_cost = 0
+            batch_reward = 0
             batch_ll = None
             for step in range(episode_length):
                 # if we have a reward in a reinforcement learning scenario, train on that instead
                 if TEST_SETTINGS['is_obs_embedded']:
                     attention_input = embed_obs_in_map(obs, training_env.map) # embed obs every time we get a new obs
-                cost, ll, log_ps = model(attention_input, acs_edges_dict, [agent_node], return_log_p=True)
+                cost, ll, log_ps = model(attention_input, acs_edges_dict, [agent_node-1], return_log_p=True)
                 if not batch_ll:
                     batch_ll = ll
                 else:
@@ -224,39 +225,43 @@ if __name__ == "__main__":
                 optimal_destination = torch.argmax(transformed_features, dim=1)
                 
                 # decode move/turn action
-                curr_loc = agent_node + 1
+                curr_loc = agent_node
                 next_loc = optimal_destination[0].item() + 1
                 move_action = training_env.map.g_acs.adj[curr_loc][next_loc]['action']
                 look_action = 1 # TODO!!!!!!!! currently uses all-way look
                 action = Figure8SquadRLLib.convert_multidiscrete_action_to_discrete(move_action, look_action)
 
-                # step through environment to update obs/rew
+                # step through environment to update obs/rew and agent node
                 actions = {}
                 for a in training_env.learning_agent:
                     actions[str(a)] = action
                 obs, rew, done, _ = training_env.step(actions)
+                agent_node = training_env.team_red[training_env.learning_agent[0]].agent_node
 
                 # collect rewards
                 for a in training_env.learning_agent:
-                    batch_cost -= rew[str(a)]
+                    batch_reward += rew[str(a)]
+            
             # set costs for model
-            batch_cost  /= episode_length
+            batch_reward  /= episode_length
+            model_cost = -batch_reward #100*(5 - batch_cost) #torch.tensor(100/batch_cost) #            
             batch_ll /= episode_length
-            bl_val, bl_loss = baseline.eval(attention_input, batch_cost) #if bl_val is None else (bl_val, 0) # critic loss
-            reinforce_loss = ((cost - bl_val) * batch_ll).mean()
+            bl_val, bl_loss = baseline.eval(attention_input, model_cost) #if bl_val is None else (bl_val, 0) # critic loss
+            reinforce_loss = ((model_cost - bl_val) * batch_ll).mean()
             loss = reinforce_loss + bl_loss
-            print(loss, 'LOSS')
+            
             # Perform backward pass and optimization step
             optimizer.zero_grad()
             loss.backward()
             grad_norms = clip_grad_norms(optimizer.param_groups, opts.max_grad_norm)
             optimizer.step()
             
-            print(cost)
+            print('reward', batch_reward)
             # log step in tb for metrics
-            if episode % int(opts.log_step) == 0:
-                log_values(-cost, grad_norms, episode, episode, episode,
-                        ll, reinforce_loss, bl_loss, tb_logger, opts)
+            #if episode % int(opts.log_step) == 0:
+            if episode % 10 == 0:
+                log_values(torch.tensor(batch_reward), grad_norms, episode, episode, episode,
+                        batch_ll, reinforce_loss, bl_loss, tb_logger, opts, mode="reward")
     else:
         # create model
         ppo_trainer = ppo.PPOTrainer(config=create_trainer_config(outer_configs, trainer_type=ppo, custom_model=True), env=Figure8SquadRLLib)
