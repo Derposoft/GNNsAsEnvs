@@ -170,10 +170,25 @@ TEST_SETTINGS = {
     'is_standalone': True, # are we training it in rllib, or standalone?
     'is_360_view': True, # can the agent see in all directions at once?
     'is_obs_embedded': False, # are our observations embedded into the graph?
+    'is_per_step': True, # do we optimize every step if True, or every episode if False?
 }
 
+def optimize(optimizer, baseline, reward, ll):
+    # set costs
+    model_cost = 1/(reward + 1e-3) # removes div by 0 error
+    bl_val, bl_loss = baseline.eval(attention_input, model_cost) #if bl_val is None else (bl_val, 0) # critic loss
+    reinforce_loss = ((model_cost - bl_val) * ll).mean()
+    loss = reinforce_loss + bl_loss
+    # perform optimization step
+    optimizer.zero_grad()
+    loss.backward()
+    grad_norms = clip_grad_norms(optimizer.param_groups, opts.max_grad_norm)
+    optimizer.step()
+    return grad_norms
+    
+
 if __name__ == "__main__":
-    # create training environment
+    # init config
     print('creating config')
     parser = parse_arguments()
     config = parser.parse_args()
@@ -182,41 +197,40 @@ if __name__ == "__main__":
     
     # train model standalone
     if TEST_SETTINGS['is_standalone']:
-        # create model and training artifacts
+        # init model and optimizer
         opts = get_options()
         model, optimizer, baseline, lr_scheduler, tb_logger =\
             initialize_train_artifacts(opts)
-        #model.train()
-        model.set_decode_type("greedy")
+        model.train()
+        model.set_decode_type("sampling")
         
-        # create model environment
+        # init training env
         training_env = Figure8SquadRLLib(outer_configs)
         acs_edges_dict = load_edge_dictionary(training_env.map.g_acs.adj)
-        
-        # train using num_training_episodes episodes of episode_length length
-        print('training')
-        episode_length = 40
-        num_training_episodes = 10000
-        # generate training data
         obs = [[0] * np.product(training_env.observation_space.shape)]
         if not TEST_SETTINGS['is_obs_embedded']:
             attention_input = embed_obs_in_map(obs, training_env.map) # can be done here if not embedded
         
+        # training loop
+        print('training')
+        episode_length = 20
+        num_training_episodes = 10000
+        total_reward = 0
+        total_ll = None
+        logged_reward = 0 # for logging
+        logged_ll = None
         for episode in range(num_training_episodes):
             training_env.reset();
             agent_node = training_env.team_red[training_env.learning_agent[0]].agent_node # 1-indexed value
-            rew = 0
-            batch_reward = 0
-            batch_ll = None
             for step in range(episode_length):
                 # if we have a reward in a reinforcement learning scenario, train on that instead
                 if TEST_SETTINGS['is_obs_embedded']:
                     attention_input = embed_obs_in_map(obs, training_env.map) # embed obs every time we get a new obs
                 cost, ll, log_ps = model(attention_input, acs_edges_dict, [agent_node-1], return_log_p=True)
-                if not batch_ll:
-                    batch_ll = ll
+                if not total_ll:
+                    total_ll = ll
                 else:
-                    batch_ll += ll
+                    total_ll += ll
                 
                 # move_action decoding. get max prob moves from map
                 features = log_ps # set features for value branch later
@@ -240,28 +254,36 @@ if __name__ == "__main__":
 
                 # collect rewards
                 for a in training_env.learning_agent:
-                    batch_reward += rew[str(a)]
+                    total_reward += rew[str(a)]
+                
+                # optimize once per step
+                if TEST_SETTINGS['is_per_step']:
+                    grad_norms = optimize(optimizer, baseline, total_reward, total_ll)
+                    # reset for next iteration
+                    logged_reward += total_reward
+                    logged_ll = total_ll if not logged_ll else logged_ll + total_ll
+                    total_reward = 0
+                    total_ll = None
             
-            # set costs for model
-            batch_reward  /= episode_length
-            model_cost = -batch_reward #100*(5 - batch_cost) #torch.tensor(100/batch_cost) #            
-            batch_ll /= episode_length
-            bl_val, bl_loss = baseline.eval(attention_input, model_cost) #if bl_val is None else (bl_val, 0) # critic loss
-            reinforce_loss = ((model_cost - bl_val) * batch_ll).mean()
-            loss = reinforce_loss + bl_loss
+            # optimize once per episode
+            if not TEST_SETTINGS['is_per_step']:
+                grad_norms = optimize(optimizer, baseline, total_reward / episode_length, total_ll / episode_length)
+                # reset for next iteration
+                logged_reward = total_reward
+                logged_ll = total_ll
+                total_reward = 0
+                total_ll = None
             
-            # Perform backward pass and optimization step
-            optimizer.zero_grad()
-            loss.backward()
-            grad_norms = clip_grad_norms(optimizer.param_groups, opts.max_grad_norm)
-            optimizer.step()
-            
-            print('reward', batch_reward)
+            # log results
+            print('reward', logged_reward)
             # log step in tb for metrics
             #if episode % int(opts.log_step) == 0:
             if episode % 10 == 0:
-                log_values(torch.tensor(batch_reward), grad_norms, episode, episode, episode,
-                        batch_ll, reinforce_loss, bl_loss, tb_logger, opts, mode="reward")
+                logged_reward = torch.tensor(logged_reward)
+                log_values(torch.tensor(logged_reward, dtype=torch.float32), grad_norms, episode, episode, episode,
+                        logged_ll, logged_reward, 0, tb_logger, opts, mode="reward")
+            logged_reward = 0
+            logged_ll = None
     else:
         # create model
         ppo_trainer = ppo.PPOTrainer(config=create_trainer_config(outer_configs, trainer_type=ppo, custom_model=True), env=Figure8SquadRLLib)

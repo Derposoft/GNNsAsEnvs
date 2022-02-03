@@ -59,6 +59,13 @@ def embed_obs_in_map(obs: torch.Tensor, map: MapInfo):
         node_embeddings.append(g_i)
     node_embeddings = torch.tensor(node_embeddings)#.cuda()
 
+    # normalize node embeddings
+    min_x, min_y = torch.min(node_embeddings[0][:,0]), torch.min(node_embeddings[0][:,1])
+    node_embeddings[0][:,0] -= min_x
+    node_embeddings[0][:,1] -= min_y
+    max = torch.max(node_embeddings)
+    node_embeddings /= max
+
     # TODO edges?
     edges = None
     return node_embeddings

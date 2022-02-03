@@ -297,8 +297,10 @@ class Figure8Squad(gym.Env):
                 if R_engage_B[_r, _b]:
                     self.team_red[_r].damage_add(_step_damage)
                     self.team_blue[_b].take_damage(_step_damage)
+                    #print('r shoots b')
                 if B_engage_R[_b, _r]:
                     self.team_red[_r].take_damage(_step_damage)
+                    #print('b shoots r')
             # update end time for blue agents
             if self.team_blue[_b].get_end_step() > 0:
                 continue
