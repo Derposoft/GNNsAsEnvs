@@ -173,19 +173,30 @@ TEST_SETTINGS = {
     'is_per_step': False, # do we optimize every step if True, or every episode if False?
     'is_mask_in_model': False, # do we use the mask in the model or after the model?
     'use_hardcoded_bl': True, # subtract off a hardcoded "baseline" value
+    'normalize_losses_rewards_by_ep_length': False, # divide losses/rewards/loglosses by ep length?
 }
 MAXIMUM_THEORETICAL_REWARD = 25
 def get_cost_from_reward(reward):
     return 1/(reward + 1e-3) # takes care of div by 0
 
-def optimize(optimizer, baseline, reward, ll):
+def optimize(optimizer, baseline, reward, ll, num_steps=1):
+    local_max_theoretical_reward = MAXIMUM_THEORETICAL_REWARD
+    if TEST_SETTINGS['normalize_losses_rewards_by_ep_length']:
+        reward /= num_steps
+        ll /= num_steps
+        local_max_theoretical_reward /= num_steps
     # set costs
     model_cost = get_cost_from_reward(reward)
     bl_val, bl_loss = baseline.eval(attention_input, model_cost) #if bl_val is None else (bl_val, 0) # critic loss
     if TEST_SETTINGS['use_hardcoded_bl']:
-        bl_val = get_cost_from_reward(MAXIMUM_THEORETICAL_REWARD)
+        bl_val = get_cost_from_reward(local_max_theoretical_reward)
+        bl_loss = 0
+    #reinforce_loss = -((model_cost - bl_val) * ll).mean()
     reinforce_loss = ((model_cost - bl_val) * ll).mean()
     loss = reinforce_loss + bl_loss
+    print(model_cost, bl_val, "reward_costs")
+    print(reinforce_loss, bl_loss, "train_losses", ll)
+    print(loss)
     # perform optimization step
     optimizer.zero_grad()
     loss.backward()
@@ -279,7 +290,7 @@ if __name__ == "__main__":
             
             # optimize once per episode
             if not TEST_SETTINGS['is_per_step']:
-                grad_norms, loss = optimize(optimizer, baseline, total_reward / episode_length, total_ll / episode_length)
+                grad_norms, loss = optimize(optimizer, baseline, total_reward, total_ll, episode_length)
                 # reset for next iteration
                 logged_reward = total_reward
                 logged_ll = total_ll
