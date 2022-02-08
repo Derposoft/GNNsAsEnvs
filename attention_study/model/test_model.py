@@ -303,27 +303,3 @@ if __name__ == "__main__":
         # test model
         ppo_trainer.train()
         print('model trained')
-
-
-
-'''
-# TEST CODE
-
-        print('WARNING: training without environment for tsp on env map!')
-        for i in range(num_training_episodes):
-            cost, ll = model(attention_input)
-            bl_val, bl_loss = baseline.eval(attention_input, cost) #if bl_val is None else (bl_val, 0) # critic loss
-            reinforce_loss = ((cost - bl_val) * ll).mean()
-            loss = reinforce_loss + bl_loss
-            print(loss, 'LOSS')
-            # Perform backward pass and optimization step
-            optimizer.zero_grad()
-            loss.backward()
-            grad_norms = clip_grad_norms(optimizer.param_groups, opts.max_grad_norm)
-            optimizer.step()
-            # log step in tb for metrics
-            if i % int(opts.log_step) == 0:
-                log_values(-cost, grad_norms, i, i, i,
-                        ll, reinforce_loss, bl_loss, tb_logger, opts)
-        
-'''

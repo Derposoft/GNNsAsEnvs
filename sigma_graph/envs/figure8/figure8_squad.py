@@ -85,7 +85,6 @@ class Figure8Squad(gym.Env):
         n_done = self._get_step_done()
         # log action-states and step rewards
         self._log_step_update(prev_obs, n_actions, n_reward)
-
         # update done counts and add episodic rewards
         if all(done is True for done in n_done):
             episode_rewards = self._episode_rewards()
@@ -140,6 +139,7 @@ class Figure8Squad(gym.Env):
         return action_penalty
 
     def _take_action_blue(self, n_actions=None):
+        return
         for agent_i in range(self.num_blue):
             if self.team_blue[agent_i].is_frozen():
                 continue
@@ -297,10 +297,8 @@ class Figure8Squad(gym.Env):
                 if R_engage_B[_r, _b]:
                     self.team_red[_r].damage_add(_step_damage)
                     self.team_blue[_b].take_damage(_step_damage)
-                    #print('r shoots b')
                 if B_engage_R[_b, _r]:
                     self.team_red[_r].take_damage(_step_damage)
-                    #print('b shoots r')
             # update end time for blue agents
             if self.team_blue[_b].get_end_step() > 0:
                 continue
