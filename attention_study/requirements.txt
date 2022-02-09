@@ -1,8 +1,6 @@
 # TODO update torch/pyG from torch==1.8 to torch==1.9 or 1.10; add +boost, +rdkit (?? if we end up using these?)
 # we're using torch 1.8 for cpu. change this to gpu by running the command given at https://pytorch.org/get-started/locally/ if gpu is desired.
-torch==1.10.1+cu102
-torchvision==0.11.2+cu102
-torchaudio==0.10.1+cu102
+torch >= 1.10.1
 # we use rllib! see: https://docs.ray.io/en/latest/installation.html
 ray[rllib]
 # tb for logging
