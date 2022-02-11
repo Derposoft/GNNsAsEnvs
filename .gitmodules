@@ -1,3 +1,6 @@
 [submodule "attention_study/libraries/attention-learn-to-route"]
 	path = attention_study/libraries/attention_routing
 	url = https://github.com/Derposoft/attention-learn-to-route
+[submodule "attention_study/attention_study/libraries/graph_transformer"]
+	path = attention_study/attention_study/libraries/graph_transformer
+	url = git@github.com:Derposoft/graphtransformer.git

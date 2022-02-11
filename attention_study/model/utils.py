@@ -1,4 +1,5 @@
 import torch.nn as nn
+import numpy as np
 import torch
 from copy import deepcopy
 import sigma_graph.envs.figure8.default_setup as env_setup
@@ -150,3 +151,12 @@ def load_edge_dictionary(map_edges):
         edge_dictionary[edge[0]].add(edge[1])
     
     return edge_dictionary
+
+def get_cost_from_reward(reward):
+    return 1/(reward + 1e-3) # takes care of div by 0
+
+def get_probs_mask(agent_nodes, graph_size, edges_dict):
+    node_exclude_list = np.array(list(range(graph_size)))
+    mask = [np.delete(node_exclude_list, list(edges_dict[agent_node])+[agent_node]) for agent_node in agent_nodes]
+    return mask
+

@@ -31,7 +31,7 @@ TEST_SETTINGS = {
     'is_360_view': True, # can the agent see in all directions at once?
     'is_obs_embedded': False, # are our observations embedded into the graph?
     'is_per_step': False, # do we optimize every step if True, or every episode if False?
-    'is_mask_in_model': False, # do we use the mask in the model or after the model?
+    'is_mask_in_model': True, # do we use the mask in the model or after the model?
     'use_hardcoded_bl': True, # subtract off a hardcoded "baseline" value
     'normalize_losses_rewards_by_ep_length': False, # divide losses/rewards/loglosses by ep length?
     'episode_length': 20, # length of each episode
@@ -191,7 +191,8 @@ def optimize(optimizer, baseline, reward, ll, num_steps=1):
         bl_val = get_cost_from_reward(local_max_theoretical_reward)
         bl_loss = 0
     #reinforce_loss = -((model_cost - bl_val) * ll).mean()
-    reinforce_loss = ((model_cost - bl_val) * ll).mean()
+    #reinforce_loss = ((model_cost - bl_val) * ll).mean()
+    reinforce_loss = ((bl_val - model_cost) * ll).mean()
     loss = reinforce_loss + bl_loss
     # perform optimization step
     optimizer.zero_grad()
@@ -226,14 +227,15 @@ if __name__ == "__main__":
         
         # training loop
         print('training')
-        episode_length = TEST_SETTINGS['episode_length']
+        episode_length = training_env.max_step # TEST_SETTINGS['episode_length']
         num_training_episodes = TEST_SETTINGS['num_episodes']
         total_reward = 0
         total_ll = None
         logged_reward = 0 # for logging
         logged_ll = None
         for episode in range(num_training_episodes):
-            training_env.reset();
+            route = []
+            training_env.reset()
             agent_node = training_env.team_red[training_env.learning_agent[0]].agent_node # 1-indexed value
             for step in range(episode_length):
                 # get model predictions
@@ -261,7 +263,8 @@ if __name__ == "__main__":
                 move_action = training_env.map.g_acs.adj[curr_loc][next_loc]['action']
                 look_action = 1 # TODO!!!!!!!! currently uses all-way look
                 action = Figure8SquadRLLib.convert_multidiscrete_action_to_discrete(move_action, look_action)
-
+                print(f'Going from {curr_loc} to {next_loc}')
+                route.append(curr_loc)
                 # step through environment to update obs/rew and agent node
                 actions = {}
                 for a in training_env.learning_agent:
@@ -289,7 +292,7 @@ if __name__ == "__main__":
                 # end episode if simulation is done
                 if done['__all__']:
                     break
-            
+            print(f'Complete route: {route}')
             # optimize once per episode
             if not TEST_SETTINGS['is_per_step']:
                 grad_norms, loss = optimize(optimizer, baseline, total_reward, total_ll, episode_length)
