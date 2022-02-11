@@ -14,8 +14,8 @@ from sigma_graph.envs.figure8.figure8_squad_rllib import Figure8SquadRLLib
 from attention_study.generate_baseline_metrics import parse_arguments, create_env_config, create_trainer_config
 from attention_study.model.utils import embed_obs_in_map, load_edge_dictionary, get_probs_mask
 from sigma_graph.data.file_manager import set_visibility
-from attention_study.model.altr_standalone_model import optimize as optimize_altr
-from attention_study.model.altr_standalone_model import initialize_train_artifacts as initialize_altr
+from attention_study.model.altr_model import optimize as optimize_altr
+from attention_study.model.altr_model import initialize_train_artifacts as initialize_altr
 from attention_study.model.graph_transformer_model import optimize as optimize_graph_transformer
 from attention_study.model.graph_transformer_model import initialize_train_artifacts as initialize_graph_transformer
 
