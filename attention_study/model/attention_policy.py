@@ -74,7 +74,7 @@ class PolicyModel(TMv2.TorchModelV2, nn.Module):
         self.edge_to_action = None # TODO INITIALIZA THIS
 
         # STEP 1: build policy net -- GAT + FF
-        with open('./args.json') as file:
+        with open('./model/args.json') as file:
             import json
             file = dict(json.load(file))
             self.attention = AttentionModel(
