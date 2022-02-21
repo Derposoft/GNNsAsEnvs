@@ -29,8 +29,6 @@ from attention_routing.train import clip_grad_norms
 
 from copy import deepcopy
 
-MAXIMUM_THEORETICAL_REWARD = 25
-
 local_opts = None
 def initialize_train_artifacts(opts):
     '''
@@ -164,7 +162,7 @@ def initialize_train_artifacts(opts):
     return model, optimizer, baseline, lr_scheduler
 
 def optimize(optimizer, baseline, reward, ll, TEST_SETTINGS, num_steps=1, attention_input=None):
-    local_max_theoretical_reward = MAXIMUM_THEORETICAL_REWARD
+    local_max_theoretical_reward = TEST_SETTINGS['MAXIMUM_THEORETICAL_REWARD']
     if TEST_SETTINGS['normalize_losses_rewards_by_ep_length']:
         reward /= num_steps
         ll /= num_steps
@@ -176,8 +174,8 @@ def optimize(optimizer, baseline, reward, ll, TEST_SETTINGS, num_steps=1, attent
         bl_val = get_cost_from_reward(local_max_theoretical_reward)
         bl_loss = 0
     #reinforce_loss = -((model_cost - bl_val) * ll).mean()
-    #reinforce_loss = ((model_cost - bl_val) * ll).mean()
-    reinforce_loss = ((bl_val - model_cost) * ll).mean()
+    reinforce_loss = ((model_cost - bl_val) * ll).mean()
+
     loss = reinforce_loss + bl_loss
     # perform optimization step
     optimizer.zero_grad()

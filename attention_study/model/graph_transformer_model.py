@@ -86,6 +86,7 @@ def optimize(optimizer, baseline, reward, ll, TEST_SETTINGS, num_steps=1, attent
     #bl_loss = 0
     #reinforce_loss = ((bl_val - model_cost) * ll).mean()
     #loss = reinforce_loss + bl_loss
+    net_loss = nn.L1Loss()()
     optimizer.zero_grad()
     loss = model_cost
     loss.backward()
