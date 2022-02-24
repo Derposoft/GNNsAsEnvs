@@ -81,7 +81,10 @@ def create_env_config(config):
     return outer_configs, n_episodes
 
 # create trainer configuration
-def create_trainer_config(outer_configs, trainer_type=None, custom_model=False):
+def create_trainer_config(outer_configs, trainer_type=None, custom_model=''):
+    # check params
+    if custom_model != 'altr_policy' and custom_model != 'graph_transformer_policy' and custom_model != '':
+        raise ValueError('custom_model parameter must be altr_policy or graph_transformer_policy or empty!')
     trainer_types = [dqn, pg, a3c, ppo]
     assert trainer_type != None, f'trainer_type must be one of {trainer_types}'
 
@@ -95,7 +98,7 @@ def create_trainer_config(outer_configs, trainer_type=None, custom_model=False):
     def policy_mapping_fn(agent_id, episode, worker, **kwargs):
         return str(agent_id)
     CUSTOM_DEFAULTS = {
-        "custom_model": "policy_model",
+        "custom_model": custom_model,
         # Extra kwargs to be passed to your model's c'tor.
         "custom_model_config": {
             "map": setup_env.map
@@ -108,7 +111,7 @@ def create_trainer_config(outer_configs, trainer_type=None, custom_model=False):
         },
         # Use GPUs iff `RLLIB_NUM_GPUS` env var set to > 0.
         "num_gpus": int(os.environ.get("RLLIB_NUM_GPUS", "0")),
-        "model": CUSTOM_DEFAULTS if custom_model else MODEL_DEFAULTS,
+        "model": CUSTOM_DEFAULTS if custom_model != '' else MODEL_DEFAULTS,
         "num_workers": 1,  # parallelism
         "framework": "torch",
         "evaluation_interval": 1,
@@ -129,7 +132,7 @@ def create_trainer_config(outer_configs, trainer_type=None, custom_model=False):
     return trainer_config
 
 # run baseline tests with a few different algorithms
-def run_baselines(config, run_default_baseline_metrics=False, train_time=60*5, checkpoint_models=True):
+def run_baselines(config, run_default_baseline_metrics=False, train_time=60*5, checkpoint_models=True, custom_model='graph_transformer_policy'):
     '''
     runs a set of baseline algorithms on the red v blue gym environment using rllib. the
     chosen algorithms are from the following list of algorithms:
@@ -163,10 +166,10 @@ def run_baselines(config, run_default_baseline_metrics=False, train_time=60*5, c
         #train(pg_trainer_default)
         #train(dqn_trainer_default)
     else:
-        ppo_trainer_custom = ppo.PPOTrainer(config=create_trainer_config(outer_configs, trainer_type=ppo, custom_model=True), env=Figure8SquadRLLib)
-        a2c_trainer_custom = a3c.A2CTrainer(config=create_trainer_config(outer_configs, trainer_type=a3c, custom_model=True), env=Figure8SquadRLLib)
-        #pg_trainer_custom = pg.PGTrainer(config=create_trainer_config(outer_configs, trainer_type=pg, custom_model=True), env=Figure8SquadRLLib)
-        #dqn_trainer_custom = dqn.DQNTrainer(config=create_trainer_config(outer_configs, trainer_type=dqn, custom_model=True), env=Figure8SquadRLLib)
+        ppo_trainer_custom = ppo.PPOTrainer(config=create_trainer_config(outer_configs, trainer_type=ppo, custom_model=custom_model), env=Figure8SquadRLLib)
+        a2c_trainer_custom = a3c.A2CTrainer(config=create_trainer_config(outer_configs, trainer_type=a3c, custom_model=custom_model), env=Figure8SquadRLLib)
+        #pg_trainer_custom = pg.PGTrainer(config=create_trainer_config(outer_configs, trainer_type=pg, custom_model=custom_model), env=Figure8SquadRLLib)
+        #dqn_trainer_custom = dqn.DQNTrainer(config=create_trainer_config(outer_configs, trainer_type=dqn, custom_model=custom_model), env=Figure8SquadRLLib)
         train(ppo_trainer_custom, 'ppo_custom')
         train(a2c_trainer_custom, 'a2c_custom')
         #train(pg_trainer_custom)

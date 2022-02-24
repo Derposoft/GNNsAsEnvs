@@ -7,6 +7,7 @@ import json
 import os
 import torch
 from tensorboard_logger import Logger as TbLogger
+import dgl
 
 # our code
 from sigma_graph.envs.figure8.figure8_squad_rllib import Figure8SquadRLLib
@@ -24,13 +25,13 @@ from attention_routing.utils.log_utils import log_values
 from attention_routing.options import get_options
 
 TEST_SETTINGS = {
-    'model_selection': 'altr', # which model are we using? options: 'altr', 'graph_transformer'
+    'model_selection': 'graph_transformer', # which model are we using? options: 'altr', 'graph_transformer'
     'is_standalone': True, # are we training in rllib, or standalone?
     'is_360_view': True, # can the agent see in all directions at once?
     'is_obs_embedded': False, # are our observations embedded into the graph?
     'is_mask_in_model': False, # do we use the mask in the model or after the model?
     'use_hardcoded_bl': True, # subtract off a hardcoded "baseline" value
-    'normalize_losses_rewards_by_ep_length': False, # divide losses/rewards/loglosses by ep length?
+    'normalize_losses_rewards_by_ep_length': True, # divide losses/rewards/loglosses by ep length?
     'episode_length': 20, # length of each episode
     'num_episodes': 10000, # number of episodes to train for
     'MAXIMUM_THEORETICAL_REWARD': 0, # !!!! calculated ourselves, what the max reward is that is possible
@@ -46,10 +47,10 @@ if __name__ == "__main__":
     set_visibility(TEST_SETTINGS['is_360_view'])
     tb_logger = TbLogger(os.path.join('logs', "{}_{}_{}".format('redvblue', 27, time.time()), TEST_SETTINGS['model_selection']))
     
-    # train in rllib [NOT CURRENTLY IN USE]
+    # train in rllib
     if not TEST_SETTINGS['is_standalone']:
         # create model
-        ppo_trainer = ppo.PPOTrainer(config=create_trainer_config(outer_configs, trainer_type=ppo, custom_model=True), env=Figure8SquadRLLib)
+        ppo_trainer = ppo.PPOTrainer(config=create_trainer_config(outer_configs, trainer_type=ppo, custom_model=TEST_SETTINGS['model_selection']+'_policy'), env=Figure8SquadRLLib)
         print('trainer created')
         # test model
         ppo_trainer.train()
@@ -65,13 +66,14 @@ if __name__ == "__main__":
         model.train()
         set_decode_type(model, "sampling")
     elif TEST_SETTINGS['model_selection'] == 'graph_transformer':
-        model, optimizer, _, lr_scheduler = initialize_graph_transformer()
+        model, optimizer, lr_scheduler = initialize_graph_transformer()
         model.train()
     else:
         raise ValueError('TEST_SETTINGS model_selection parameter is invalid!')
     
     # init training env
     training_env = Figure8SquadRLLib(outer_configs)
+    print(type(training_env.map.g_acs), 'MAP TYPE')
     acs_edges_dict = load_edge_dictionary(training_env.map.g_acs.adj)
     obs = [[0] * np.product(training_env.observation_space.shape)]
     if not TEST_SETTINGS['is_obs_embedded']:
@@ -124,7 +126,11 @@ if __name__ == "__main__":
                 path.append(next_loc)
             # graph transformer model code
             elif TEST_SETTINGS['model_selection'] == 'graph_transformer':
-                pass
+                batch_graphs = dgl.from_networkx(training_env.map.g_acs)
+                batch_x, batch_e = batch_graphs.ndata['feat'], batch_graphs.edata['feat']
+                batch_lap_enc, batch_wl_pos_enc = None, None
+                ps = model.forward(batch_graphs, batch_x, batch_e, batch_lap_enc, batch_wl_pos_enc)
+                print(ps)
 
             # step through environment to update obs/rew and agent node
             actions = {}
@@ -144,25 +150,29 @@ if __name__ == "__main__":
             # end episode if simulation is done
             if done['__all__']:
                 break
-        
-        # optimize once per episode
         if TEST_SETTINGS['MAXIMUM_THEORETICAL_REWARD'] < total_reward:
             TEST_SETTINGS['MAXIMUM_THEORETICAL_REWARD'] = total_reward
-        grad_norms, loss = optimize_altr(optimizer, baseline, total_reward, total_ll, TEST_SETTINGS, episode_length)
-        # reset for next iteration
+        
+        # optimize once per episode
+        if TEST_SETTINGS['model_selection'] == 'altr':
+            grad_norms, loss = optimize_altr(optimizer, baseline, total_reward, total_ll, TEST_SETTINGS, episode_length)
+        if TEST_SETTINGS['model_selection'] == 'graph_transformer':
+            grad_norms, loss = optimize_graph_transformer(optimizer, baseline, total_reward, total_ll, TEST_SETTINGS, episode_length)
+
+
+        # reset for next episode
         logged_reward = total_reward
         logged_ll = total_ll
         total_reward = 0
         total_ll = None
         
         # log results
-        # log step in tb for metrics
-        #if episode % int(opts.log_step) == 0:
         if episode % 10 == 0:
             logged_reward = torch.tensor(logged_reward, dtype=torch.float32)
             log_values(logged_reward, grad_norms, episode, episode, episode,
                     logged_ll, loss, 0, tb_logger, opts, mode="reward")
             print(f'complete path: {path}')
+            print(f'loss: {loss.item()}')
         logged_reward = 0
         logged_ll = None
         

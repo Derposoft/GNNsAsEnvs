@@ -44,7 +44,7 @@ def initialize_train_artifacts(opts):
     
     os.makedirs(opts.save_dir)
     # Save arguments so exact configuration can always be found
-    with open(os.path.join(opts.save_dir, "args.json"), 'w') as f:
+    with open(os.path.join(opts.save_dir, "altr_config.json"), 'w') as f:
         json.dump(vars(opts), f, indent=True)
 
     # Set the device
@@ -134,6 +134,14 @@ def initialize_train_artifacts(opts):
             else []
         )
     )
+    optimizer = optim.SGD(
+        [{'params': model.parameters(), 'lr': opts.lr_model}]
+        + (
+            [{'params': baseline.get_learnable_parameters(), 'lr': opts.lr_critic}]
+            if len(baseline.get_learnable_parameters()) > 0
+            else []
+        )
+    )
 
     # Load optimizer state
     if 'optimizer' in load_data:
@@ -175,6 +183,8 @@ def optimize(optimizer, baseline, reward, ll, TEST_SETTINGS, num_steps=1, attent
         bl_loss = 0
     #reinforce_loss = -((model_cost - bl_val) * ll).mean()
     reinforce_loss = ((model_cost - bl_val) * ll).mean()
+    print(ll)
+    print(f'model_cost: {model_cost}, bl_cost: {bl_val}, loss: {reinforce_loss}')
 
     loss = reinforce_loss + bl_loss
     # perform optimization step

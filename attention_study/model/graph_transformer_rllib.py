@@ -46,7 +46,7 @@ import sys
 
 print('imports done')
 
-class PolicyModel(TMv2.TorchModelV2, nn.Module):
+class GraphTransformerPolicy(TMv2.TorchModelV2, nn.Module):
     def __init__(self, obs_space: gym.spaces.Space,
                  action_space: gym.spaces.Space, num_outputs: int,
                  model_config: ModelConfigDict, name: str, map: MapInfo):#**kwargs):
@@ -65,36 +65,7 @@ class PolicyModel(TMv2.TorchModelV2, nn.Module):
         self.vf_share_layers = model_config.get("vf_share_layers") # this is usually 0
         self.free_log_std = model_config.get("free_log_std") # skip worrying about log std
         
-        # my settings
-        gnns = 10
-        self.has_final_layer = NETWORK_SETTINGS['has_final_layer']
-        self.map = map # map+edges parsing
-        self.acs_edges_dict = load_edge_dictionary(self.map.g_acs.adj)
-        self.vis_edges_dict = load_edge_dictionary(self.map.g_vis.adj)
-        self.edge_to_action = None # TODO INITIALIZA THIS
-
-        # STEP 1: build policy net -- GAT + FF
-        with open('./model/args.json') as file:
-            import json
-            file = dict(json.load(file))
-            self.attention = AttentionModel(
-                embedding_dim=file['embedding_dim'],
-                hidden_dim=file['hidden_dim'],
-                problem=TSP
-            )
-            self.attention.set_decode_type('greedy')
-        print('attention model initiated')
-        # create logits if we are using logits
-        #prev_layer_size = int(np.product(obs_space.shape))
-        #prev_layer_size = int(map.get_graph_size())
-        self._logits = None
-        if self.has_final_layer:
-            self._logits = SlimFC(
-                in_size=map.get_graph_size(),
-                out_size=num_outputs,
-                initializer=normc_initializer(0.01),
-                activation_fn=None)                
-
+        
         # STEP 2: build value net
         self._value_branch_separate = None
         # create value network with equal number of hidden layers as policy net
