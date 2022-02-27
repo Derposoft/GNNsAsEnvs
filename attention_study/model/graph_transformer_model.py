@@ -4,19 +4,32 @@ import torch.nn as nn
 import torch
 import numpy as np
 import random
+import json
 
 # graph transformer imports
-from graph_transformer.main_molecules_graph_regression import main
+from graph_transformer.main_molecules_graph_regression import gpu_setup, main
 from graph_transformer.nets.molecules_graph_regression.load_net import gnn_model 
 
 # our code
 from attention_study.model.utils import get_cost_from_reward
+from sigma_graph.envs.figure8.figure8_squad_rllib import Figure8SquadRLLib
 
 MAXIMUM_THEORETICAL_REWARD = 25
 
-def initialize_train_artifacts():
-    params, net_params = main(return_config=True, config_file='model/graph_transformer_config.json')
+def initialize_train_artifacts(node_embedding_size):
+    config_file = 'model/graph_transformer_config.json'
+    with open(config_file) as f:
+        config = json.load(f)
+    net_params = config['net_params']
+    device = gpu_setup(False, '')
+    net_params['device'] = device
+    net_params['gpu_id'] = config['gpu']['id']
+    params = config['params']
+    net_params['batch_size'] = params['batch_size']
+    #params, net_params = main(return_config=True, config_file='model/graph_transformer_config.json')
     device = net_params['device']
+    net_params['node_embedding_size'] = node_embedding_size
+    net_params['num_actions'] = 15 # TODO HARDCODED FOR NOW
 
     # setting seeds
     random.seed(params['seed'])

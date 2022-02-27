@@ -101,7 +101,9 @@ def create_trainer_config(outer_configs, trainer_type=None, custom_model=''):
         "custom_model": custom_model,
         # Extra kwargs to be passed to your model's c'tor.
         "custom_model_config": {
-            "map": setup_env.map
+            "map": setup_env.map,
+            "nred": outer_configs['n_red'],
+            "nblue": outer_configs['n_blue'],
         },
     }
     init_trainer_config = {
@@ -131,6 +133,15 @@ def create_trainer_config(outer_configs, trainer_type=None, custom_model=''):
     trainer_config = { **init_trainer_config, **trainer_type_config }
     return trainer_config
 
+def train(trainer, model_name, train_time=60*5, checkpoint_models=True):
+    start = time.time()
+    while(True):
+        result = trainer.train()
+        print(pretty_print(result))
+        if (time.time() - start) > train_time: break
+    if checkpoint_models:
+        trainer.save(checkpoint_dir='model_checkpoints/'+model_name)
+
 # run baseline tests with a few different algorithms
 def run_baselines(config, run_default_baseline_metrics=False, train_time=60*5, checkpoint_models=True, custom_model='graph_transformer_policy'):
     '''
@@ -146,14 +157,6 @@ def run_baselines(config, run_default_baseline_metrics=False, train_time=60*5, c
     '''
     # STEP 1: env config construction, helper functions
     outer_configs, n_episodes = create_env_config(config)
-    def train(trainer, model_name):
-        start = time.time()
-        while(True):
-            result = trainer.train()
-            print(pretty_print(result))
-            if (time.time() - start) > train_time: break
-        if checkpoint_models:
-            trainer.save(checkpoint_dir='model_checkpoints/'+model_name)
     
     # STEP 2: create and train trainers
     if run_default_baseline_metrics:
@@ -161,8 +164,8 @@ def run_baselines(config, run_default_baseline_metrics=False, train_time=60*5, c
         a2c_trainer_default = a3c.A2CTrainer(config=create_trainer_config(outer_configs, trainer_type=a3c), env=Figure8SquadRLLib)
         #pg_trainer_default = pg.PGTrainer(config=create_trainer_config(outer_configs, trainer_type=pg), env=Figure8SquadRLLib)
         #dqn_trainer_default = dqn.DQNTrainer(config=create_trainer_config(outer_configs, trainer_type=dqn), env=Figure8SquadRLLib)
-        train(ppo_trainer_default, 'ppo_default')
-        train(a2c_trainer_default, 'a2c_default')
+        train(ppo_trainer_default, 'ppo_default', train_time, checkpoint_models)
+        train(a2c_trainer_default, 'a2c_default', train_time, checkpoint_models)
         #train(pg_trainer_default)
         #train(dqn_trainer_default)
     else:
@@ -170,8 +173,8 @@ def run_baselines(config, run_default_baseline_metrics=False, train_time=60*5, c
         a2c_trainer_custom = a3c.A2CTrainer(config=create_trainer_config(outer_configs, trainer_type=a3c, custom_model=custom_model), env=Figure8SquadRLLib)
         #pg_trainer_custom = pg.PGTrainer(config=create_trainer_config(outer_configs, trainer_type=pg, custom_model=custom_model), env=Figure8SquadRLLib)
         #dqn_trainer_custom = dqn.DQNTrainer(config=create_trainer_config(outer_configs, trainer_type=dqn, custom_model=custom_model), env=Figure8SquadRLLib)
-        train(ppo_trainer_custom, 'ppo_custom')
-        train(a2c_trainer_custom, 'a2c_custom')
+        train(ppo_trainer_custom, 'ppo_custom', train_time, checkpoint_models)
+        train(a2c_trainer_custom, 'a2c_custom', train_time, checkpoint_models)
         #train(pg_trainer_custom)
         #train(dqn_trainer_custom)
 

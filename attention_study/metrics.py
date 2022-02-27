@@ -8,10 +8,11 @@ import os
 import torch
 from tensorboard_logger import Logger as TbLogger
 import dgl
+from ray.tune.logger import pretty_print
 
 # our code
 from sigma_graph.envs.figure8.figure8_squad_rllib import Figure8SquadRLLib
-from attention_study.generate_baseline_metrics import parse_arguments, create_env_config, create_trainer_config
+from attention_study.generate_baseline_metrics import parse_arguments, create_env_config, create_trainer_config, train
 from attention_study.model.utils import embed_obs_in_map, load_edge_dictionary, get_probs_mask
 from sigma_graph.data.file_manager import set_visibility
 from attention_study.model.altr_model import optimize as optimize_altr
@@ -26,7 +27,7 @@ from attention_routing.options import get_options
 
 TEST_SETTINGS = {
     'model_selection': 'graph_transformer', # which model are we using? options: 'altr', 'graph_transformer'
-    'is_standalone': True, # are we training in rllib, or standalone?
+    'in_rllib': True, # are we training in rllib, or standalone?
     'is_360_view': True, # can the agent see in all directions at once?
     'is_obs_embedded': False, # are our observations embedded into the graph?
     'is_mask_in_model': False, # do we use the mask in the model or after the model?
@@ -48,12 +49,14 @@ if __name__ == "__main__":
     tb_logger = TbLogger(os.path.join('logs', "{}_{}_{}".format('redvblue', 27, time.time()), TEST_SETTINGS['model_selection']))
     
     # train in rllib
-    if not TEST_SETTINGS['is_standalone']:
+    if TEST_SETTINGS['in_rllib']:
         # create model
-        ppo_trainer = ppo.PPOTrainer(config=create_trainer_config(outer_configs, trainer_type=ppo, custom_model=TEST_SETTINGS['model_selection']+'_policy'), env=Figure8SquadRLLib)
+        trainer_config = create_trainer_config(outer_configs, trainer_type=ppo, custom_model=TEST_SETTINGS['model_selection']+'_policy')
+        ppo_trainer = ppo.PPOTrainer(config=trainer_config, env=Figure8SquadRLLib)
         print('trainer created')
-        # test model
-        ppo_trainer.train()
+
+        # train model
+        train(ppo_trainer, 'custom_ppo_model', 60*2, True)
         print('model trained')
         sys.exit()
     
@@ -73,7 +76,6 @@ if __name__ == "__main__":
     
     # init training env
     training_env = Figure8SquadRLLib(outer_configs)
-    print(type(training_env.map.g_acs), 'MAP TYPE')
     acs_edges_dict = load_edge_dictionary(training_env.map.g_acs.adj)
     obs = [[0] * np.product(training_env.observation_space.shape)]
     if not TEST_SETTINGS['is_obs_embedded']:

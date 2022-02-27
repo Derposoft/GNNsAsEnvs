@@ -20,7 +20,7 @@ class Figure8SquadRLLib(Figure8Squad, MultiAgentEnv):
         super().__init__(**config)
         
         # extra values to make graph embedding viable
-        num_extra_graph_obs = 0 #5 if self.obs_token["obs_graph"] else 0
+        num_extra_graph_obs = 0# 5 if self.obs_token["obs_graph"] else 0
         # self.action_space = spaces.MultiDiscrete([len(local_action_move), len(local_action_turn)])
         # "flatten" the above action space into the below discrete action space
         self.action_space = spaces.Discrete(len(local_action_move)*len(local_action_turn))
@@ -52,18 +52,19 @@ class Figure8SquadRLLib(Figure8Squad, MultiAgentEnv):
         all_done = True
         for a_id in self.learning_agent:
             # obs for graph nns
-            if self.obs_token["obs_graph"]:
+            '''if self.obs_token["obs_graph"]:
                 # info to allow for easy obs dissection for graph embedding
                 self_shape, red_shape, blue_shape = env_setup.get_state_shapes(self.map.get_graph_size(), self.num_red, self.num_blue, env_setup.OBS_TOKEN)
                 # get info about self
                 n_red = self.num_red
                 n_blue = self.num_blue
                 # return obs that is easy for node embedding
-                _obs_a = _obs[a_id] #[self_shape, red_shape, blue_shape, n_red, n_blue] + _obs[a_id]
+                #_obs_a = _obs[a_id] #[self_shape, red_shape, blue_shape, n_red, n_blue] + _obs[a_id]
+                _obs_a = np.hstack([[self_shape, red_shape, blue_shape, n_red, n_blue], _obs[a_id]])
                 obs[str(a_id)] = _obs_a
             # obs for normal ff nns
-            else:
-                obs[str(a_id)] = _obs[a_id]
+            else:'''
+            obs[str(a_id)] = _obs[a_id]
             rew[str(a_id)] = _rew[a_id]
             done[str(a_id)] = _done[a_id]
             # for some reason in rllib MARL __all__ must be included in 'done' dict

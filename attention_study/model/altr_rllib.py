@@ -74,7 +74,7 @@ class AltrPolicy(TMv2.TorchModelV2, nn.Module):
         self.edge_to_action = None # TODO INITIALIZA THIS
 
         # STEP 1: build policy net -- GAT + FF
-        with open('./model/rllib_config.json') as file:
+        with open('./model/altr_config.json') as file:
             import json
             file = dict(json.load(file))
             self.attention = AttentionModel(

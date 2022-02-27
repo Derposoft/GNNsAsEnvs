@@ -13,11 +13,12 @@ NETWORK_SETTINGS = {
 }
 SUPPRESS_WARNINGS = {
     'embed': False,
+    'embed_noshapes': False,
     'decode': False,
 }
 GRAPH_OBS_TOKEN = {
-    'obs_embed': False,
-    'embedding_size': 4,
+    'obs_embed': True,
+    'embedding_size': 3#4,
 }
 NODE_EMBEDDING_SIZE = 4
 EMBED_IDX = {
@@ -30,7 +31,7 @@ def ERROR_MSG(e): return f'ERROR READING OBS: {e}'
 
 # TODO read obs using obs_token instead of hardcoding.
 #      figure8_squad.py:_update():line ~250
-def embed_obs_in_map(obs: torch.Tensor, map: MapInfo):
+def embed_obs_in_map(obs: torch.Tensor, map: MapInfo, obs_shapes=None):
     """
     obs: a batch of inputs
     map: a MapInfo object
@@ -48,7 +49,7 @@ def embed_obs_in_map(obs: torch.Tensor, map: MapInfo):
     for i in range(pos_obs_size):
         g_ij = list(map.n_info[i + 1])
         if GRAPH_OBS_TOKEN['obs_embed']:
-            g_ij += [0] * GRAPH_OBS_TOKEN['embedding_size']
+            g_ij += [0] * (GRAPH_OBS_TOKEN['embedding_size']-2) # TODO hack here
         g.append(g_ij)
     # embed nodes using obs
     node_embeddings = []
@@ -56,8 +57,9 @@ def embed_obs_in_map(obs: torch.Tensor, map: MapInfo):
         g_i = deepcopy(g)
         if GRAPH_OBS_TOKEN['obs_embed']:
             obs_i = obs[i]
-            embed(obs_i, g_i)
+            embed(obs_i, g_i, obs_shapes)
         node_embeddings.append(g_i)
+        #print(g_ij, 'CURRENT NODE EMBEDDING')
     node_embeddings = torch.tensor(node_embeddings)#.cuda()
 
     # normalize node embeddings
@@ -71,7 +73,7 @@ def embed_obs_in_map(obs: torch.Tensor, map: MapInfo):
     edges = None
     return node_embeddings
 
-def embed(obs, g):
+def embed(obs, g, obs_shapes):
     """
     obs: a single input
     g: nodes of a graph with empty embeddings
@@ -87,15 +89,20 @@ def embed(obs, g):
     # get obs parts
     pos_obs_size = len(g)
     look_dir_shape = len(env_setup.ACT_LOOK_DIR)
-    self_shape, red_shape, blue_shape, n_red, n_blue = obs[:5].int().tolist()
+    if not obs_shapes:
+        print('shapes not provided. returning')
+        if not SUPPRESS_WARNINGS['embed']:
+            print(ERROR_MSG('shapes not provided. skipping embed and suppressing this warning.'))
+            SUPPRESS_WARNINGS['embed_noshapes'] = True
+
+    self_shape, red_shape, blue_shape, n_red, n_blue = obs_shapes
     if self_shape < pos_obs_size or red_shape < pos_obs_size or blue_shape < pos_obs_size:
-        if SUPPRESS_WARNINGS['embed']:
+        if not SUPPRESS_WARNINGS['embed']:
             print(ERROR_MSG('test batch detected while embedding. skipping embed and suppressing this warning.'))
             SUPPRESS_WARNINGS['embed'] = True
         return
     #assert(red_shape % n_red == 0)
     #assert(blue_shape % n_blue == 0)
-    obs = obs[5:]
     self_obs = obs[:self_shape]
     blue_obs = obs[self_shape:(self_shape+blue_shape)]
     red_obs = obs[(self_shape+blue_shape):(self_shape+blue_shape+red_shape)]
@@ -106,6 +113,8 @@ def embed(obs, g):
     if _node == -1:
         print(ERROR_MSG('agent not found ('))
     g[_node][EMBED_IDX['is_agent_pos']] = 1
+
+    '''
     # embed direction TODO embed direction in one hot instead of int
     _dir = self_obs[pos_obs_size:(pos_obs_size+look_dir_shape)]
     g[_node][EMBED_IDX['agent_dir']] = int(''.join(_dir), base=2)
@@ -121,6 +130,7 @@ def embed(obs, g):
     for i in range(pos_obs_size):
         if red_obs[i]:
             g[i][EMBED_IDX['is_red_here']] = 1
+    '''
 
 # get location of an agent given one-hot positional encoding on graph (0-indexed)
 def get_loc(one_hot_graph, graph_size, default=0):
