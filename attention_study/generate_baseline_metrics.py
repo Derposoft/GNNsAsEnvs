@@ -143,7 +143,7 @@ def train(trainer, model_name, train_time=60*5, checkpoint_models=True):
         trainer.save(checkpoint_dir='model_checkpoints/'+model_name)
 
 # run baseline tests with a few different algorithms
-def run_baselines(config, run_default_baseline_metrics=False, train_time=60*5, checkpoint_models=True, custom_model='graph_transformer_policy'):
+def run_baselines(config, run_default_baseline_metrics=False, train_time=60*15, checkpoint_models=True, custom_model='graph_transformer_policy'):
     '''
     runs a set of baseline algorithms on the red v blue gym environment using rllib. the
     chosen algorithms are from the following list of algorithms:
@@ -222,6 +222,9 @@ def parse_arguments():
     parser.add_argument('--penalty_stay', type=int, default=0, help='penalty for take stay action [0: "NOOP"]')
     parser.add_argument('--threshold_blue', default=2)
     parser.add_argument('--threshold_red', default=5)
+    # my own additions
+    parser.add_argument('--model', default='graph_transformer', choices=['graph_transformer', 'altr'])
+    parser.add_argument('--train_time', default=60*30)
     return parser
 
 if __name__ == "__main__":
@@ -229,4 +232,4 @@ if __name__ == "__main__":
     parser = parse_arguments()
     # run baselines
     config = parser.parse_args()
-    run_baselines(config)
+    run_baselines(config, custom_model=config.model+'_policy', train_time=config.train_time)

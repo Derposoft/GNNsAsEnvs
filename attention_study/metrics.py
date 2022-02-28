@@ -56,7 +56,7 @@ if __name__ == "__main__":
         print('trainer created')
 
         # train model
-        train(ppo_trainer, 'custom_ppo_model', 60*2, True)
+        train(ppo_trainer, 'custom_ppo_model', train_time=60*15)
         print('model trained')
         sys.exit()
     

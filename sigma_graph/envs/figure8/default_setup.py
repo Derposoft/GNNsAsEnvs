@@ -26,7 +26,7 @@ INIT_LOGS = {
 }
 
 INIT_REWARDS = DEFAULT_REWARDS
-INIT_SPECIFIC_NODE = 0 # start agent at random node if None otherwise use idx
+INIT_SPECIFIC_NODE = None # start agent at random node if None otherwise use idx
 
 # interaction settings
 INTERACT_LOOKUP = {

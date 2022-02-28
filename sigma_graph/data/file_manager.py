@@ -31,7 +31,7 @@ MAP_AGENT_DATA_LOOKUP = {
     "patrol_route": "wp_pat"
 }
 
-VISIBILITY_IS_360 = True
+VISIBILITY_IS_360 = False
 
 
 # lookup table for data types: prefixes of parsed data files for saving and loading
