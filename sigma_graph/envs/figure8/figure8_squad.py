@@ -39,7 +39,7 @@ class Figure8Squad(gym.Env):
         self.map = MapInfo()
         self.routes = []  # list of RouteInfo instances
         self._load_map_data()
-
+        
         # generate lists of agent instances
         self.team_red = []
         self.team_blue = []
@@ -75,7 +75,7 @@ class Figure8Squad(gym.Env):
 
         # take actions
         action_penalty_red = self._take_action_red(n_actions)
-        self._take_action_blue()    # action_penalty_blue = self._take_action_blue(n_actions)
+        #self._take_action_blue()    # action_penalty_blue = self._take_action_blue(n_actions)
         R_engage_B, B_engage_R, R_overlay = self._update()
         self.agent_interaction(R_engage_B, B_engage_R)
 
@@ -139,7 +139,6 @@ class Figure8Squad(gym.Env):
         return action_penalty
 
     def _take_action_blue(self, n_actions=None):
-        return
         for agent_i in range(self.num_blue):
             if self.team_blue[agent_i].is_frozen():
                 continue
@@ -298,7 +297,9 @@ class Figure8Squad(gym.Env):
                     self.team_red[_r].damage_add(_step_damage)
                     self.team_blue[_b].take_damage(_step_damage)
                 if B_engage_R[_b, _r]:
-                    self.team_red[_r].take_damage(_step_damage)
+                    if self.team_red[_r].agent_node == 4 or self.team_red[_r].agent_node == 5: # TODO
+                        self.team_red[_r].take_damage(_step_damage)
+                        '''this shooting code was commented out before'''
             # update end time for blue agents
             if self.team_blue[_b].get_end_step() > 0:
                 continue
@@ -493,6 +494,9 @@ class Figure8Squad(gym.Env):
                 self.learning_agent.append(b_uid)
             b_route = self.configs["route_lookup"].index(init_blue["route"])  # int: index in the route lookup list
             self.team_blue.append(AgentBlue(_uid=b_uid, _learn=learn, _route=b_route))
+            self.team_blue[-1].agent_node = 5
+            self.team_blue[-1].agent_dir = 2
+
 
     # reset agents to init status for each new episode
     def _reset_agents(self):
@@ -508,7 +512,10 @@ class Figure8Squad(gym.Env):
             b_route = self.team_blue[idx].get_route()
             b_index = init_blue["idx"]  # int: index of the position on the given route
             b_node, b_code, b_dir = self.routes[b_route].get_location_by_index(b_index)
-            self.team_blue[idx].reset(_node=b_node, _code=b_code, _dir=b_dir, _health=HP_blue, _index=b_index, _end=-1)
+            #self.team_blue[idx].reset(_node=b_node, _code=b_code, _dir=b_dir, _health=HP_blue, _index=b_index, _end=-1)
+            #print(b_node, b_dir)
+            self.team_blue[idx].reset(_node=5, _code=b_code, _dir=2, _health=HP_blue, _index=b_index, _end=-1)
+            # TODO
 
     def _log_step_prev(self):
         return self.states if self.logger else []

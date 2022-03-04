@@ -108,6 +108,7 @@ def create_trainer_config(outer_configs, trainer_type=None, custom_model=''):
             "use_mean_embed": outer_configs['use_mean_embed']
         },
     }
+    print(CUSTOM_DEFAULTS)
     init_trainer_config = {
         "env": Figure8SquadRLLib,
         "env_config": {

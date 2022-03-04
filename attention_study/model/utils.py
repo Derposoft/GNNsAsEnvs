@@ -1,3 +1,4 @@
+import sys
 import torch.nn as nn
 import numpy as np
 import torch
@@ -18,14 +19,13 @@ SUPPRESS_WARNINGS = {
 }
 GRAPH_OBS_TOKEN = {
     'obs_embed': True,
-    'embedding_size': 6,
+    'embedding_size': 9,
 }
-NODE_EMBEDDING_SIZE = 4
 EMBED_IDX = {
     'is_agent_pos': 2,
-    'agent_dir': 3, # 0 if agent is not here
-    'is_red_here': 4,
-    'is_blue_here': 5,
+    'agent_dir': 3, # 3,4,5,6; 0 if agent not here
+    'is_red_here': 7,
+    'is_blue_here': 8,
 }
 def ERROR_MSG(e): return f'ERROR READING OBS: {e}'
 
@@ -61,7 +61,8 @@ def embed_obs_in_map(obs: torch.Tensor, map: MapInfo, obs_shapes=None):
         node_embeddings.append(g_i)
         #print(g_ij, 'CURRENT NODE EMBEDDING')
     node_embeddings = torch.tensor(node_embeddings)#.cuda()
-
+    #print(node_embeddings.shape, "NODE EMBEDDINGS SHAPE") # TODO make this more efficient
+    #sys.exit()
     # normalize node embeddings
     min_x, min_y = torch.min(node_embeddings[0][:,0]), torch.min(node_embeddings[0][:,1])
     node_embeddings[0][:,0] -= min_x
@@ -113,7 +114,11 @@ def embed(obs, g, obs_shapes):
 
     # agent_dir TODO use one hot instead of int
     _dir = self_obs[pos_obs_size:(pos_obs_size+look_dir_shape)]
-    g[_node][EMBED_IDX['agent_dir']] = int(''.join(_dir), base=2)
+    #print(_dir)
+    g[_node][EMBED_IDX['agent_dir']] = _dir[0]
+    g[_node][EMBED_IDX['agent_dir']+1] = _dir[1]
+    g[_node][EMBED_IDX['agent_dir']+2] = _dir[2]
+    g[_node][EMBED_IDX['agent_dir']+3] = _dir[3]
 
     # is_red_here
     for i in range(pos_obs_size):

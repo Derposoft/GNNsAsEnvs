@@ -2,8 +2,8 @@ from math import ceil
 
 # default hyper-parameters for rewards
 DEFAULT_REWARDS = {
-    #"step": {"reward_step_on": True, "red_2_blue": 4, "blue_2_red": -3, "red_overlay": -2, }, # TODO
-    "step": {"reward_step_on": True, "red_2_blue": 0, "blue_2_red": 0, "red_overlay": 0, },
+    "step": {"reward_step_on": True, "red_2_blue": 4, "blue_2_red": -3, "red_overlay": -2, }, # TODO
+    #"step": {"reward_step_on": True, "red_2_blue": 0, "blue_2_red": 0, "red_overlay": 0, },
     "episode": {
         "reward_episode_on": True, "episode_decay_soft": True,
         "health_lookup": {"type": "table", "reward": [32, 16, 8, 4, 2, 0], "damage": [0, 1, 2, 3, 4, 100]},
