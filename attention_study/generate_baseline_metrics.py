@@ -69,6 +69,7 @@ def create_env_config(config):
                     # "reward_step_on": False, "reward_episode_on": True, "episode_decay_soft": True,
                     # "health_lookup": {"type": "table", "reward": [8, 4, 2, 0], "damage": [0, 1, 2, 100]},
                     # "faster_lookup": {"type": "none"},
+                    "use_mean_embed": config.use_mean_embed,
                     }
     ## i.e. init_red 'pos': tuple(x, z) or "L"/"R" region of the map
     # "init_red": [{"pos": (11, 1), "dir": 1}, {"pos": None}, {"pos": "L", "dir": None}]
@@ -104,6 +105,7 @@ def create_trainer_config(outer_configs, trainer_type=None, custom_model=''):
             "map": setup_env.map,
             "nred": outer_configs['n_red'],
             "nblue": outer_configs['n_blue'],
+            "use_mean_embed": outer_configs['use_mean_embed']
         },
     }
     init_trainer_config = {
@@ -161,20 +163,25 @@ def run_baselines(config, run_default_baseline_metrics=False, train_time=60*15, 
     # STEP 2: create and train trainers
     if run_default_baseline_metrics:
         ppo_trainer_default = ppo.PPOTrainer(config=create_trainer_config(outer_configs, trainer_type=ppo), env=Figure8SquadRLLib)
-        a2c_trainer_default = a3c.A2CTrainer(config=create_trainer_config(outer_configs, trainer_type=a3c), env=Figure8SquadRLLib)
+        #a2c_trainer_default = a3c.A2CTrainer(config=create_trainer_config(outer_configs, trainer_type=a3c), env=Figure8SquadRLLib)
         #pg_trainer_default = pg.PGTrainer(config=create_trainer_config(outer_configs, trainer_type=pg), env=Figure8SquadRLLib)
         #dqn_trainer_default = dqn.DQNTrainer(config=create_trainer_config(outer_configs, trainer_type=dqn), env=Figure8SquadRLLib)
         train(ppo_trainer_default, 'ppo_default', train_time, checkpoint_models)
-        train(a2c_trainer_default, 'a2c_default', train_time, checkpoint_models)
+        #train(a2c_trainer_default, 'a2c_default', train_time, checkpoint_models)
         #train(pg_trainer_default)
         #train(dqn_trainer_default)
+        #ppo_trainer_baseline = ppo.PPOTrainer(config=create_trainer_config(outer_configs, trainer_type=ppo, custom_model='fc_policy'), env=Figure8SquadRLLib)
+        #a2c_trainer_custom = a3c.A2CTrainer(config=create_trainer_config(outer_configs, trainer_type=a3c, custom_model=custom_model), env=Figure8SquadRLLib)
+        #pg_trainer_custom = pg.PGTrainer(config=create_trainer_config(outer_configs, trainer_type=pg, custom_model=custom_model), env=Figure8SquadRLLib)
+        #dqn_trainer_custom = dqn.DQNTrainer(config=create_trainer_config(outer_configs, trainer_type=dqn, custom_model=custom_model), env=Figure8SquadRLLib)
+        #train(ppo_trainer_baseline, 'ppo_baseline', train_time, checkpoint_models)
     else:
         ppo_trainer_custom = ppo.PPOTrainer(config=create_trainer_config(outer_configs, trainer_type=ppo, custom_model=custom_model), env=Figure8SquadRLLib)
-        a2c_trainer_custom = a3c.A2CTrainer(config=create_trainer_config(outer_configs, trainer_type=a3c, custom_model=custom_model), env=Figure8SquadRLLib)
+        #a2c_trainer_custom = a3c.A2CTrainer(config=create_trainer_config(outer_configs, trainer_type=a3c, custom_model=custom_model), env=Figure8SquadRLLib)
         #pg_trainer_custom = pg.PGTrainer(config=create_trainer_config(outer_configs, trainer_type=pg, custom_model=custom_model), env=Figure8SquadRLLib)
         #dqn_trainer_custom = dqn.DQNTrainer(config=create_trainer_config(outer_configs, trainer_type=dqn, custom_model=custom_model), env=Figure8SquadRLLib)
         train(ppo_trainer_custom, 'ppo_custom', train_time, checkpoint_models)
-        train(a2c_trainer_custom, 'a2c_custom', train_time, checkpoint_models)
+        #train(a2c_trainer_custom, 'a2c_custom', train_time, checkpoint_models)
         #train(pg_trainer_custom)
         #train(dqn_trainer_custom)
 
@@ -224,7 +231,9 @@ def parse_arguments():
     parser.add_argument('--threshold_red', default=5)
     # my own additions
     parser.add_argument('--model', default='graph_transformer', choices=['graph_transformer', 'altr'])
-    parser.add_argument('--train_time', default=60*30)
+    parser.add_argument('--train_time', default=60*30, help='how long to train the model')
+    parser.add_argument('--use_mean_embed', default=False, help='use mean embeddings vs choose embedding for agent\'s node at inference time')
+    parser.add_argument('--run_baselines', default=False, help='are we running baselines or actual model?')
     return parser
 
 if __name__ == "__main__":
@@ -232,4 +241,4 @@ if __name__ == "__main__":
     parser = parse_arguments()
     # run baselines
     config = parser.parse_args()
-    run_baselines(config, custom_model=config.model+'_policy', train_time=config.train_time)
+    run_baselines(config, run_default_baseline_metrics=config.run_baselines, custom_model=config.model+'_policy', train_time=config.train_time)

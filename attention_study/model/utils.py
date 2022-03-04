@@ -18,7 +18,7 @@ SUPPRESS_WARNINGS = {
 }
 GRAPH_OBS_TOKEN = {
     'obs_embed': True,
-    'embedding_size': 3#4,
+    'embedding_size': 6,
 }
 NODE_EMBEDDING_SIZE = 4
 EMBED_IDX = {
@@ -86,7 +86,7 @@ def embed(obs, g, obs_shapes):
     returns None
     """
     global SUPPRESS_WARNINGS
-    # get obs parts
+    # error checking and obs extraction
     pos_obs_size = len(g)
     look_dir_shape = len(env_setup.ACT_LOOK_DIR)
     if not obs_shapes:
@@ -101,36 +101,30 @@ def embed(obs, g, obs_shapes):
             print(ERROR_MSG('test batch detected while embedding. skipping embed and suppressing this warning.'))
             SUPPRESS_WARNINGS['embed'] = True
         return
-    #assert(red_shape % n_red == 0)
-    #assert(blue_shape % n_blue == 0)
     self_obs = obs[:self_shape]
     blue_obs = obs[self_shape:(self_shape+blue_shape)]
     red_obs = obs[(self_shape+blue_shape):(self_shape+blue_shape+red_shape)]
     
-    # embed self info
-    # embed location
+    # agent_is_here
     _node = get_loc(self_obs, pos_obs_size)
     if _node == -1:
         print(ERROR_MSG('agent not found ('))
     g[_node][EMBED_IDX['is_agent_pos']] = 1
 
-    '''
-    # embed direction TODO embed direction in one hot instead of int
+    # agent_dir TODO use one hot instead of int
     _dir = self_obs[pos_obs_size:(pos_obs_size+look_dir_shape)]
     g[_node][EMBED_IDX['agent_dir']] = int(''.join(_dir), base=2)
 
-    # embed blue info
-    # embed locations
+    # is_red_here
+    for i in range(pos_obs_size):
+        if red_obs[i]:
+            g[i][EMBED_IDX['is_red_here']] = 1
+    
+    # is_blue_here
     for i in range(pos_obs_size):
         if blue_obs[i]:
             g[i][EMBED_IDX['is_blue_here']] = 1
 
-    # embed red info
-    # embed locations
-    for i in range(pos_obs_size):
-        if red_obs[i]:
-            g[i][EMBED_IDX['is_red_here']] = 1
-    '''
 
 # get location of an agent given one-hot positional encoding on graph (0-indexed)
 def get_loc(one_hot_graph, graph_size, default=0):

@@ -70,6 +70,7 @@ class GraphTransformerPolicy(TMv2.TorchModelV2, nn.Module):
         self.map = map
         self.attention, _, _ = initialize_graph_transformer(GRAPH_OBS_TOKEN['embedding_size'])
         # obs information
+        self.use_mean_embed = kwargs['use_mean_embed']
         self.num_red = kwargs['nred']
         self.num_blue = kwargs['nblue']
         self_shape, red_shape, blue_shape = env_setup.get_state_shapes(self.map.get_graph_size(), self.num_red, self.num_blue, env_setup.OBS_TOKEN)
@@ -102,6 +103,16 @@ class GraphTransformerPolicy(TMv2.TorchModelV2, nn.Module):
         self._features = None
         # Holds the last input, in case value branch is separate.
         self._last_flat_in = None
+
+        # count number of parameters for  comparison purposes
+        num_params = 0
+        for name, param in self.named_parameters():
+            if not param.requires_grad:
+                continue
+            p = param.numel()
+            num_params += p
+        #print(num_params)
+        #sys.exit()
         print('policy model initiated')
 
     @override(TMv2.TorchModelV2)
@@ -124,7 +135,9 @@ class GraphTransformerPolicy(TMv2.TorchModelV2, nn.Module):
         # inference
         batch_x, batch_e = batch_graphs.ndata['feat'], batch_graphs.edata['feat']
         batch_lap_enc, batch_wl_pos_enc = None, None
-        actions = self.attention.forward(batch_graphs, batch_x, batch_e, batch_lap_enc, batch_wl_pos_enc)
+
+        #actions = self.attention.forward(batch_graphs, batch_x, batch_e, batch_lap_enc, batch_wl_pos_enc)
+        actions = self.attention.forward(batch_graphs, batch_x, batch_e, batch_lap_enc, batch_wl_pos_enc, agent_nodes)
 
         # return
         self._last_flat_in = obs.reshape(obs.shape[0], -1)
