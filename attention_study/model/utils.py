@@ -61,7 +61,8 @@ def embed_obs_in_map(obs: torch.Tensor, map: MapInfo, obs_shapes=None):
         node_embeddings.append(g_i)
         #print(g_ij, 'CURRENT NODE EMBEDDING')
     node_embeddings = torch.tensor(node_embeddings)#.cuda()
-    #print(node_embeddings.shape, "NODE EMBEDDINGS SHAPE") # TODO make this more efficient
+    # [batch_size, # nodes, node embedding size]
+    #print(node_embeddings.shape, "NODE EMBEDDINGS SHAPE") # TODO make this more efficient;
     #sys.exit()
     # normalize node embeddings
     min_x, min_y = torch.min(node_embeddings[0][:,0]), torch.min(node_embeddings[0][:,1])
@@ -70,6 +71,49 @@ def embed_obs_in_map(obs: torch.Tensor, map: MapInfo, obs_shapes=None):
     max = torch.max(node_embeddings)
     node_embeddings /= max
 
+    # TODO edges?
+    edges = None
+    node_embeddings.requires_grad = True
+    return node_embeddings
+
+# TODO read obs using obs_token instead of hardcoding.
+#      figure8_squad.py:_update():line ~250
+def efficient_embed_obs_in_map(obs: torch.Tensor, map: MapInfo, obs_shapes=None):
+    """
+    ALWAYS USES GRAPH_EMBEDDING=TRUE
+    obs: a batch of inputs
+    map: a MapInfo object
+
+    graph embedding:
+    [[x, y, agent_is_here, agent_dir, is_red_here, is_blue_here],
+    [...],
+    ...]
+    """
+    pos_obs_size = map.get_graph_size()
+    batch_size = len(obs)
+    node_embeddings = torch.zeros(batch_size, pos_obs_size+1, GRAPH_OBS_TOKEN['embedding_size']) #+1 node for a dummy node that we'll use when needed
+
+    # x,y tensor
+    pos_emb = torch.zeros(pos_obs_size+1, 2) # x,y coordinates
+    for i in range(pos_obs_size):
+        pos_emb[i,:] = torch.FloatTensor(map.n_info[i + 1])
+    
+    # embed x,y
+    node_embeddings[:,:,0:2] += pos_emb
+    # embed rest of features
+    for i in range(batch_size):
+        obs_i = obs[i]
+        embed(obs_i, node_embeddings[i], obs_shapes)
+    #print(node_embeddings, 'CURRENT NODE EMBEDDINGS INPUT')
+    #print(node_embeddings.shape)
+    node_embeddings[:,-1,:] = 0
+    
+    # normalize node embeddings
+    min_x, min_y = torch.min(node_embeddings[0][:,0]), torch.min(node_embeddings[0][:,1])
+    node_embeddings[0][:,0] -= min_x
+    node_embeddings[0][:,1] -= min_y
+    max = torch.max(node_embeddings)
+    node_embeddings /= max
     # TODO edges?
     edges = None
     return node_embeddings
@@ -169,3 +213,12 @@ def get_probs_mask(agent_nodes, graph_size, edges_dict):
     mask = [np.delete(node_exclude_list, list(edges_dict[agent_node])+[agent_node]) for agent_node in agent_nodes]
     return mask
 
+def count_model_params(model):
+    # count number of parameters for  comparison purposes
+    num_params = 0
+    for name, param in model.named_parameters():
+        if not param.requires_grad:
+            continue
+        p = param.numel()
+        num_params += p
+    print(f'{type(model)} using {num_params} #params')

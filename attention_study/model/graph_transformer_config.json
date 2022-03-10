@@ -23,8 +23,8 @@
     },
     
     "net_params": {
-        "L": 5,
-        "n_heads": 4,
+        "L": 10,
+        "n_heads": 8,
         "hidden_dim": 64,
         "out_dim": 64,
         "edge_feat": true,
@@ -33,7 +33,7 @@
         "in_feat_dropout": 0.0,
         "dropout": 0.0,
         "layer_norm": false,
-        "batch_norm": false,
+        "batch_norm": true,
         "self_loop": false,
         "lap_pos_enc": false,
         "wl_pos_enc": false,

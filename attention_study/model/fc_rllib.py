@@ -44,7 +44,7 @@ import networkx as nx
 from sigma_graph.data.graph.skirmish_graph import MapInfo
 from sigma_graph.envs.figure8 import default_setup as env_setup
 from sigma_graph.envs.figure8.figure8_squad_rllib import Figure8SquadRLLib
-from attention_study.model.utils import GRAPH_OBS_TOKEN, embed_obs_in_map, get_loc, load_edge_dictionary, \
+from attention_study.model.utils import GRAPH_OBS_TOKEN, count_model_params, embed_obs_in_map, get_loc, load_edge_dictionary, \
     NETWORK_SETTINGS
 from attention_study.model.graph_transformer_model import initialize_train_artifacts as initialize_graph_transformer
 
@@ -173,6 +173,7 @@ class FCPolicy(TMv2.TorchModelV2, nn.Module):
         self._features = None
         # Holds the last input, in case value branch is separate.
         self._last_flat_in = None
+        count_model_params(self)
 
     @override(TMv2.TorchModelV2)
     def forward(self, input_dict: Dict[str, TensorType],
@@ -181,16 +182,16 @@ class FCPolicy(TMv2.TorchModelV2, nn.Module):
         
         obs = input_dict["obs_flat"].float()
         # transform input into graphs
-        attention_input = embed_obs_in_map(obs, self.map, self.obs_shapes)
-        agent_nodes = [get_loc(gx, self.map.get_graph_size()) for gx in obs]
+        #attention_input = embed_obs_in_map(obs, self.map, self.obs_shapes)
+        #agent_nodes = [get_loc(gx, self.map.get_graph_size()) for gx in obs]
         #batch_graphs = []
-        _obs = attention_input[range(len(obs)), agent_nodes]
-        print(_obs.shape, "OUTPUT SHAPE")
-        self._last_flat_in = _obs.reshape(_obs.shape[0], -1)
-        self._features = self._hidden_layers(self._last_flat_in)
-        
-        #self._last_flat_in = obs.reshape(obs.shape[0], -1)
+        #_obs = attention_input[range(len(obs)), agent_nodes]
+        #print(_obs.shape, "OUTPUT SHAPE")
+        #self._last_flat_in = _obs.reshape(_obs.shape[0], -1)
         #self._features = self._hidden_layers(self._last_flat_in)
+        
+        self._last_flat_in = obs.reshape(obs.shape[0], -1)
+        self._features = self._hidden_layers(self._last_flat_in)
         logits = self._logits(self._features) if self._logits else self._features
         if self.free_log_std:
             logits = self._append_free_log_std(logits)

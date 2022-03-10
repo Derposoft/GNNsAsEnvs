@@ -33,8 +33,9 @@ import networkx as nx
 # our code imports
 from sigma_graph.data.graph.skirmish_graph import MapInfo
 from sigma_graph.envs.figure8 import default_setup as env_setup
+from sigma_graph.envs.figure8.action_lookup import MOVE_LOOKUP
 from sigma_graph.envs.figure8.figure8_squad_rllib import Figure8SquadRLLib
-from attention_study.model.utils import GRAPH_OBS_TOKEN, embed_obs_in_map, get_loc, load_edge_dictionary, \
+from attention_study.model.utils import GRAPH_OBS_TOKEN, count_model_params, efficient_embed_obs_in_map, get_loc, load_edge_dictionary, \
     NETWORK_SETTINGS
 from attention_study.model.graph_transformer_model import initialize_train_artifacts as initialize_graph_transformer
 
@@ -58,7 +59,7 @@ class GraphTransformerPolicy(TMv2.TorchModelV2, nn.Module):
             model_config, name)
         nn.Module.__init__(self)
 
-        # STEP 0: set config
+        # config
         hiddens = list(model_config.get("fcnet_hiddens", [])) + \
             list(model_config.get("post_fcnet_hiddens", []))
         activation = model_config.get("fcnet_activation")
@@ -67,16 +68,28 @@ class GraphTransformerPolicy(TMv2.TorchModelV2, nn.Module):
         no_final_linear = model_config.get("no_final_linear")
         self.vf_share_layers = model_config.get("vf_share_layers") # this is usually 0
         self.free_log_std = model_config.get("free_log_std") # skip worrying about log std
+        self.use_mean_embed = kwargs['use_mean_embed'] # obs information
         self.map = map
-        self.attention, _, _ = initialize_graph_transformer(GRAPH_OBS_TOKEN['embedding_size'])
-        # obs information
-        self.use_mean_embed = kwargs['use_mean_embed']
         self.num_red = kwargs['nred']
         self.num_blue = kwargs['nblue']
         self_shape, red_shape, blue_shape = env_setup.get_state_shapes(self.map.get_graph_size(), self.num_red, self.num_blue, env_setup.OBS_TOKEN)
         self.obs_shapes = [self_shape, red_shape, blue_shape, self.num_red, self.num_blue]
+        self.map.g_acs.add_node(0) # dummy node that we'll use later
+
+        # map info
+        self.move_map = {} # movement dictionary: d[node][direction] = newnode. newnode is -1 if direction is not possible from node
+        for n in self.map.g_acs.adj:
+            self.move_map[n] = {}
+            ms = self.map.g_acs.adj[n]
+            for m in ms:
+                dir = ms[m]['action']
+                self.move_map[n][dir] = m
         
-        # STEP 2: build value net
+        # actor (attention model)
+        self.attention, _, _ = initialize_graph_transformer(GRAPH_OBS_TOKEN['embedding_size'])
+        self.softmax = nn.Softmax(dim=-1)
+
+        # critic
         self._value_branch_separate = None
         # create value network with equal number of hidden layers as policy net
         if not self.vf_share_layers:
@@ -104,15 +117,7 @@ class GraphTransformerPolicy(TMv2.TorchModelV2, nn.Module):
         # Holds the last input, in case value branch is separate.
         self._last_flat_in = None
 
-        # count number of parameters for  comparison purposes
-        num_params = 0
-        for name, param in self.named_parameters():
-            if not param.requires_grad:
-                continue
-            p = param.numel()
-            num_params += p
-        #print(num_params)
-        #sys.exit()
+        count_model_params(self)
         print('policy model initiated')
 
     @override(TMv2.TorchModelV2)
@@ -122,8 +127,8 @@ class GraphTransformerPolicy(TMv2.TorchModelV2, nn.Module):
         self.attention.train()
         obs = input_dict['obs_flat'].float()
         
-        # transform input into graphs
-        attention_input = embed_obs_in_map(obs, self.map, self.obs_shapes)
+        # transform obs to graph
+        attention_input = efficient_embed_obs_in_map(obs, self.map, self.obs_shapes)
         agent_nodes = [get_loc(gx, self.map.get_graph_size()) for gx in obs]
         batch_graphs = []
         for i in range(len(obs)):
@@ -135,9 +140,8 @@ class GraphTransformerPolicy(TMv2.TorchModelV2, nn.Module):
         # inference
         batch_x, batch_e = batch_graphs.ndata['feat'], batch_graphs.edata['feat']
         batch_lap_enc, batch_wl_pos_enc = None, None
-
-        #actions = self.attention.forward(batch_graphs, batch_x, batch_e, batch_lap_enc, batch_wl_pos_enc)
-        actions = self.attention.forward(batch_graphs, batch_x, batch_e, batch_lap_enc, batch_wl_pos_enc, agent_nodes)
+        actions = self.attention.forward(batch_graphs, batch_x, batch_e, batch_lap_enc, batch_wl_pos_enc, agent_nodes, self.move_map)
+        actions = self.softmax(actions)
 
         # return
         self._last_flat_in = obs.reshape(obs.shape[0], -1)
