@@ -39,8 +39,8 @@ INTERACT_LOOKUP = {
 OBS_TOKEN = {
     "obs_embed": False,  # _is_pos_encoded
     "obs_dir": True,  # _has_self_dir
-    "obs_sight": True,  # _has_obs_sight_check
-    "obs_range": True,  # _has_obs_range_check
+    "obs_sight": False,  # _has_obs_sight_check
+    "obs_range": False,  # _has_obs_range_check
     "obs_team": True,  # _has_obs_teammate_pos
     "obs_graph": True, # _is_graph_ready
 }
