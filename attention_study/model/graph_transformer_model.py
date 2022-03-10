@@ -7,8 +7,7 @@ import random
 import json
 
 # graph transformer imports
-from graph_transformer.main_molecules_graph_regression import gpu_setup, main
-from graph_transformer.nets.molecules_graph_regression.load_net import gnn_model 
+from attention_study.model.nets.graph_transformer import GraphTransformerNet
 
 # our code
 from attention_study.model.utils import get_cost_from_reward
@@ -21,7 +20,7 @@ def initialize_train_artifacts(node_embedding_size):
     with open(config_file) as f:
         config = json.load(f)
     net_params = config['net_params']
-    device = gpu_setup(False, '')
+    device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
     net_params['device'] = device
     net_params['gpu_id'] = config['gpu']['id']
     params = config['params']
@@ -38,7 +37,7 @@ def initialize_train_artifacts(node_embedding_size):
     if device.type == 'cuda':
         torch.cuda.manual_seed(params['seed'])
 
-    model = gnn_model('GraphTransformer', net_params)
+    model = GraphTransformerNet(net_params)
     model = model.to(device)
 
     optimizer = optim.Adam(model.parameters(), lr=params['init_lr'], weight_decay=params['weight_decay'])

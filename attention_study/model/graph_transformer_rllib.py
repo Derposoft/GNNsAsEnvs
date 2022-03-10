@@ -42,8 +42,8 @@ from attention_study.model.graph_transformer_model import initialize_train_artif
 # 3rd party library imports (s2v, attention model rdkit, etc?)
 #from attention_study.model.s2v.s2v_graph import S2VGraph
 #from attention_study.gnn_libraries.s2v.embedding import EmbedMeanField, EmbedLoopyBP
-from attention_routing.nets.attention_model import AttentionModel
-from attention_routing.problems.tsp.problem_tsp import TSP
+#from attention_routing.nets.attention_model import AttentionModel
+#from attention_routing.problems.tsp.problem_tsp import TSP
 
 # other imports
 import numpy as np
@@ -87,7 +87,6 @@ class GraphTransformerPolicy(TMv2.TorchModelV2, nn.Module):
         
         # actor (attention model)
         self.attention, _, _ = initialize_graph_transformer(GRAPH_OBS_TOKEN['embedding_size'])
-        self.softmax = nn.Softmax(dim=-1)
 
         # critic
         self._value_branch_separate = None
@@ -141,7 +140,6 @@ class GraphTransformerPolicy(TMv2.TorchModelV2, nn.Module):
         batch_x, batch_e = batch_graphs.ndata['feat'], batch_graphs.edata['feat']
         batch_lap_enc, batch_wl_pos_enc = None, None
         actions = self.attention.forward(batch_graphs, batch_x, batch_e, batch_lap_enc, batch_wl_pos_enc, agent_nodes, self.move_map)
-        actions = self.softmax(actions)
 
         # return
         self._last_flat_in = obs.reshape(obs.shape[0], -1)

@@ -51,8 +51,8 @@ from attention_study.model.graph_transformer_model import initialize_train_artif
 # 3rd party library imports (s2v, attention model rdkit, etc?)
 #from attention_study.model.s2v.s2v_graph import S2VGraph
 #from attention_study.gnn_libraries.s2v.embedding import EmbedMeanField, EmbedLoopyBP
-from attention_routing.nets.attention_model import AttentionModel
-from attention_routing.problems.tsp.problem_tsp import TSP
+#from attention_routing.nets.attention_model import AttentionModel
+#from attention_routing.problems.tsp.problem_tsp import TSP
 
 # other imports
 import numpy as np
