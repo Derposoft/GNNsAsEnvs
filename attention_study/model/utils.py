@@ -1,3 +1,4 @@
+from collections import deque
 import sys
 import torch.nn as nn
 import numpy as np
@@ -9,8 +10,8 @@ from sigma_graph.data.graph.skirmish_graph import MapInfo
 # constants/helper functions
 NETWORK_SETTINGS = {
     'has_final_layer': True,
-    'use_altr_model': True,
-    'use_s2v': False,
+    'use_altr_model': False,
+    #'use_s2v': False,
 }
 SUPPRESS_WARNINGS = {
     'embed': False,
@@ -19,7 +20,8 @@ SUPPRESS_WARNINGS = {
 }
 GRAPH_OBS_TOKEN = {
     'obs_embed': True,
-    'embedding_size': 9,
+    'embedding_size': 10,
+    'embed_pos': False,
 }
 EMBED_IDX = {
     'is_agent_pos': 2,
@@ -31,149 +33,101 @@ def ERROR_MSG(e): return f'ERROR READING OBS: {e}'
 
 # TODO read obs using obs_token instead of hardcoding.
 #      figure8_squad.py:_update():line ~250
-def embed_obs_in_map(obs: torch.Tensor, map: MapInfo, obs_shapes=None):
-    """
-    obs: a batch of inputs
-    map: a MapInfo object
-
-    graph embedding:
-    [[x, y, agent_is_here, agent_dir, is_red_here, is_blue_here],
-    [...],
-    ...]
-    """
-    #print('starting embedding process')
-    # init node embeddings
-    pos_obs_size = map.get_graph_size()
-    batch_size = len(obs)
-    g = []
-    for i in range(pos_obs_size):
-        g_ij = list(map.n_info[i + 1])
-        if GRAPH_OBS_TOKEN['obs_embed']:
-            g_ij += [0] * (GRAPH_OBS_TOKEN['embedding_size']-2) # TODO hack here
-        g.append(g_ij)
-    # embed nodes using obs
-    node_embeddings = []
-    for i in range(batch_size):
-        g_i = deepcopy(g)
-        if GRAPH_OBS_TOKEN['obs_embed']:
-            obs_i = obs[i]
-            embed(obs_i, g_i, obs_shapes)
-        node_embeddings.append(g_i)
-        #print(g_ij, 'CURRENT NODE EMBEDDING')
-    node_embeddings = torch.tensor(node_embeddings)#.cuda()
-    # [batch_size, # nodes, node embedding size]
-    #print(node_embeddings.shape, "NODE EMBEDDINGS SHAPE") # TODO make this more efficient;
-    #sys.exit()
-    # normalize node embeddings
-    min_x, min_y = torch.min(node_embeddings[0][:,0]), torch.min(node_embeddings[0][:,1])
-    node_embeddings[0][:,0] -= min_x
-    node_embeddings[0][:,1] -= min_y
-    max = torch.max(node_embeddings)
-    node_embeddings /= max
-
-    # TODO edges?
-    edges = None
-    node_embeddings.requires_grad = True
-    return node_embeddings
-
-# TODO read obs using obs_token instead of hardcoding.
-#      figure8_squad.py:_update():line ~250
 def efficient_embed_obs_in_map(obs: torch.Tensor, map: MapInfo, obs_shapes=None):
     """
     ALWAYS USES GRAPH_EMBEDDING=TRUE
     obs: a batch of inputs
     map: a MapInfo object
 
-    graph embedding:
-    [[x, y, agent_is_here, agent_dir, is_red_here, is_blue_here],
+    new graph embedding:
+    [[agent_is_here, num_red_here, num_blue_here, can_red_go_here_t, can_blue_see_here_t, can_blue_see_here_t+1],
     [...],
     ...]
     """
+    global SUPPRESS_WARNINGS
     pos_obs_size = map.get_graph_size()
     batch_size = len(obs)
-    node_embeddings = torch.zeros(batch_size, pos_obs_size+1, GRAPH_OBS_TOKEN['embedding_size']) #+1 node for a dummy node that we'll use when needed
+    embedding_size = GRAPH_OBS_TOKEN['embedding_size']+2 if GRAPH_OBS_TOKEN['embed_pos'] else GRAPH_OBS_TOKEN['embedding_size']
+    node_embeddings = torch.zeros(batch_size, pos_obs_size+1, embedding_size) #+1 node for a dummy node that we'll use when needed
 
-    # x,y tensor
-    pos_emb = torch.zeros(pos_obs_size+1, 2) # x,y coordinates
-    for i in range(pos_obs_size):
-        pos_emb[i,:] = torch.FloatTensor(map.n_info[i + 1])
-    
     # embed x,y
-    node_embeddings[:,:,0:2] += pos_emb
+    if GRAPH_OBS_TOKEN['embed_pos']:
+        pos_emb = torch.zeros(pos_obs_size+1, 2) # x,y coordinates
+        for i in range(pos_obs_size):
+            pos_emb[i,:] = torch.FloatTensor(map.n_info[i + 1])
+        # normalize x,y
+        min_x, min_y = torch.min(pos_emb[:,0]), torch.min(pos_emb[:,1])
+        pos_emb[:,0] -= min_x
+        pos_emb[:,1] -= min_y
+        node_embeddings /= torch.max(pos_emb)
+        node_embeddings[:,:,-3:-1] += pos_emb
+
     # embed rest of features
     for i in range(batch_size):
-        obs_i = obs[i]
-        embed(obs_i, node_embeddings[i], obs_shapes)
-    #print(node_embeddings, 'CURRENT NODE EMBEDDINGS INPUT')
-    #print(node_embeddings.shape)
-    node_embeddings[:,-1,:] = 0
+        # get obs shapes and parse obs
+        if not obs_shapes:
+            print('shapes not provided. returning')
+            if not SUPPRESS_WARNINGS['embed']:
+                print(ERROR_MSG('shapes not provided. skipping embed and suppressing this warning.'))
+                SUPPRESS_WARNINGS['embed_noshapes'] = True
+        self_shape, red_shape, blue_shape, n_red, n_blue = obs_shapes
+        if self_shape < pos_obs_size or red_shape < pos_obs_size or blue_shape < pos_obs_size:
+            if not SUPPRESS_WARNINGS['embed']:
+                print(ERROR_MSG('test batch detected while embedding. skipping embed and suppressing this warning.'))
+                SUPPRESS_WARNINGS['embed'] = True
+            return
+        self_obs = obs[i][:self_shape]
+        blue_obs = obs[i][self_shape:(self_shape+blue_shape)]
+        red_obs = obs[i][(self_shape+blue_shape):(self_shape+blue_shape+red_shape)]
+        
+        # agent_is_here
+        _node = get_loc(self_obs, pos_obs_size)
+        if _node == -1:
+            print(ERROR_MSG('agent not found ('))
+        node_embeddings[i][_node][0] = 1
+        
+        # num_red_here
+        for j in range(pos_obs_size):
+            if red_obs[j]:
+                node_embeddings[i][j][1] += 1
+        
+        # num_blue_here
+        for j in range(pos_obs_size):
+            if blue_obs[j]:
+                node_embeddings[i][j][2] += 1
+        
+        # can_red_go_here_t
+        for possible_next in map.g_acs.adj[_node]:
+            node_embeddings[i][possible_next][3] = 1
+        
+        # can_blue_see_here_t,t+1,t+2
+        view_1deg_away = get_nodes_ndeg_away(map.g_vis.adj, 1)
+        view_2deg_away = get_nodes_ndeg_away(map.g_vis.adj, 2)
+        view_3deg_away = get_nodes_ndeg_away(map.g_vis.adj, 3)
+        move_1deg_away = get_nodes_ndeg_away(map.g_acs.adj, 1)
+        move_2deg_away = get_nodes_ndeg_away(map.g_acs.adj, 2)
+        move_3deg_away = get_nodes_ndeg_away(map.g_acs.adj, 3)
+        for j in range(pos_obs_size):
+            if blue_obs[j]:
+                for possible_next in view_1deg_away[j+1]:
+                    node_embeddings[i][possible_next-1][4] = 1
+                for possible_next in view_2deg_away[j+1]:
+                    node_embeddings[i][possible_next-1][5] = 1
+                for possible_next in view_3deg_away[j+1]:
+                    node_embeddings[i][possible_next-1][6] = 1
+                
+                # can_blue_move_here_t,t+1,t+2
+                for possible_next in move_1deg_away[j+1]:
+                    node_embeddings[i][possible_next-1][7] = 1
+                for possible_next in move_2deg_away[j+1]:
+                    node_embeddings[i][possible_next-1][8] = 1
+                for possible_next in move_3deg_away[j+1]:
+                    node_embeddings[i][possible_next-1][9] = 1
     
-    # normalize node embeddings
-    min_x, min_y = torch.min(node_embeddings[0][:,0]), torch.min(node_embeddings[0][:,1])
-    node_embeddings[0][:,0] -= min_x
-    node_embeddings[0][:,1] -= min_y
-    max = torch.max(node_embeddings)
-    node_embeddings /= max
+    node_embeddings[:,-1,:] = 0
     # TODO edges?
     edges = None
     return node_embeddings
-
-def embed(obs, g, obs_shapes):
-    """
-    obs: a single input
-    g: nodes of a graph with empty embeddings
-
-    creates graph embedding !!!!!IN PLACE!!!!!:
-    [[x, y, agent_is_here, agent_dir, is_red_here, is_blue_here],
-    [...],
-    ...]
-
-    returns None
-    """
-    global SUPPRESS_WARNINGS
-    # error checking and obs extraction
-    pos_obs_size = len(g)
-    look_dir_shape = len(env_setup.ACT_LOOK_DIR)
-    if not obs_shapes:
-        print('shapes not provided. returning')
-        if not SUPPRESS_WARNINGS['embed']:
-            print(ERROR_MSG('shapes not provided. skipping embed and suppressing this warning.'))
-            SUPPRESS_WARNINGS['embed_noshapes'] = True
-
-    self_shape, red_shape, blue_shape, n_red, n_blue = obs_shapes
-    if self_shape < pos_obs_size or red_shape < pos_obs_size or blue_shape < pos_obs_size:
-        if not SUPPRESS_WARNINGS['embed']:
-            print(ERROR_MSG('test batch detected while embedding. skipping embed and suppressing this warning.'))
-            SUPPRESS_WARNINGS['embed'] = True
-        return
-    self_obs = obs[:self_shape]
-    blue_obs = obs[self_shape:(self_shape+blue_shape)]
-    red_obs = obs[(self_shape+blue_shape):(self_shape+blue_shape+red_shape)]
-    
-    # agent_is_here
-    _node = get_loc(self_obs, pos_obs_size)
-    if _node == -1:
-        print(ERROR_MSG('agent not found ('))
-    g[_node][EMBED_IDX['is_agent_pos']] = 1
-
-    # agent_dir TODO use one hot instead of int
-    _dir = self_obs[pos_obs_size:(pos_obs_size+look_dir_shape)]
-    #print(_dir)
-    g[_node][EMBED_IDX['agent_dir']] = _dir[0]
-    g[_node][EMBED_IDX['agent_dir']+1] = _dir[1]
-    g[_node][EMBED_IDX['agent_dir']+2] = _dir[2]
-    g[_node][EMBED_IDX['agent_dir']+3] = _dir[3]
-
-    # is_red_here
-    for i in range(pos_obs_size):
-        if red_obs[i]:
-            g[i][EMBED_IDX['is_red_here']] = 1
-    
-    # is_blue_here
-    for i in range(pos_obs_size):
-        if blue_obs[i]:
-            g[i][EMBED_IDX['is_blue_here']] = 1
-
 
 # get location of an agent given one-hot positional encoding on graph (0-indexed)
 def get_loc(one_hot_graph, graph_size, default=0):
@@ -185,6 +139,39 @@ def get_loc(one_hot_graph, graph_size, default=0):
         print(f'test batch detected while decoding. agent not found. returning default={default} and suppressing this warning.')
         SUPPRESS_WARNINGS['decode'] = True
     return default
+
+def get_nodes_ndeg_away(graph, n):
+    '''
+    :param graph: networkx.adj adjacency dictionary
+    :param n: number of degrees to search outwards
+    :return dictionary mapping each node to a list of nodes n degrees away
+    '''
+    result = {}
+    for node in graph:
+        result[node] = get_nodes_ndeg_from_s(graph, node, n)
+    return result
+
+def get_nodes_ndeg_from_s(graph, s, n):
+    '''
+    collects the list of all nodes that are n degrees away from a source s on the given graph.
+    :param graph: networkx.adj adjacency dictionary
+    :param s: 1-indexed node starting location
+    :param n: number of degrees to search outwards
+    :return list of nodes that are n (or fewer) degrees from s
+    '''
+    # run n iterations of bfs and collect node results
+    visited = set([s])
+    dq = deque([s])
+    for i in range(n):
+        if not dq:
+            break
+        node = dq.popleft()
+        next_nodes = graph[node]
+        for next_node in next_nodes:
+            if next_node not in visited:
+                visited.add(next_node)
+                dq.append(next_node)
+    return list(visited)
 
 # load edge dictionary from a map (0-indexed)
 def load_edge_dictionary(map_edges):
@@ -214,6 +201,8 @@ def get_probs_mask(agent_nodes, graph_size, edges_dict):
     return mask
 
 def count_model_params(model):
+    for child in model.children():
+        print(child, 'CHILD!')
     # count number of parameters for  comparison purposes
     num_params = 0
     for name, param in model.named_parameters():

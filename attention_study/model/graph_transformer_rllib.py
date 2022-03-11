@@ -123,7 +123,6 @@ class GraphTransformerPolicy(TMv2.TorchModelV2, nn.Module):
     def forward(self, input_dict: Dict[str, TensorType],
                 state: List[TensorType],
                 seq_lens: TensorType):
-        self.attention.train()
         obs = input_dict['obs_flat'].float()
         
         # transform obs to graph

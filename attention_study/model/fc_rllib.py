@@ -30,34 +30,18 @@ from ray.rllib.utils.typing import Dict, TensorType, List, ModelConfigDict
 # RL/AI imports
 #from ray.rllib.models.torch.fcnet import FullyConnectedNetwork
 import ray.rllib.models.torch.torch_modelv2 as TMv2
-from ray.rllib.models.torch.misc import SlimFC, normc_initializer #AppendBiasLayer, \
+from ray.rllib.models.torch.misc import SlimFC, normc_initializer
 from ray.rllib.utils.annotations import override
 from ray.rllib.utils.typing import Dict, TensorType, List, ModelConfigDict
 import torch.nn as nn
-import torch
 import gym
-import dgl
-import networkx as nx
-#from ray.tune.logger import pretty_print
 
 # our code imports
 from sigma_graph.data.graph.skirmish_graph import MapInfo
-from sigma_graph.envs.figure8 import default_setup as env_setup
-from sigma_graph.envs.figure8.figure8_squad_rllib import Figure8SquadRLLib
-from attention_study.model.utils import GRAPH_OBS_TOKEN, count_model_params, embed_obs_in_map, get_loc, load_edge_dictionary, \
-    NETWORK_SETTINGS
-from attention_study.model.graph_transformer_model import initialize_train_artifacts as initialize_graph_transformer
-
-# 3rd party library imports (s2v, attention model rdkit, etc?)
-#from attention_study.model.s2v.s2v_graph import S2VGraph
-#from attention_study.gnn_libraries.s2v.embedding import EmbedMeanField, EmbedLoopyBP
-#from attention_routing.nets.attention_model import AttentionModel
-#from attention_routing.problems.tsp.problem_tsp import TSP
+from attention_study.model.utils import count_model_params
 
 # other imports
 import numpy as np
-import sys
-
 
 class FCPolicy(TMv2.TorchModelV2, nn.Module):
     def __init__(self, obs_space: gym.spaces.Space,
