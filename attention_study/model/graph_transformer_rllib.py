@@ -124,7 +124,6 @@ class GraphTransformerPolicy(TMv2.TorchModelV2, nn.Module):
                 state: List[TensorType],
                 seq_lens: TensorType):
         obs = input_dict['obs_flat'].float()
-        
         # transform obs to graph
         attention_input = efficient_embed_obs_in_map(obs, self.map, self.obs_shapes)
         agent_nodes = [get_loc(gx, self.map.get_graph_size()) for gx in obs]
@@ -132,18 +131,18 @@ class GraphTransformerPolicy(TMv2.TorchModelV2, nn.Module):
         for i in range(len(obs)):
             batch_graphs.append(dgl.from_networkx(self.map.g_acs))#, node_attrs=attention_input)
             batch_graphs[-1].ndata['feat'] = attention_input[i]
-            batch_graphs[-1].edata['feat'] = torch.zeros(batch_graphs[-1].num_edges(), dtype=torch.int32)
+            batch_graphs[-1].edata['feat'] = torch.ones(batch_graphs[-1].num_edges(), dtype=torch.float32)
         batch_graphs = dgl.batch(batch_graphs)
         
         # inference
         batch_x, batch_e = batch_graphs.ndata['feat'], batch_graphs.edata['feat']
         batch_lap_enc, batch_wl_pos_enc = None, None
-        actions = self.attention.forward(batch_graphs, batch_x, batch_e, batch_lap_enc, batch_wl_pos_enc, agent_nodes, self.move_map)
+        logits = self.attention.forward(batch_graphs, batch_x, batch_e, batch_lap_enc, batch_wl_pos_enc, agent_nodes, self.move_map)
 
         # return
         self._last_flat_in = obs.reshape(obs.shape[0], -1)
-        self._features = actions
-        return actions, state
+        self._features = logits
+        return logits, state
 
     @override(TMv2.TorchModelV2)
     def value_function(self):

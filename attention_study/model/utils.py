@@ -201,8 +201,8 @@ def get_probs_mask(agent_nodes, graph_size, edges_dict):
     return mask
 
 def count_model_params(model):
-    for child in model.children():
-        print(child, 'CHILD!')
+    #for child in model.children():
+    #    print(child, 'CHILD!') # prints model in case we're paranoid and think that nothing works
     # count number of parameters for  comparison purposes
     num_params = 0
     for name, param in model.named_parameters():

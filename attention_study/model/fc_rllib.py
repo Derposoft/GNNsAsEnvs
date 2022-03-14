@@ -163,17 +163,7 @@ class FCPolicy(TMv2.TorchModelV2, nn.Module):
     def forward(self, input_dict: Dict[str, TensorType],
                 state: List[TensorType],
                 seq_lens: TensorType):
-        
         obs = input_dict["obs_flat"].float()
-        # transform input into graphs
-        #attention_input = embed_obs_in_map(obs, self.map, self.obs_shapes)
-        #agent_nodes = [get_loc(gx, self.map.get_graph_size()) for gx in obs]
-        #batch_graphs = []
-        #_obs = attention_input[range(len(obs)), agent_nodes]
-        #print(_obs.shape, "OUTPUT SHAPE")
-        #self._last_flat_in = _obs.reshape(_obs.shape[0], -1)
-        #self._features = self._hidden_layers(self._last_flat_in)
-        
         self._last_flat_in = obs.reshape(obs.shape[0], -1)
         self._features = self._hidden_layers(self._last_flat_in)
         logits = self._logits(self._features) if self._logits else self._features
