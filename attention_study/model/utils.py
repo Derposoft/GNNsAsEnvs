@@ -30,6 +30,16 @@ EMBED_IDX = {
     'is_blue_here': 8,
 }
 def ERROR_MSG(e): return f'ERROR READING OBS: {e}'
+VIEW_DEGS = {
+    'view_1deg_away': None,
+    'view_2deg_away': None,
+    'view_3deg_away': None
+}
+MOVE_DEGS = {
+    'move_1deg_away': None,
+    'move_2deg_away': None,
+    'move_3deg_away': None
+}
 
 # TODO read obs using obs_token instead of hardcoding.
 #      figure8_squad.py:_update():line ~250
@@ -101,12 +111,20 @@ def efficient_embed_obs_in_map(obs: torch.Tensor, map: MapInfo, obs_shapes=None)
             node_embeddings[i][possible_next][3] = 1
         
         # can_blue_see_here_t,t+1,t+2
-        view_1deg_away = get_nodes_ndeg_away(map.g_vis.adj, 1)
-        view_2deg_away = get_nodes_ndeg_away(map.g_vis.adj, 2)
-        view_3deg_away = get_nodes_ndeg_away(map.g_vis.adj, 3)
-        move_1deg_away = get_nodes_ndeg_away(map.g_acs.adj, 1)
-        move_2deg_away = get_nodes_ndeg_away(map.g_acs.adj, 2)
-        move_3deg_away = get_nodes_ndeg_away(map.g_acs.adj, 3)
+        if VIEW_DEGS['view_1deg_away'] == None:
+            view_1deg_away = get_nodes_ndeg_away(map.g_vis.adj, 1)
+            view_2deg_away = get_nodes_ndeg_away(map.g_vis.adj, 2)
+            view_3deg_away = get_nodes_ndeg_away(map.g_vis.adj, 3)
+            move_1deg_away = get_nodes_ndeg_away(map.g_acs.adj, 1)
+            move_2deg_away = get_nodes_ndeg_away(map.g_acs.adj, 2)
+            move_3deg_away = get_nodes_ndeg_away(map.g_acs.adj, 3)
+        else:
+            view_1deg_away = VIEW_DEGS['view_1deg_away']
+            view_2deg_away = VIEW_DEGS['view_2deg_away']
+            view_3deg_away = VIEW_DEGS['view_3deg_away']
+            move_1deg_away = MOVE_DEGS['move_1deg_away']
+            move_2deg_away = MOVE_DEGS['move_2deg_away']
+            move_3deg_away = MOVE_DEGS['move_3deg_away']
         for j in range(pos_obs_size):
             if blue_obs[j]:
                 for possible_next in view_1deg_away[j+1]:

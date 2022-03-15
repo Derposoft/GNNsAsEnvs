@@ -75,7 +75,7 @@ class Figure8Squad(gym.Env):
 
         # take actions
         action_penalty_red = self._take_action_red(n_actions)
-        #self._take_action_blue()    # action_penalty_blue = self._take_action_blue(n_actions) TODO
+        self._take_action_blue()    # action_penalty_blue = self._take_action_blue(n_actions) TODO
         R_engage_B, B_engage_R, R_overlay = self._update()
         self.agent_interaction(R_engage_B, B_engage_R)
 
@@ -512,9 +512,9 @@ class Figure8Squad(gym.Env):
             b_route = self.team_blue[idx].get_route()
             b_index = init_blue["idx"]  # int: index of the position on the given route
             b_node, b_code, b_dir = self.routes[b_route].get_location_by_index(b_index)
-            #self.team_blue[idx].reset(_node=b_node, _code=b_code, _dir=b_dir, _health=HP_blue, _index=b_index, _end=-1)
+            self.team_blue[idx].reset(_node=b_node, _code=b_code, _dir=b_dir, _health=HP_blue, _index=b_index, _end=-1)
             #print(b_node, b_dir)
-            self.team_blue[idx].reset(_node=5, _code=b_code, _dir=2, _health=HP_blue, _index=b_index, _end=-1)
+            #self.team_blue[idx].reset(_node=5, _code=b_code, _dir=2, _health=HP_blue, _index=b_index, _end=-1)
             # TODO
 
     def _log_step_prev(self):

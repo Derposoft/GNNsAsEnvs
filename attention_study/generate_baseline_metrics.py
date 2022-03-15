@@ -237,7 +237,7 @@ def parse_arguments():
     parser.add_argument('--threshold_red', default=5)
     # my own additions
     parser.add_argument('--model', default='graph_transformer', choices=['graph_transformer', 'altr'])
-    parser.add_argument('--train_time', default=60*60, help='how long to train the model')
+    parser.add_argument('--train_time', default=120*60, help='how long to train the model')
     parser.add_argument('--use_mean_embed', default=False, help='use mean embeddings vs choose embedding for agent\'s node at inference time')
     parser.add_argument('--run_baselines', default=False, help='are we running baselines or actual model?')
     return parser
