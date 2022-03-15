@@ -23,7 +23,7 @@
     },
     
     "net_params": {
-        "L": 4,
+        "L": 6,
         "n_heads": 4,
         "hidden_dim": 16,
         "out_dim": 16,

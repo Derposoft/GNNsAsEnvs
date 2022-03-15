@@ -58,8 +58,8 @@ class GraphTransformerNet(nn.Module):
         self.layers = nn.ModuleList([ GraphTransformerLayer(hidden_dim, hidden_dim, num_heads, dropout,
                                                     self.layer_norm, self.batch_norm, self.residual) for _ in range(n_layers-1) ]) 
         self.layers.append(GraphTransformerLayer(hidden_dim, out_dim, num_heads, dropout, self.layer_norm, self.batch_norm, self.residual))
-        #self.MLP_layer = MLPReadout(out_dim, num_actions, L=0) # 1 out dim since regression problem
-        self.MLP_layer = MLPReadout(out_dim * 5, num_actions) # version that uses 0/1/2/3/4 directions
+        self.MLP_layer = MLPReadout(out_dim, num_actions, L=0) # 1 out dim since regression problem
+        #self.MLP_layer = MLPReadout(out_dim * 5, num_actions) # version that uses 0/1/2/3/4 directions
         #self.MLP_layer = MLPReadout(out_dim*28, num_actions) # verstion that uses all node embeddings
         
     def forward(self, g, h, e, h_lap_pos_enc=None, h_wl_pos_enc=None, agent_nodes=None, move_map=None):
@@ -84,13 +84,13 @@ class GraphTransformerNet(nn.Module):
         for conv in self.layers:
             h, e = conv(g, h, e)
         g.ndata['h'] = h
-        '''
         # TODO attempt 0; use curr node
         if agent_nodes != None:
             idxs = [g.batch_num_nodes()[0]*i+agent_nodes[i] for i in range(int(h.shape[0]/g.batch_num_nodes()[0].item()))]
             _embeddings = h[idxs, :]
             _outputs = self.MLP_layer(_embeddings)
             return _outputs
+        '''
         '''
         '''
         # TODO attempt 2; concatenate all node embeddings and feed into mlp layers
@@ -110,6 +110,7 @@ class GraphTransformerNet(nn.Module):
             hg = dgl.mean_nodes(g, 'h')  # default readout is mean nodes
         return self.MLP_layer(hg)
         '''
+        '''
         # TODO attempt 1 code; use embeddings for directions from curr node
         batch_size = g.batch_num_nodes().shape[0]
         h = h.reshape([batch_size, -1, h.shape[-1]])
@@ -128,7 +129,6 @@ class GraphTransformerNet(nn.Module):
         o = h[xs,[m0,m1,m2,m3,m4],:]
         o = torch.permute(o, [1, 0, 2]).reshape([batch_size, -1])
         return self.MLP_layer(o)
-        '''
         '''
         
         

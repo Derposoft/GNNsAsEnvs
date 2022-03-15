@@ -133,7 +133,7 @@ def create_trainer_config(outer_configs, trainer_type=None, custom_model=''):
     trainer_type_config.update(init_trainer_config)
     # TODO tune these with scheduler?
     if custom_model != '':
-        trainer_type_config['lr'] = 3e-3
+        trainer_type_config['lr'] = 1e-3
     else:
         trainer_type_config["lr"] = 1e-3
 
