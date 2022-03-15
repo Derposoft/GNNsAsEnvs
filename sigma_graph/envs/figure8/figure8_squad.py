@@ -75,7 +75,7 @@ class Figure8Squad(gym.Env):
 
         # take actions
         action_penalty_red = self._take_action_red(n_actions)
-        #self._take_action_blue()    # action_penalty_blue = self._take_action_blue(n_actions)
+        #self._take_action_blue()    # action_penalty_blue = self._take_action_blue(n_actions) TODO
         R_engage_B, B_engage_R, R_overlay = self._update()
         self.agent_interaction(R_engage_B, B_engage_R)
 
@@ -259,7 +259,7 @@ class Figure8Squad(gym.Env):
                     _state += R_see_B[_r, :].tolist()
                 if self.obs_token["obs_range"]:
                     _state += R_engage_B[_r, :].tolist()
-
+                
                 # add team blue info
                 _state_B = [0] * pos_obs_size
                 for _b in range(self.num_blue):
