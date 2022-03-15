@@ -23,8 +23,8 @@
     },
     
     "net_params": {
-        "L": 2,
-        "n_heads": 2,
+        "L": 6,
+        "n_heads": 4,
         "hidden_dim": 16,
         "out_dim": 16,
         "edge_feat": false,
@@ -32,7 +32,7 @@
         "readout": "mean",
         "in_feat_dropout": 0.0,
         "dropout": 0.0,
-        "layer_norm": false,
+        "layer_norm": true,
         "batch_norm": false,
         "self_loop": false,
         "lap_pos_enc": false,

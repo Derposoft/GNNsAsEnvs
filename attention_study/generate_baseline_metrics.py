@@ -7,6 +7,7 @@ can be found and visualized in tensorboard at ~/ray_results.
 from numpy.core.numeric import outer
 from ray.rllib.models.catalog import MODEL_DEFAULTS
 from sigma_graph.envs.figure8.action_lookup import MOVE_LOOKUP, TURN_90_LOOKUP
+from sigma_graph.envs.figure8.default_setup import OBS_TOKEN
 from sigma_graph.envs.figure8.figure8_squad_rllib import Figure8SquadRLLib
 import attention_study.model
 import argparse
@@ -132,7 +133,7 @@ def create_trainer_config(outer_configs, trainer_type=None, custom_model=''):
     trainer_type_config.update(init_trainer_config)
     # TODO tune these with scheduler?
     if custom_model != '':
-        trainer_type_config['lr'] = 1e-2
+        trainer_type_config['lr'] = 3e-3
     else:
         trainer_type_config["lr"] = 1e-3
 
@@ -201,13 +202,13 @@ def parse_arguments():
     parser.add_argument('--max_step', type=int, default=20, help='max step for each episode')
     parser.add_argument('--init_health', type=int, default=20, help='initial HP for all agents')
     # advanced configs
-    parser.add_argument('--obs_embed_on', dest="obs_embed", action='store_true', default=False,
+    parser.add_argument('--obs_embed_on', dest="obs_embed", action='store_true', default=OBS_TOKEN['obs_embed'],
                         help='encoded embedding rather than raw one-hot POS')
-    parser.add_argument('--obs_dir_off', dest="obs_dir", action='store_false', default=True,
+    parser.add_argument('--obs_dir_off', dest="obs_dir", action='store_false', default=OBS_TOKEN['obs_dir'],
                         help='observation self 4 dir')
-    parser.add_argument('--obs_team_off', dest="obs_team", action='store_false', default=True,
+    parser.add_argument('--obs_team_off', dest="obs_team", action='store_false', default=OBS_TOKEN['obs_team'],
                         help='observation teammates')
-    parser.add_argument('--obs_sight_off', dest="obs_sight", action='store_false', default=True,
+    parser.add_argument('--obs_sight_off', dest="obs_sight", action='store_false', default=OBS_TOKEN['obs_sight'],
                         help='observation in sight indicators')
     parser.add_argument('--act_masked_off', dest="act_masked", action='store_false', default=True,
                         help='invalid action masking')

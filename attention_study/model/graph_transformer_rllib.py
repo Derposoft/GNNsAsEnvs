@@ -18,7 +18,6 @@ most of this code is the same as the code on the linked github repo above; there
 rebuild one from scratch when one existed. 
 '''
 # RL/AI imports
-#from ray.rllib.models.torch.fcnet import FullyConnectedNetwork
 import ray.rllib.models.torch.torch_modelv2 as TMv2
 from ray.rllib.models.torch.misc import SlimFC, normc_initializer #AppendBiasLayer, \
 from ray.rllib.utils.annotations import override
@@ -28,7 +27,6 @@ import torch
 import gym
 import dgl
 import networkx as nx
-#from ray.tune.logger import pretty_print
 
 # our code imports
 from sigma_graph.data.graph.skirmish_graph import MapInfo
