@@ -39,7 +39,7 @@ import gym
 
 # our code imports
 from sigma_graph.data.graph.skirmish_graph import MapInfo
-from attention_study.model.utils import count_model_params
+from model.utils import count_model_params
 
 # other imports
 import numpy as np

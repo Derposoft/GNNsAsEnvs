@@ -7,10 +7,10 @@ import random
 import json
 
 # graph transformer imports
-from attention_study.model.nets.graph_transformer import GraphTransformerNet
+from model.nets.graph_transformer import GraphTransformerNet
 
 # our code
-from attention_study.model.utils import get_cost_from_reward
+from model.utils import get_cost_from_reward
 from sigma_graph.envs.figure8.figure8_squad_rllib import Figure8SquadRLLib
 
 MAXIMUM_THEORETICAL_REWARD = 25

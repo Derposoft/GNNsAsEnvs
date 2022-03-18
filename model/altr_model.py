@@ -9,10 +9,10 @@ from tensorboard_logger import Logger as TbLogger
 
 # our code
 from sigma_graph.envs.figure8.figure8_squad_rllib import Figure8SquadRLLib
-from attention_study.generate_baseline_metrics import parse_arguments, create_env_config, create_trainer_config
-from attention_study.model.utils import embed_obs_in_map, load_edge_dictionary
+from generate_baseline_metrics import parse_arguments, create_env_config, create_trainer_config
+from model.utils import embed_obs_in_map, load_edge_dictionary
 from sigma_graph.data.file_manager import set_visibility
-from attention_study.model.utils import get_cost_from_reward
+from model.utils import get_cost_from_reward
 
 # 3rd party
 from attention_routing.nets.attention_model import AttentionModel, set_decode_type

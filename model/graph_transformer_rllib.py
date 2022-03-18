@@ -33,9 +33,9 @@ from sigma_graph.data.graph.skirmish_graph import MapInfo
 from sigma_graph.envs.figure8 import default_setup as env_setup
 from sigma_graph.envs.figure8.action_lookup import MOVE_LOOKUP
 from sigma_graph.envs.figure8.figure8_squad_rllib import Figure8SquadRLLib
-from attention_study.model.utils import GRAPH_OBS_TOKEN, count_model_params, efficient_embed_obs_in_map, get_loc, load_edge_dictionary, \
+from model.utils import GRAPH_OBS_TOKEN, count_model_params, efficient_embed_obs_in_map, get_loc, load_edge_dictionary, \
     NETWORK_SETTINGS
-from attention_study.model.graph_transformer_model import initialize_train_artifacts as initialize_graph_transformer
+from model.graph_transformer_model import initialize_train_artifacts as initialize_graph_transformer
 
 # 3rd party library imports (s2v, attention model rdkit, etc?)
 #from attention_study.model.s2v.s2v_graph import S2VGraph

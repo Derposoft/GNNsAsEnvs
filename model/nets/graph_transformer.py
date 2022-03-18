@@ -10,8 +10,8 @@ import dgl
     
 """
 
-from attention_study.model.nets.graph_transformer_edge_layer import GraphTransformerLayer
-from attention_study.model.nets.mlp_readout_layer import MLPReadout
+from model.nets.graph_transformer_edge_layer import GraphTransformerLayer
+from model.nets.mlp_readout_layer import MLPReadout
 
 class GraphTransformerNet(nn.Module):
     def __init__(self, net_params):

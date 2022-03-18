@@ -31,7 +31,7 @@ import gym
 # our code imports
 from sigma_graph.data.graph.skirmish_graph import MapInfo
 from sigma_graph.envs.figure8.figure8_squad_rllib import Figure8SquadRLLib
-from attention_study.model.utils import embed_obs_in_map, get_loc, load_edge_dictionary, \
+from model.utils import embed_obs_in_map, get_loc, load_edge_dictionary, \
     NETWORK_SETTINGS
 
 # 3rd party library imports (s2v, attention model rdkit, etc?)

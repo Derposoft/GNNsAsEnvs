@@ -1,7 +1,7 @@
 from ray.rllib.models.catalog import ModelCatalog
-#from attention_study.model.altr_rllib import AltrPolicy
-from attention_study.model.graph_transformer_rllib import GraphTransformerPolicy
-from attention_study.model.fc_rllib import FCPolicy
+#from model.altr_rllib import AltrPolicy
+from model.graph_transformer_rllib import GraphTransformerPolicy
+from model.fc_rllib import FCPolicy
 
 # register our model (put in an __init__ file later)
 # https://docs.ray.io/en/latest/rllib-models.html#customizing-preprocessors-and-models

@@ -9,7 +9,7 @@ from ray.rllib.models.catalog import MODEL_DEFAULTS
 from sigma_graph.envs.figure8.action_lookup import MOVE_LOOKUP, TURN_90_LOOKUP
 from sigma_graph.envs.figure8.default_setup import OBS_TOKEN
 from sigma_graph.envs.figure8.figure8_squad_rllib import Figure8SquadRLLib
-import attention_study.model
+import model
 import argparse
 import time
 import gym
