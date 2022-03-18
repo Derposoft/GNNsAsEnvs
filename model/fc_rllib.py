@@ -1,18 +1,5 @@
 '''
-REQUIRES torch-geometric PACKAGE. INSTALLATION INSTRUCTIONS HERE:
-https://pytorch-geometric.readthedocs.io/en/latest/notes/installation.html
-
-@inproceedings{Fey/Lenssen/2019,
-  title={Fast Graph Representation Learning with {PyTorch Geometric}},
-  author={Fey, Matthias and Lenssen, Jan E.},
-  booktitle={ICLR Workshop on Representation Learning on Graphs and Manifolds},
-  year={2019},
-}
-
 modified variant of https://github.com/ray-project/ray/blob/master/rllib/models/torch/fcnet.py
-with certain parts of network switched out for gnn layers. "policy.py" has the policy FCs switched
-for gnns; "value.py" has the value FCs switched for gnns; "policy_value.py" has both branch's FCs
-switched out for gats   .
 
 most of this code is the same as the code on the linked github repo above; there was no reason to
 rebuild one from scratch when one existed. 
@@ -71,8 +58,8 @@ class FCPolicy(TMv2.TorchModelV2, nn.Module):
                 num_outputs,
             )
             num_outputs = num_outputs // 2
-        print(hiddens)
-        sys.exit()
+        #print(hiddens) TODO use this to figure out how to tune this baseline model to control for #params
+        #sys.exit()
         layers = []
         prev_layer_size = int(np.product(obs_space.shape))
         self._logits = None

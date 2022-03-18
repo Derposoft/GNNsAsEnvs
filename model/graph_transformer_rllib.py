@@ -1,21 +1,5 @@
 '''
-REQUIRES torch-geometric PACKAGE. INSTALLATION INSTRUCTIONS HERE:
-https://pytorch-geometric.readthedocs.io/en/latest/notes/installation.html
-
-@inproceedings{Fey/Lenssen/2019,
-  title={Fast Graph Representation Learning with {PyTorch Geometric}},
-  author={Fey, Matthias and Lenssen, Jan E.},
-  booktitle={ICLR Workshop on Representation Learning on Graphs and Manifolds},
-  year={2019},
-}
-
-simplified variant of https://github.com/ray-project/ray/blob/master/rllib/models/torch/fcnet.py
-with certain parts of network switched out for gnn layers. "policy.py" has the policy FCs switched
-for gnns; "value.py" has the value FCs switched for gnns; "policy_value.py" has both branch's FCs
-switched out for gats   .
-
-most of this code is the same as the code on the linked github repo above; there was no reason to
-rebuild one from scratch when one existed. 
+base class from https://github.com/ray-project/ray/blob/master/rllib/models/torch/fcnet.py
 '''
 # RL/AI imports
 import ray.rllib.models.torch.torch_modelv2 as TMv2
