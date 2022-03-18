@@ -1,4 +1,4 @@
-First, follow the instructions in figure8squad/README.md before following the instructions in this README. Once you have sigma_graph and its dependencies installed, follow these instructions to run the tsp/attention model tests.
+First, follow the instructions in libraries/combat_env/README.md before following the instructions in this README. Once you have sigma_graph and its dependencies installed, follow these instructions to run the tsp/attention model tests.
 
 # setup
 If on Linux (Mac might work too):
