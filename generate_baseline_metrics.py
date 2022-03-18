@@ -1,23 +1,17 @@
 '''
-a variant of simple_figure8squad.py that rllib can interface with. all outputted metrics
-can be found and visualized in tensorboard at ~/ray_results.
+all outputted metrics can be found and visualized in tensorboard at ~/ray_results.
 '''
 
-# general import
-from numpy.core.numeric import outer
-from ray.rllib.models.catalog import MODEL_DEFAULTS
+# general
+import argparse
+import time
+import os
+
+# our code
 from sigma_graph.envs.figure8.action_lookup import MOVE_LOOKUP, TURN_90_LOOKUP
 from sigma_graph.envs.figure8.default_setup import OBS_TOKEN
 from sigma_graph.envs.figure8.figure8_squad_rllib import Figure8SquadRLLib
-import model
-import argparse
-import time
-import gym
-import os
-
-# visualize training
-import tensorboard as tb
-from ray.tune.logger import pretty_print
+import model # THIS NEEDS TO BE HERE IN ORDER TO RUN __init__.py!
 
 # algorithms to test
 from ray.rllib.agents import dqn
@@ -25,35 +19,8 @@ from ray.rllib.agents import pg
 from ray.rllib.agents import a3c
 from ray.rllib.agents import ppo
 from ray.rllib.agents import impala # single-threaded stuff only for now
-
-# tuning
-from ray.tune.stopper import TimeoutStopper
-from ray import tune
-from ray.rllib.models import ModelCatalog
-
-# print current agent states
-def print_agents(env):
-    # print("Step #{}/{}".format(env.step_counter, env.max_step))
-    print("## Team red has {} agent(s)".format(env.num_red))
-    for _i in range(env.num_red):
-        _id = env.team_red[_i].get_id()
-        _node, _dir = env.team_red[_i].get_pos_dir()
-        _look = MOVE_LOOKUP[_dir]
-        _hp = env.team_red[_i].get_health()
-        _dp = env.team_red[_i].damage_total()
-        print("# Agent red #{} @node: <{}> dir: <{}:\'{}\'> "
-              "health: <{}> damage: <{}>".format(_id, _node, _dir, _look, _hp, _dp))
-        print("mask: {}\nobs: {}".format(env.action_mask[_i], env.states[_i]))
-    print("## Team blue has {} agent(s)".format(env.num_blue))
-    for _i in range(env.num_blue):
-        _id = env.team_blue[_i].get_id()
-        _idx = env.team_blue[_i].get_index()
-        _node, _dir = env.team_blue[_i].get_pos_dir()
-        _look = MOVE_LOOKUP[_dir]
-        _hp = env.team_blue[_i].get_health()
-        _end = env.team_blue[_i].get_end_step()
-        print("# Agent blue #{} at pos_index #{} @node: <{}> dir: <{}:\'{}\'> "
-              "health: <{}> death_step: <{}>\n".format(_id, _idx, _node, _dir, _look, _hp, _end))
+from ray.rllib.models.catalog import MODEL_DEFAULTS
+from ray.tune.logger import pretty_print
 
 # create env configuration
 def create_env_config(config):
@@ -148,10 +115,10 @@ def train(trainer, model_name, train_time=200, checkpoint_models=True):
         print(pretty_print(result))
         if (time.time() - start) > train_time: break
     if checkpoint_models:
-        trainer.save(checkpoint_dir='model_checkpoints/'+model_name)
+        trainer.save(checkpoint_dir='model_checkpoints/'+model_name+str(time.time()))
 
 # run baseline tests with a few different algorithms
-def run_baselines(config, run_default_baseline_metrics=False, train_time=60*15, checkpoint_models=True, custom_model='graph_transformer_policy'):
+def run_baselines(config, run_default_baseline_metrics=False, train_time=200, checkpoint_models=True, custom_model='graph_transformer_policy'):
     '''
     runs a set of baseline algorithms on the red v blue gym environment using rllib. the
     chosen algorithms are from the following list of algorithms:
@@ -194,7 +161,7 @@ def run_baselines(config, run_default_baseline_metrics=False, train_time=60*15, 
 # parse arguments
 def parse_arguments():
     parser = argparse.ArgumentParser()
-    # basic configs
+    # configs for sigma_graph env
     parser.add_argument('--env_path', type=str, default='./libraries/combat_env', help='path of the project root')
     parser.add_argument('--n_red', type=int, default=1, help='numbers of red agent')
     parser.add_argument('--n_blue', type=int, default=1, help='numbers of blue agent')
@@ -231,20 +198,19 @@ def parse_arguments():
             }
         }
     '''
-    # additional (comment out if not needed)
     parser.add_argument('--penalty_stay', type=int, default=0, help='penalty for take stay action [0: "NOOP"]')
     parser.add_argument('--threshold_blue', default=2)
     parser.add_argument('--threshold_red', default=5)
-    # my own additions
+
+    # model/training config
     parser.add_argument('--model', default='graph_transformer', choices=['graph_transformer', 'altr'])
-    parser.add_argument('--train_time', default=200, help='how long to train the model')
-    parser.add_argument('--use_mean_embed', default=False, help='use mean embeddings vs choose embedding for agent\'s node at inference time')
-    parser.add_argument('--run_baselines', default=False, help='are we running baselines or actual model?')
+    parser.add_argument('--train_time', type=int, default=200, help='how long to train the model')
+    parser.add_argument('--use_mean_embed', type=bool, default=False, help='use mean embeddings vs choose embedding for agent\'s node at inference time')
+    parser.add_argument('--run_baselines', type=bool, default=False, help='are we running baselines or actual model?')
     return parser
 
 if __name__ == "__main__":
-    # STEP 0: parse cmdline args
+    # parse args and run baselines
     parser = parse_arguments()
-    # run baselines
     config = parser.parse_args()
     run_baselines(config, run_default_baseline_metrics=config.run_baselines, custom_model=config.model+'_policy', train_time=config.train_time)
