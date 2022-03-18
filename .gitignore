@@ -133,7 +133,7 @@ logs/
 examples/.ipynb_checkpoints/
 # data/parsed/
 model_checkpoints/
+checkpoints/
 data/
 outputs/
 logs/
-test.py

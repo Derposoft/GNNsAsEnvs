@@ -4,6 +4,7 @@ all outputted metrics can be found and visualized in tensorboard at ~/ray_result
 
 # general
 import argparse
+import pickle
 import time
 import os
 
@@ -108,14 +109,18 @@ def create_trainer_config(outer_configs, trainer_type=None, custom_model=''):
     trainer_config = { **init_trainer_config, **trainer_type_config }
     return trainer_config
 
-def train(trainer, model_name, train_time=200, checkpoint_models=True):
+def train(trainer, model_name, train_time=200, checkpoint_models=True, config=None):
     start = time.time()
     for _ in range(train_time):
         result = trainer.train()
         print(pretty_print(result))
         if (time.time() - start) > train_time: break
     if checkpoint_models:
-        trainer.save(checkpoint_dir='model_checkpoints/'+model_name+str(time.time()))
+        assert config != None, 'configs must not be none if models are being saved.'
+        model_dir = 'checkpoints/'+model_name+str(time.time()) + '/'
+        trainer.save(checkpoint_dir=model_dir+'model')
+        with open(model_dir+'config.pkl', 'wb') as f:
+            pickle.dump(config, f)
 
 # run baseline tests with a few different algorithms
 def run_baselines(config, run_default_baseline_metrics=False, train_time=200, checkpoint_models=True, custom_model='graph_transformer_policy'):
@@ -129,34 +134,22 @@ def run_baselines(config, run_default_baseline_metrics=False, train_time=200, ch
         perhaps we can get rid of this requirement by "flattening" our action space into
         a more simple Discrete action space in the future)
     (b) Multi-Agent - Yes. Because the red v blue is a multi-agent environment.
+
+    experimentally, ppo was the only one that performed/worked well with the gat model. therefore,
+    the experiments are all focused around its use.
     '''
-    # STEP 1: env config construction, helper functions
-    outer_configs, n_episodes = create_env_config(config)
+    # get env config
+    outer_configs, _ = create_env_config(config)
     
-    # STEP 2: create and train trainers
+    # train
     if run_default_baseline_metrics:
-        #ppo_trainer_default = ppo.PPOTrainer(config=create_trainer_config(outer_configs, trainer_type=ppo), env=Figure8SquadRLLib)
-        #a2c_trainer_default = a3c.A2CTrainer(config=create_trainer_config(outer_configs, trainer_type=a3c), env=Figure8SquadRLLib)
-        #pg_trainer_default = pg.PGTrainer(config=create_trainer_config(outer_configs, trainer_type=pg), env=Figure8SquadRLLib)
-        #dqn_trainer_default = dqn.DQNTrainer(config=create_trainer_config(outer_configs, trainer_type=dqn), env=Figure8SquadRLLib)
-        #train(ppo_trainer_default, 'ppo_default', train_time, checkpoint_models)
-        #train(a2c_trainer_default, 'a2c_default', train_time, checkpoint_models)
-        #train(pg_trainer_default)
-        #train(dqn_trainer_default)
-        ppo_trainer_baseline = ppo.PPOTrainer(config=create_trainer_config(outer_configs, trainer_type=ppo, custom_model='fc_policy'), env=Figure8SquadRLLib)
-        #a2c_trainer_custom = a3c.A2CTrainer(config=create_trainer_config(outer_configs, trainer_type=a3c, custom_model=custom_model), env=Figure8SquadRLLib)
-        #pg_trainer_custom = pg.PGTrainer(config=create_trainer_config(outer_configs, trainer_type=pg, custom_model=custom_model), env=Figure8SquadRLLib)
-        #dqn_trainer_custom = dqn.DQNTrainer(config=create_trainer_config(outer_configs, trainer_type=dqn, custom_model=custom_model), env=Figure8SquadRLLib)
-        train(ppo_trainer_baseline, 'ppo_baseline', train_time, checkpoint_models)
+        ppo_config = create_trainer_config(outer_configs, trainer_type=ppo, custom_model='fc_policy')
+        ppo_trainer_baseline = ppo.PPOTrainer(config=ppo_config, env=Figure8SquadRLLib)
+        train(ppo_trainer_baseline, 'ppo_baseline', train_time, checkpoint_models, ppo_config)
     else:
-        ppo_trainer_custom = ppo.PPOTrainer(config=create_trainer_config(outer_configs, trainer_type=ppo, custom_model=custom_model), env=Figure8SquadRLLib)
-        #a2c_trainer_custom = a3c.A2CTrainer(config=create_trainer_config(outer_configs, trainer_type=a3c, custom_model=custom_model), env=Figure8SquadRLLib)
-        #pg_trainer_custom = pg.PGTrainer(config=create_trainer_config(outer_configs, trainer_type=pg, custom_model=custom_model), env=Figure8SquadRLLib)
-        #dqn_trainer_custom = dqn.DQNTrainer(config=create_trainer_config(outer_configs, trainer_type=dqn, custom_model=custom_model), env=Figure8SquadRLLib)
+        ppo_config = create_trainer_config(outer_configs, trainer_type=ppo, custom_model=custom_model)
+        ppo_trainer_custom = ppo.PPOTrainer(config=ppo_config, env=Figure8SquadRLLib)
         train(ppo_trainer_custom, 'ppo_custom', train_time, checkpoint_models)
-        #train(a2c_trainer_custom, 'a2c_custom', train_time, checkpoint_models)
-        #train(pg_trainer_custom)
-        #train(dqn_trainer_custom)
 
 # parse arguments
 def parse_arguments():
@@ -214,3 +207,28 @@ if __name__ == "__main__":
     parser = parse_arguments()
     config = parser.parse_args()
     run_baselines(config, run_default_baseline_metrics=config.run_baselines, custom_model=config.model+'_policy', train_time=config.train_time)
+
+
+
+'''# junk section; TODO remove
+
+        #ppo_trainer_default = ppo.PPOTrainer(config=create_trainer_config(outer_configs, trainer_type=ppo), env=Figure8SquadRLLib)
+        #a2c_trainer_default = a3c.A2CTrainer(config=create_trainer_config(outer_configs, trainer_type=a3c), env=Figure8SquadRLLib)
+        #pg_trainer_default = pg.PGTrainer(config=create_trainer_config(outer_configs, trainer_type=pg), env=Figure8SquadRLLib)
+        #dqn_trainer_default = dqn.DQNTrainer(config=create_trainer_config(outer_configs, trainer_type=dqn), env=Figure8SquadRLLib)
+        #train(ppo_trainer_default, 'ppo_default', train_time, checkpoint_models)
+        #train(a2c_trainer_default, 'a2c_default', train_time, checkpoint_models)
+        #train(pg_trainer_default)
+        #train(dqn_trainer_default)
+        #a2c_trainer_custom = a3c.A2CTrainer(config=create_trainer_config(outer_configs, trainer_type=a3c, custom_model=custom_model), env=Figure8SquadRLLib)
+        #pg_trainer_custom = pg.PGTrainer(config=create_trainer_config(outer_configs, trainer_type=pg, custom_model=custom_model), env=Figure8SquadRLLib)
+        #dqn_trainer_custom = dqn.DQNTrainer(config=create_trainer_config(outer_configs, trainer_type=dqn, custom_model=custom_model), env=Figure8SquadRLLib)
+        #a2c_trainer_custom = a3c.A2CTrainer(config=create_trainer_config(outer_configs, trainer_type=a3c, custom_model=custom_model), env=Figure8SquadRLLib)
+        #pg_trainer_custom = pg.PGTrainer(config=create_trainer_config(outer_configs, trainer_type=pg, custom_model=custom_model), env=Figure8SquadRLLib)
+        #dqn_trainer_custom = dqn.DQNTrainer(config=create_trainer_config(outer_configs, trainer_type=dqn, custom_model=custom_model), env=Figure8SquadRLLib)
+        #train(a2c_trainer_custom, 'a2c_custom', train_time, checkpoint_models)
+        #train(pg_trainer_custom)
+        #train(dqn_trainer_custom)
+
+
+'''
