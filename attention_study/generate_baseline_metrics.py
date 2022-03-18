@@ -141,9 +141,9 @@ def create_trainer_config(outer_configs, trainer_type=None, custom_model=''):
     trainer_config = { **init_trainer_config, **trainer_type_config }
     return trainer_config
 
-def train(trainer, model_name, train_time=60*5, checkpoint_models=True):
+def train(trainer, model_name, train_time=200, checkpoint_models=True):
     start = time.time()
-    while(True):
+    for _ in range(train_time):
         result = trainer.train()
         print(pretty_print(result))
         if (time.time() - start) > train_time: break
@@ -237,7 +237,7 @@ def parse_arguments():
     parser.add_argument('--threshold_red', default=5)
     # my own additions
     parser.add_argument('--model', default='graph_transformer', choices=['graph_transformer', 'altr'])
-    parser.add_argument('--train_time', default=120*60, help='how long to train the model')
+    parser.add_argument('--train_time', default=200, help='how long to train the model')
     parser.add_argument('--use_mean_embed', default=False, help='use mean embeddings vs choose embedding for agent\'s node at inference time')
     parser.add_argument('--run_baselines', default=False, help='are we running baselines or actual model?')
     return parser

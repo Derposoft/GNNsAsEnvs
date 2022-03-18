@@ -24,12 +24,12 @@
     
     "net_params": {
         "L": 6,
-        "n_heads": 4,
-        "hidden_dim": 16,
-        "out_dim": 16,
+        "n_heads": 8,
+        "hidden_dim": 32,
+        "out_dim": 32,
         "edge_feat": false,
         "residual": true,
-        "readout": "mean",
+        "readout": "agent_node",
         "in_feat_dropout": 0.0,
         "dropout": 0.0,
         "layer_norm": true,

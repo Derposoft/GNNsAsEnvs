@@ -18,6 +18,7 @@ most of this code is the same as the code on the linked github repo above; there
 rebuild one from scratch when one existed. 
 '''
 
+import sys
 import numpy as np
 import gym
 
@@ -70,7 +71,8 @@ class FCPolicy(TMv2.TorchModelV2, nn.Module):
                 num_outputs,
             )
             num_outputs = num_outputs // 2
-
+        print(hiddens)
+        sys.exit()
         layers = []
         prev_layer_size = int(np.product(obs_space.shape))
         self._logits = None
