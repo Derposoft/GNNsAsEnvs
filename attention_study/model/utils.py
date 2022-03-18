@@ -1,6 +1,5 @@
 from collections import deque
 import sys
-import torch.nn as nn
 import numpy as np
 import torch
 from copy import deepcopy
@@ -22,12 +21,6 @@ GRAPH_OBS_TOKEN = {
     'obs_embed': True,
     'embedding_size': 10,
     'embed_pos': False,
-}
-EMBED_IDX = {
-    'is_agent_pos': 2,
-    'agent_dir': 3, # 3,4,5,6; 0 if agent not here
-    'is_red_here': 7,
-    'is_blue_here': 8,
 }
 def ERROR_MSG(e): return f'ERROR READING OBS: {e}'
 VIEW_DEGS = {
