@@ -51,10 +51,11 @@ def run_tests(config):
         print('restored')
         # test all possible starting locations for red and print policy for each of location
         for i in range(test_env.map.get_graph_size()):
-            obs, _, done = test_env.reset(), 0, False
+            obs, rew, done = test_env.reset(), {}, False
             for j in range(len(test_env.team_red)):
                 test_env.team_red[j].set_location(i+1, test_env.map.get_name_by_index(i+1), 1)
             locations = {}
+            #blue_locations = {} # TODO add location printout for blue as well
             for agent in obs.keys():
                 locations[agent] = [i+1]
             actions = {}
@@ -68,15 +69,19 @@ def run_tests(config):
                     if agent not in actions: actions[agent] = []
                     actions[agent].append(agent_action)
                     n_action[agent] = agent_action
-                obs, _, done, _ = test_env.step(n_action)
+                obs, nrew, done, _ = test_env.step(n_action)
+                for agent in nrew:
+                    if agent not in rew: rew[agent] = 0
+                    rew[agent] += nrew[agent]
                 for agent in obs.keys():
                     locations[agent].append(test_env.team_red[int(agent)].agent_node)
                 if done['__all__']:
                     break
-            print(f'r1n{i} policy:')
             for agent in obs.keys():
+                print(f'agent{agent}n{i+1} policy:')
                 print(f'agent {agent}A: {actions[agent]}')
                 print(f'agent {agent}N: {locations[agent]}')
+                print(f'agent {agent}R: {rew[agent]}')
             
     print('done')
 
