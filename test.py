@@ -6,6 +6,7 @@ tests models that are outputted by generate_metrics.py.
 import pickle
 import sys
 import time
+import torch
 import os
 
 # our code
@@ -47,9 +48,32 @@ def run_tests(config):
         print('restored')
         # test all possible starting locations for red and print policy for each of location
         for i in range(test_env.map.get_graph_size()):
-            test_env.reset()
-            print(f'r1n{i}')
-            #test_env.learning_agent[0]
+            obs, _, done = test_env.reset(), 0, False
+            for j in range(len(test_env.team_red)):
+                test_env.team_red[j].set_location(i+1, test_env.map.get_name_by_index(i+1), 1)
+            locations = {}
+            for agent in obs.keys():
+                locations[agent] = [i+1]
+            actions = {}
+            # go till either 20 steps or done
+            for step in range(20):
+                # keep track of actions+locations gone by each agent
+                n_action = {}
+                for agent in obs.keys():
+                    agent_obs = obs[agent]
+                    agent_action = trainer.compute_single_action(torch.tensor(agent_obs))
+                    if agent not in actions: actions[agent] = []
+                    actions[agent].append(agent_action)
+                    n_action[agent] = agent_action
+                obs, _, done, _ = test_env.step(n_action)
+                for agent in obs.keys():
+                    locations[agent].append(test_env.team_red[int(agent)].agent_node)
+                if done['__all__']:
+                    break
+            print(f'r1n{i} policy:')
+            for agent in obs.keys():
+                print(f'agent {agent}A: {actions[agent]}')
+                print(f'agent {agent}N: {locations[agent]}')
     print('done')
 
 if __name__ == "__main__":
