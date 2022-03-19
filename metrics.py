@@ -118,9 +118,11 @@ def train(trainer, model_name, train_time=200, checkpoint_models=True, config=No
     if checkpoint_models:
         assert config != None, 'configs must not be none if models are being saved.'
         model_dir = 'checkpoints/'+model_name+str(time.time()) + '/'
-        trainer.save(checkpoint_dir=model_dir+'model')
+        checkpoint_path = trainer.save(checkpoint_dir=model_dir+'model')
         with open(model_dir+'config.pkl', 'wb') as f:
             pickle.dump(config, f)
+        with open(model_dir+'checkpoint_path.txt', 'w') as f:
+            f.write(checkpoint_path)
 
 # run baseline tests with a few different algorithms
 def run_baselines(config, run_default_baseline_metrics=False, train_time=200, checkpoint_models=True, custom_model='graph_transformer_policy'):

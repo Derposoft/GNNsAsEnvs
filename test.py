@@ -21,8 +21,9 @@ def restore_trainer(checkpoint_path, config):
     '''
     https://docs.ray.io/en/latest/serve/tutorials/rllib.html
     '''
+    config['log_level'] = 'ERROR'
     trainer = ppo.PPOTrainer(config, env=Figure8SquadRLLib)
-    trainer.restore(checkpoint_path+'/checkpoint_000001/checkpoint-1')
+    trainer.restore(checkpoint_path)
     return trainer
 
 
@@ -41,10 +42,12 @@ def run_tests(config):
     checkpoints = os.listdir(dir)
     for checkpoint in checkpoints:
         model_dir = f'{dir}/{checkpoint}'
-        print(f'model at: {model_dir}')
+        print(f'########## model at: {model_dir} ##########')
         with open(model_dir+'/config.pkl', 'rb') as f:
             trainer_config = pickle.load(f)
-        trainer = restore_trainer(model_dir+'/model', trainer_config)
+        with open(model_dir+'/checkpoint_path.txt', 'r') as f:
+            checkpoint_path = f.readlines()[0]
+        trainer = restore_trainer(checkpoint_path, trainer_config)
         print('restored')
         # test all possible starting locations for red and print policy for each of location
         for i in range(test_env.map.get_graph_size()):
@@ -74,6 +77,7 @@ def run_tests(config):
             for agent in obs.keys():
                 print(f'agent {agent}A: {actions[agent]}')
                 print(f'agent {agent}N: {locations[agent]}')
+            
     print('done')
 
 if __name__ == "__main__":
