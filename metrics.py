@@ -114,7 +114,6 @@ def train(trainer, model_name, train_time=200, checkpoint_models=True, config=No
     for _ in range(train_time):
         result = trainer.train()
         print(pretty_print(result))
-        if (time.time() - start) > train_time: break
     if checkpoint_models:
         assert config != None, 'configs must not be none if models are being saved.'
         model_dir = 'checkpoints/'+model_name+str(time.time()) + '/'
@@ -151,7 +150,7 @@ def run_baselines(config, run_default_baseline_metrics=False, train_time=200, ch
     else:
         ppo_config = create_trainer_config(outer_configs, trainer_type=ppo, custom_model=custom_model)
         ppo_trainer_custom = ppo.PPOTrainer(config=ppo_config, env=Figure8SquadRLLib)
-        train(ppo_trainer_custom, 'ppo_custom', train_time, checkpoint_models)
+        train(ppo_trainer_custom, 'ppo_custom', train_time, checkpoint_models, ppo_config)
 
 # parse arguments
 def parse_arguments():
