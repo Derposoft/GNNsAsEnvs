@@ -494,8 +494,8 @@ class Figure8Squad(gym.Env):
                 self.learning_agent.append(b_uid)
             b_route = self.configs["route_lookup"].index(init_blue["route"])  # int: index in the route lookup list
             self.team_blue.append(AgentBlue(_uid=b_uid, _learn=learn, _route=b_route))
-            self.team_blue[-1].agent_node = 5
-            self.team_blue[-1].agent_dir = 2
+            #self.team_blue[-1].agent_node = 5
+            #self.team_blue[-1].agent_dir = 2
 
 
     # reset agents to init status for each new episode
