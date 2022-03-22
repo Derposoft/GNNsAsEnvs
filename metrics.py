@@ -110,13 +110,14 @@ def create_trainer_config(outer_configs, trainer_type=None, custom_model=''):
     return trainer_config
 
 def train(trainer, model_name, train_time=200, checkpoint_models=True, config=None):
-    start = time.time()
+    assert model_name != '', 'you must name your model. please use --name'
+    if checkpoint_models: assert config != None, 'configs must not be none if models are being saved.'
     for _ in range(train_time):
         result = trainer.train()
         print(pretty_print(result))
     if checkpoint_models:
-        assert config != None, 'configs must not be none if models are being saved.'
-        model_dir = 'checkpoints/'+model_name+str(time.time()) + '/'
+        #model_dir = 'checkpoints/'+model_name+str(time.time()) + '/'
+        model_dir = 'checkpoints/'+model_name+'/'
         checkpoint_path = trainer.save(checkpoint_dir=model_dir+'model')
         with open(model_dir+'config.pkl', 'wb') as f:
             pickle.dump(config, f)
@@ -146,11 +147,11 @@ def run_baselines(config, run_default_baseline_metrics=False, train_time=200, ch
     if run_default_baseline_metrics:
         ppo_config = create_trainer_config(outer_configs, trainer_type=ppo, custom_model='fc_policy')
         ppo_trainer_baseline = ppo.PPOTrainer(config=ppo_config, env=Figure8SquadRLLib)
-        train(ppo_trainer_baseline, 'ppo_baseline', train_time, checkpoint_models, ppo_config)
+        train(ppo_trainer_baseline, config.name, train_time, checkpoint_models, ppo_config)
     else:
         ppo_config = create_trainer_config(outer_configs, trainer_type=ppo, custom_model=custom_model)
         ppo_trainer_custom = ppo.PPOTrainer(config=ppo_config, env=Figure8SquadRLLib)
-        train(ppo_trainer_custom, 'ppo_custom', train_time, checkpoint_models, ppo_config)
+        train(ppo_trainer_custom, config.name, train_time, checkpoint_models, ppo_config)
 
 # parse arguments
 def parse_arguments():
@@ -197,10 +198,15 @@ def parse_arguments():
     parser.add_argument('--threshold_red', default=5)
 
     # model/training config
+    parser.add_argument('--name', default='', help='name this model')
     parser.add_argument('--model', default='graph_transformer', choices=['graph_transformer', 'altr'])
     parser.add_argument('--train_time', type=int, default=200, help='how long to train the model')
     parser.add_argument('--use_mean_embed', type=bool, default=False, help='use mean embeddings vs choose embedding for agent\'s node at inference time')
     parser.add_argument('--run_baselines', type=bool, default=False, help='are we running baselines or actual model?')
+
+    # testing config
+    parser.add_argument('--policy_file', type=str, default='', help='use hardcoded policy from provided policy file')
+
     return parser
 
 if __name__ == "__main__":

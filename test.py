@@ -3,10 +3,12 @@ tests models that are outputted by generate_metrics.py.
 '''
 
 # general
+from email import policy
 import pickle
 import sys
 import time
 import torch
+import json
 import os
 
 # our code
@@ -35,7 +37,11 @@ def run_tests(config):
     # initialize env
     outer_config, _ = create_env_config(config)
     test_env = Figure8SquadRLLib(outer_config)
-
+    policy_file = {}
+    if config.policy_file != '':
+        with open(config.policy_file) as f:
+            policy_file = json.load(f)
+    
     # test all models trained so far
     print('testing...')
     dir = './checkpoints'
@@ -46,10 +52,11 @@ def run_tests(config):
         with open(model_dir+'/config.pkl', 'rb') as f:
             trainer_config = pickle.load(f)
         with open(model_dir+'/checkpoint_path.txt', 'r') as f:
-            checkpoint_path = f.readlines()[0]
+            checkpoint_path = f.readlines()[0].lstrip().rstrip()
         trainer = restore_trainer(checkpoint_path, trainer_config)
         print('restored')
         # test all possible starting locations for red and print policy for each of location
+        tot_rew_across_all = {}
         for i in range(test_env.map.get_graph_size()):
             obs, rew, done = test_env.reset(), {}, False
             for j in range(len(test_env.team_red)):
@@ -65,7 +72,16 @@ def run_tests(config):
                 n_action = {}
                 for agent in obs.keys():
                     agent_obs = obs[agent]
-                    agent_action = trainer.compute_single_action(torch.tensor(agent_obs))
+                    hardcoded_policy_this_step = False
+                    if str(agent) in policy_file and str(i+1) in policy_file[str(agent)]:
+                        ax_ni_policy = policy_file[str(agent)][str(i+1)]
+                        if step < len(ax_ni_policy):
+                            agent_action = Figure8SquadRLLib.convert_multidiscrete_action_to_discrete(
+                                ax_ni_policy[step][0], ax_ni_policy[step][1]
+                            )
+                            hardcoded_policy_this_step = True
+                    if not hardcoded_policy_this_step:
+                        agent_action = trainer.compute_single_action(torch.tensor(agent_obs))
                     if agent not in actions: actions[agent] = []
                     actions[agent].append(agent_action)
                     n_action[agent] = agent_action
@@ -82,6 +98,8 @@ def run_tests(config):
                 print(f'agent {agent}A: {actions[agent]}')
                 print(f'agent {agent}N: {locations[agent]}')
                 print(f'agent {agent}R: {rew[agent]}')
+                tot_rew_across_all[agent] = tot_rew_across_all.get(agent, 0) + rew[agent]
+        print(f'total model reward among all initializations: {tot_rew_across_all}')
             
     print('done')
 
@@ -89,4 +107,7 @@ if __name__ == "__main__":
     # parse args and run tests
     parser = parse_arguments()
     config = parser.parse_args()
+    #if 'policy' in config:
+    #    print(config.policy)
+    #    sys.exit()
     run_tests(config)

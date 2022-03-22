@@ -44,6 +44,9 @@ class FCPolicy(TMv2.TorchModelV2, nn.Module):
         hiddens = list(model_config.get("fcnet_hiddens", [])) + list(
             model_config.get("post_fcnet_hiddens", [])
         )
+        hiddens = [170, 170] # ensures that this model has ~90k params
+        #print(hiddens, 'HIDDENS')
+        #sys.exit()
         activation = model_config.get("fcnet_activation")
         if not model_config.get("fcnet_hiddens", []):
             activation = model_config.get("post_fcnet_activation")

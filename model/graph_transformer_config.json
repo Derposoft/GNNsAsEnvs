@@ -24,9 +24,9 @@
     
     "net_params": {
         "L": 6,
-        "n_heads": 8,
-        "hidden_dim": 32,
-        "out_dim": 32,
+        "n_heads": 4,
+        "hidden_dim": 4,
+        "out_dim": 4,
         "edge_feat": false,
         "residual": true,
         "readout": "agent_node",
