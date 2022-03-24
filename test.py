@@ -58,14 +58,16 @@ def run_tests(config):
         # test all possible starting locations for red and print policy for each of location
         tot_rew_across_all = {}
         for i in range(test_env.map.get_graph_size()):
-            obs, rew, done = test_env.reset(), {}, False
+            obs, done = test_env.reset(), False
             for j in range(len(test_env.team_red)):
                 test_env.team_red[j].set_location(i+1, test_env.map.get_name_by_index(i+1), 1)
+            actions = {}
             locations = {}
+            rew = {}
+            hp = {}
             #blue_locations = {} # TODO add location printout for blue as well
             for agent in obs.keys():
                 locations[agent] = [i+1]
-            actions = {}
             # go till either 20 steps or done
             for step in range(20):
                 # keep track of actions+locations gone by each agent
@@ -91,6 +93,10 @@ def run_tests(config):
                     rew[agent] += nrew[agent]
                 for agent in obs.keys():
                     locations[agent].append(test_env.team_red[int(agent)].agent_node)
+                for agent in obs.keys():
+                    if agent not in hp: hp[agent] = 0
+                    hp[agent] = test_env.team_red[int(agent)].health
+                    #print('current agent hp:', test_env.team_red[int(agent)].health)
                 if done['__all__']:
                     break
             for agent in obs.keys():
@@ -98,6 +104,7 @@ def run_tests(config):
                 print(f'agent {agent}A: {actions[agent]}')
                 print(f'agent {agent}N: {locations[agent]}')
                 print(f'agent {agent}R: {rew[agent]}')
+                print(f'agent {agent}H: {hp[agent]}')
                 tot_rew_across_all[agent] = tot_rew_across_all.get(agent, 0) + rew[agent]
         print(f'total model reward among all initializations: {tot_rew_across_all}')
             

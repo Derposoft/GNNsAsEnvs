@@ -297,9 +297,9 @@ class Figure8Squad(gym.Env):
                     self.team_red[_r].damage_add(_step_damage)
                     self.team_blue[_b].take_damage(_step_damage)
                 if B_engage_R[_b, _r]:
-                    if self.team_red[_r].agent_node == 4 or self.team_red[_r].agent_node == 5: # TODO
-                        self.team_red[_r].take_damage(_step_damage)
-                        '''this shooting code was commented out before'''
+                    #if self.team_red[_r].agent_node == 4 or self.team_red[_r].agent_node == 5: # TODO
+                    self.team_red[_r].take_damage(_step_damage)
+                    '''this shooting code was commented out before'''
             # update end time for blue agents
             if self.team_blue[_b].get_end_step() > 0:
                 continue
