@@ -80,8 +80,9 @@ class GraphTransformerNet(nn.Module):
             h_wl_pos_enc = self.embedding_wl_pos_enc(h_wl_pos_enc) 
             h = h + h_wl_pos_enc
         if not self.edge_feat: # edge feature set to 1
-            e = torch.ones(e.size(0),1).to(self.device)
-        e = self.embedding_e(e)   
+            #e = torch.ones(e.size(0),1).to(self.device)
+            e = torch.ones(g.number_of_edges(),1).to(self.device)
+        e = self.embedding_e(e)
         
         # convnets
         for conv in self.layers:

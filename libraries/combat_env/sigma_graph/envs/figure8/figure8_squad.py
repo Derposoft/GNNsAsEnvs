@@ -1,3 +1,4 @@
+import sys
 import numpy as np
 import gym
 from gym import spaces
@@ -443,7 +444,7 @@ class Figure8Squad(gym.Env):
         self.configs["init_blue"] = env_setup.check_agent_init("blue", self.num_blue, self.configs["init_blue"])
         # get all unique routes. (blue agents might share patrol route)
         self.configs["route_lookup"] = list(set(_blue["route"] for _blue in self.configs["init_blue"]))
-
+        
         # setup log inits if not provided
         if "log_on" in self.logs:
             self.logger = self.logs["log_on"]
@@ -494,9 +495,6 @@ class Figure8Squad(gym.Env):
                 self.learning_agent.append(b_uid)
             b_route = self.configs["route_lookup"].index(init_blue["route"])  # int: index in the route lookup list
             self.team_blue.append(AgentBlue(_uid=b_uid, _learn=learn, _route=b_route))
-            #self.team_blue[-1].agent_node = 5
-            #self.team_blue[-1].agent_dir = 2
-
 
     # reset agents to init status for each new episode
     def _reset_agents(self):
@@ -506,6 +504,9 @@ class Figure8Squad(gym.Env):
             r_node = self.map.get_index_by_name(r_code)
             r_dir = env_setup.get_default_dir(init_red["dir"])
             self.team_red[idx].reset(_node=r_node, _code=r_code, _dir=r_dir, _health=HP_red)
+            if self.configs["fixed_start"] != -1:
+                pos = self.configs["fixed_start"]
+                self.team_red[idx].set_location(pos, self.map.get_name_by_index(pos), 1)
 
         HP_blue = self.configs["init_health_blue"]
         for idx, init_blue in enumerate(self.configs["init_blue"]):
@@ -513,9 +514,8 @@ class Figure8Squad(gym.Env):
             b_index = init_blue["idx"]  # int: index of the position on the given route
             b_node, b_code, b_dir = self.routes[b_route].get_location_by_index(b_index)
             self.team_blue[idx].reset(_node=b_node, _code=b_code, _dir=b_dir, _health=HP_blue, _index=b_index, _end=-1)
-            #print(b_node, b_dir)
-            #self.team_blue[idx].reset(_node=5, _code=b_code, _dir=2, _health=HP_blue, _index=b_index, _end=-1)
-            # TODO
+        
+        #print(self.team_red[0].agent_node)
 
     def _log_step_prev(self):
         return self.states if self.logger else []

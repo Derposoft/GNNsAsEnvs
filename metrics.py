@@ -12,6 +12,7 @@ import os
 from sigma_graph.envs.figure8.action_lookup import MOVE_LOOKUP, TURN_90_LOOKUP
 from sigma_graph.envs.figure8.default_setup import OBS_TOKEN
 from sigma_graph.envs.figure8.figure8_squad_rllib import Figure8SquadRLLib
+import sigma_graph.envs.figure8.default_setup as default_setup
 import model # THIS NEEDS TO BE HERE IN ORDER TO RUN __init__.py!
 
 # algorithms to test
@@ -38,7 +39,8 @@ def create_env_config(config):
                     # "reward_step_on": False, "reward_episode_on": True, "episode_decay_soft": True,
                     # "health_lookup": {"type": "table", "reward": [8, 4, 2, 0], "damage": [0, 1, 2, 100]},
                     # "faster_lookup": {"type": "none"},
-                    "use_mean_embed": config.use_mean_embed,
+                    #"use_mean_embed": config.use_mean_embed,
+                    "fixed_start": config.fixed_start,
                     }
     ## i.e. init_red 'pos': tuple(x, z) or "L"/"R" region of the map
     # "init_red": [{"pos": (11, 1), "dir": 1}, {"pos": None}, {"pos": "L", "dir": None}]
@@ -75,7 +77,7 @@ def create_trainer_config(outer_configs, trainer_type=None, custom_model=''):
             "map": setup_env.map,
             "nred": outer_configs['n_red'],
             "nblue": outer_configs['n_blue'],
-            "use_mean_embed": outer_configs['use_mean_embed']
+            #"use_mean_embed": outer_configs['use_mean_embed'],
         },
     }
     init_trainer_config = {
@@ -92,7 +94,8 @@ def create_trainer_config(outer_configs, trainer_type=None, custom_model=''):
         "evaluation_num_episodes": 10,
         "evaluation_num_workers": 1,
         "rollout_fragment_length": 50, # 50 for a2c, 200 for everyone else?
-        "train_batch_size": 200
+        "train_batch_size": 200,
+        "log_level": "ERROR"
     }
 
     # initialize specific trainer type config
@@ -203,6 +206,8 @@ def parse_arguments():
     parser.add_argument('--train_time', type=int, default=200, help='how long to train the model')
     parser.add_argument('--use_mean_embed', type=bool, default=False, help='use mean embeddings vs choose embedding for agent\'s node at inference time')
     parser.add_argument('--run_baselines', type=bool, default=False, help='are we running baselines or actual model?')
+    parser.add_argument('--fixed_start', type=int, default=-1, help='where to fix the agent init points when training')
+
 
     # testing config
     parser.add_argument('--policy_file', type=str, default='', help='use hardcoded policy from provided policy file')

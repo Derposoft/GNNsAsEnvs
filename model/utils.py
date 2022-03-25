@@ -1,5 +1,6 @@
 from collections import deque
 import sys
+import time
 import numpy as np
 import torch
 from copy import deepcopy
@@ -47,6 +48,7 @@ def efficient_embed_obs_in_map(obs: torch.Tensor, map: MapInfo, obs_shapes=None)
     [...],
     ...]
     """
+    #start = time.time()
     global SUPPRESS_WARNINGS
     pos_obs_size = map.get_graph_size()
     batch_size = len(obs)
@@ -65,6 +67,9 @@ def efficient_embed_obs_in_map(obs: torch.Tensor, map: MapInfo, obs_shapes=None)
         node_embeddings /= torch.max(pos_emb)
         node_embeddings[:,:,-3:-1] += pos_emb
 
+    #print(time.time() - start, 'embedding init time')
+    #print('batch size is', batch_size)
+    #start = time.time()
     # embed rest of features
     for i in range(batch_size):
         # get obs shapes and parse obs
@@ -105,39 +110,43 @@ def efficient_embed_obs_in_map(obs: torch.Tensor, map: MapInfo, obs_shapes=None)
         
         # can_blue_see_here_t,t+1,t+2
         if VIEW_DEGS['view_1deg_away'] == None:
-            view_1deg_away = get_nodes_ndeg_away(map.g_vis.adj, 1)
-            view_2deg_away = get_nodes_ndeg_away(map.g_vis.adj, 2)
-            view_3deg_away = get_nodes_ndeg_away(map.g_vis.adj, 3)
-            move_1deg_away = get_nodes_ndeg_away(map.g_acs.adj, 1)
-            move_2deg_away = get_nodes_ndeg_away(map.g_acs.adj, 2)
-            move_3deg_away = get_nodes_ndeg_away(map.g_acs.adj, 3)
-        else:
-            view_1deg_away = VIEW_DEGS['view_1deg_away']
-            view_2deg_away = VIEW_DEGS['view_2deg_away']
-            view_3deg_away = VIEW_DEGS['view_3deg_away']
-            move_1deg_away = MOVE_DEGS['move_1deg_away']
-            move_2deg_away = MOVE_DEGS['move_2deg_away']
-            move_3deg_away = MOVE_DEGS['move_3deg_away']
+            VIEW_DEGS['view_1deg_away'] = get_nodes_ndeg_away(map.g_vis.adj, 1)
+            MOVE_DEGS['move_1deg_away'] = get_nodes_ndeg_away(map.g_acs.adj, 1)
+            #view_1deg_away = get_nodes_ndeg_away(map.g_vis.adj, 1)
+            #view_2deg_away = get_nodes_ndeg_away(map.g_vis.adj, 2)
+            #view_3deg_away = get_nodes_ndeg_away(map.g_vis.adj, 3)
+            #move_1deg_away = get_nodes_ndeg_away(map.g_acs.adj, 1)
+            #move_2deg_away = get_nodes_ndeg_away(map.g_acs.adj, 2)
+            #move_3deg_away = get_nodes_ndeg_away(map.g_acs.adj, 3)
+        #else:
+        view_1deg_away = VIEW_DEGS['view_1deg_away']
+        #view_2deg_away = VIEW_DEGS['view_2deg_away']
+        #view_3deg_away = VIEW_DEGS['view_3deg_away']
+        move_1deg_away = MOVE_DEGS['move_1deg_away']
+        #move_2deg_away = MOVE_DEGS['move_2deg_away']
+        #move_3deg_away = MOVE_DEGS['move_3deg_away']
         for j in range(pos_obs_size):
             if blue_obs[j]:
                 for possible_next in view_1deg_away[j+1]:
                     node_embeddings[i][possible_next-1][4] = 1
-                for possible_next in view_2deg_away[j+1]:
+                '''for possible_next in view_2deg_away[j+1]:
                     node_embeddings[i][possible_next-1][5] = 1
                 for possible_next in view_3deg_away[j+1]:
-                    node_embeddings[i][possible_next-1][6] = 1
+                    node_embeddings[i][possible_next-1][6] = 1'''
                 
                 # can_blue_move_here_t,t+1,t+2
                 for possible_next in move_1deg_away[j+1]:
                     node_embeddings[i][possible_next-1][7] = 1
-                for possible_next in move_2deg_away[j+1]:
+                '''for possible_next in move_2deg_away[j+1]:
                     node_embeddings[i][possible_next-1][8] = 1
                 for possible_next in move_3deg_away[j+1]:
-                    node_embeddings[i][possible_next-1][9] = 1
+                    node_embeddings[i][possible_next-1][9] = 1'''
     
     node_embeddings[:,-1,:] = 0
     # TODO edges?
-    edges = None
+    #edges = None
+
+    #print(time.time() - start, 'rest embed time')
     return node_embeddings
 
 # get location of an agent given one-hot positional encoding on graph (0-indexed)

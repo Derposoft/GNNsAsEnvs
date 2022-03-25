@@ -16,6 +16,7 @@ INIT_AGENT_BLUE = {"learn": False, "route": "0", "idx": 0}
 INIT_CONFIGS = {
     "env_path": './', "map_id": 'S', "load_pickle": True,
     "init_red": None, "init_blue": None, "init_health_red": 10, "init_health_blue": 100, "damage_maximum": 5,
+    "fixed_start": -1
 }
 INIT_CONFIGS_LOCAL = ["threshold_damage_2_red", "threshold_damage_2_blue", "act_masked", "penalty_stay"]
 
@@ -26,7 +27,6 @@ INIT_LOGS = {
 }
 
 INIT_REWARDS = DEFAULT_REWARDS
-INIT_SPECIFIC_NODE = None # start agent at random node if None otherwise use idx
 
 # interaction settings
 INTERACT_LOOKUP = {
@@ -59,8 +59,6 @@ def get_default_red_encoding(red_id=0, red_pos=None) -> str:
         assert "Unexpected POS flags"
     pos_red_pool = INIT_POS_LOOKUP[_region % len(INIT_POS_LOOKUP)]
     idx = randint(0, len(pos_red_pool) - 1)
-    if INIT_SPECIFIC_NODE != None:
-        idx = INIT_SPECIFIC_NODE # TODO CHANGE BACK
     R_pos = pos_red_pool[idx]
     return get_node_name_from_pos_abs(R_pos)
 

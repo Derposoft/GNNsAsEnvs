@@ -2,6 +2,7 @@
 base class from https://github.com/ray-project/ray/blob/master/rllib/models/torch/fcnet.py
 '''
 # RL/AI imports
+import time
 import ray.rllib.models.torch.torch_modelv2 as TMv2
 from ray.rllib.models.torch.misc import SlimFC, normc_initializer #AppendBiasLayer, \
 from ray.rllib.utils.annotations import override
@@ -31,8 +32,6 @@ from model.graph_transformer_model import initialize_train_artifacts as initiali
 import numpy as np
 import sys
 
-print('imports done')
-
 class GraphTransformerPolicy(TMv2.TorchModelV2, nn.Module):
     def __init__(self, obs_space: gym.spaces.Space,
                  action_space: gym.spaces.Space, num_outputs: int,
@@ -40,7 +39,7 @@ class GraphTransformerPolicy(TMv2.TorchModelV2, nn.Module):
         TMv2.TorchModelV2.__init__(self, obs_space, action_space, num_outputs,
             model_config, name)
         nn.Module.__init__(self)
-
+        torch.autograd.anomaly_mode.set_detect_anomaly(True)
         # config
         hiddens = list(model_config.get("fcnet_hiddens", [])) + \
             list(model_config.get("post_fcnet_hiddens", []))
@@ -50,7 +49,7 @@ class GraphTransformerPolicy(TMv2.TorchModelV2, nn.Module):
         no_final_linear = model_config.get("no_final_linear")
         self.vf_share_layers = model_config.get("vf_share_layers") # this is usually 0
         self.free_log_std = model_config.get("free_log_std") # skip worrying about log std
-        self.use_mean_embed = kwargs['use_mean_embed'] # obs information
+        #self.use_mean_embed = kwargs['use_mean_embed'] # obs information
         self.map = map
         self.num_red = kwargs['nred']
         self.num_blue = kwargs['nblue']
@@ -68,7 +67,7 @@ class GraphTransformerPolicy(TMv2.TorchModelV2, nn.Module):
                 self.move_map[n][dir] = m
         
         # actor (attention model)
-        self.attention, _, _ = initialize_graph_transformer(GRAPH_OBS_TOKEN['embedding_size'])
+        self.gats, _, _ = initialize_graph_transformer(GRAPH_OBS_TOKEN['embedding_size'])
 
         # critic
         self._value_branch_separate = None
@@ -99,31 +98,37 @@ class GraphTransformerPolicy(TMv2.TorchModelV2, nn.Module):
         self._last_flat_in = None
 
         count_model_params(self)
-        print('policy model initiated')
+        self.cache = {} # minor speedup (~15%) of training
 
     @override(TMv2.TorchModelV2)
     def forward(self, input_dict: Dict[str, TensorType],
                 state: List[TensorType],
                 seq_lens: TensorType):
+        #start_time = time.time()
         obs = input_dict['obs_flat'].float()
         # transform obs to graph
         attention_input = efficient_embed_obs_in_map(obs, self.map, self.obs_shapes)
         agent_nodes = [get_loc(gx, self.map.get_graph_size()) for gx in obs]
-        batch_graphs = []
-        for i in range(len(obs)):
-            batch_graphs.append(dgl.from_networkx(self.map.g_acs))#, node_attrs=attention_input)
-            batch_graphs[-1].ndata['feat'] = attention_input[i]
-            batch_graphs[-1].edata['feat'] = torch.ones(batch_graphs[-1].num_edges(), dtype=torch.float32)
-        batch_graphs = dgl.batch(batch_graphs)
+    
+        if len(obs) not in self.cache:
+            batch_graphs = []
+            for i in range(len(obs)):
+                batch_graphs.append(dgl.from_networkx(self.map.g_acs))
+            batch_graphs = dgl.batch(batch_graphs)
+            self.cache[len(obs)] = batch_graphs.clone()
+        else:
+            batch_graphs = self.cache[len(obs)].clone()
+        batch_graphs.ndata['feat'] = attention_input.reshape([-1, GRAPH_OBS_TOKEN['embedding_size']])
         
         # inference
-        batch_x, batch_e = batch_graphs.ndata['feat'], batch_graphs.edata['feat']
-        batch_lap_enc, batch_wl_pos_enc = None, None
-        logits = self.attention.forward(batch_graphs, batch_x, batch_e, batch_lap_enc, batch_wl_pos_enc, agent_nodes, self.move_map)
+        batch_x = batch_graphs.ndata['feat']#, None #batch_graphs.edata['feat']
+        batch_e, batch_lap_enc, batch_wl_pos_enc = None, None, None
+        logits = self.gats.forward(batch_graphs, batch_x, batch_e, batch_lap_enc, batch_wl_pos_enc, agent_nodes, self.move_map)
 
         # return
         self._last_flat_in = obs.reshape(obs.shape[0], -1)
         self._features = logits
+        #print('forward takes', time.time()-start_time)
         return logits, state
 
     @override(TMv2.TorchModelV2)
