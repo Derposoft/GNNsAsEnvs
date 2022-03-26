@@ -34,7 +34,7 @@ MOVE_DEGS = {
     'move_2deg_away': None,
     'move_3deg_away': None
 }
-
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 # TODO read obs using obs_token instead of hardcoding.
 #      figure8_squad.py:_update():line ~250
 def efficient_embed_obs_in_map(obs: torch.Tensor, map: MapInfo, obs_shapes=None):
@@ -147,7 +147,7 @@ def efficient_embed_obs_in_map(obs: torch.Tensor, map: MapInfo, obs_shapes=None)
     #edges = None
 
     #print(time.time() - start, 'rest embed time')
-    return node_embeddings
+    return node_embeddings.to(device)
 
 # get location of an agent given one-hot positional encoding on graph (0-indexed)
 def get_loc(one_hot_graph, graph_size, default=0):
