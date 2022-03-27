@@ -135,6 +135,8 @@ examples/.ipynb_checkpoints/
 model_checkpoints/
 checkpoints/
 potential_checkpoints/
+_checkpoints/
 data/
 outputs/
 logs/
+test_logs/

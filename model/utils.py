@@ -93,16 +93,19 @@ def efficient_embed_obs_in_map(obs: torch.Tensor, map: MapInfo, obs_shapes=None)
         if _node == -1:
             print(ERROR_MSG('agent not found ('))
         node_embeddings[i][_node][0] = 1
+        #node_embeddings[i][j][1] += 1
         
         # num_red_here
-        for j in range(pos_obs_size):
-            if red_obs[j]:
-                node_embeddings[i][j][1] += 1
+        #for j in range(pos_obs_size):
+        #    if red_obs[j]:
+        #        node_embeddings[i][j][1] += 1
         
         # num_blue_here
+        blue_positions = set([])
         for j in range(pos_obs_size):
             if blue_obs[j]:
                 node_embeddings[i][j][2] += 1
+                blue_positions.add(j)
         
         # can_red_go_here_t
         for possible_next in map.g_acs.adj[_node]:
@@ -125,22 +128,23 @@ def efficient_embed_obs_in_map(obs: torch.Tensor, map: MapInfo, obs_shapes=None)
         move_1deg_away = MOVE_DEGS['move_1deg_away']
         #move_2deg_away = MOVE_DEGS['move_2deg_away']
         #move_3deg_away = MOVE_DEGS['move_3deg_away']
-        for j in range(pos_obs_size):
-            if blue_obs[j]:
-                for possible_next in view_1deg_away[j+1]:
-                    node_embeddings[i][possible_next-1][4] = 1
-                '''for possible_next in view_2deg_away[j+1]:
-                    node_embeddings[i][possible_next-1][5] = 1
-                for possible_next in view_3deg_away[j+1]:
-                    node_embeddings[i][possible_next-1][6] = 1'''
-                
-                # can_blue_move_here_t,t+1,t+2
-                for possible_next in move_1deg_away[j+1]:
-                    node_embeddings[i][possible_next-1][7] = 1
-                '''for possible_next in move_2deg_away[j+1]:
-                    node_embeddings[i][possible_next-1][8] = 1
-                for possible_next in move_3deg_away[j+1]:
-                    node_embeddings[i][possible_next-1][9] = 1'''
+        for j in blue_positions:
+        #for j in range(pos_obs_size):
+        #    if blue_obs[j]:
+            for possible_next in view_1deg_away[j+1]:
+                node_embeddings[i][possible_next-1][4] = 1
+            '''for possible_next in view_2deg_away[j+1]:
+                node_embeddings[i][possible_next-1][5] = 1
+            for possible_next in view_3deg_away[j+1]:
+                node_embeddings[i][possible_next-1][6] = 1'''
+            
+            # can_blue_move_here_t,t+1,t+2
+            for possible_next in move_1deg_away[j+1]:
+                node_embeddings[i][possible_next-1][7] = 1
+            '''for possible_next in move_2deg_away[j+1]:
+                node_embeddings[i][possible_next-1][8] = 1
+            for possible_next in move_3deg_away[j+1]:
+                node_embeddings[i][possible_next-1][9] = 1'''
     
     node_embeddings[:,-1,:] = 0
     # TODO edges?
