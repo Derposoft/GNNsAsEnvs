@@ -5,6 +5,8 @@ all outputted metrics can be found and visualized in tensorboard at ~/ray_result
 # general
 import argparse
 import pickle
+import torch
+import ray
 import time
 import os
 
@@ -24,6 +26,7 @@ from ray.rllib.agents import impala # single-threaded stuff only for now
 from ray.rllib.models.catalog import MODEL_DEFAULTS
 from ray.tune.logger import pretty_print
 
+ray.init(num_gpus=torch.cuda.device_count())
 # create env configuration
 def create_env_config(config):
     n_episodes = config.n_episode
@@ -86,7 +89,7 @@ def create_trainer_config(outer_configs, trainer_type=None, custom_model=''):
             **outer_configs
         },
         # Use GPUs iff `RLLIB_NUM_GPUS` env var set to > 0.
-        "num_gpus": int(os.environ.get("RLLIB_NUM_GPUS", "0")),
+        "num_gpus": torch.cuda.device_count(),# int(os.environ.get("RLLIB_NUM_GPUS", "0")),
         "model": CUSTOM_DEFAULTS if custom_model != '' else MODEL_DEFAULTS,
         "num_workers": 1,  # parallelism
         "framework": "torch",

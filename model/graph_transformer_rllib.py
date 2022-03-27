@@ -98,6 +98,8 @@ class GraphTransformerPolicy(TMv2.TorchModelV2, nn.Module):
         self._last_flat_in = None
 
         count_model_params(self)
+        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        self.to(self.device)
         self.cache = {} # minor speedup (~15%) of training
 
     @override(TMv2.TorchModelV2)
@@ -115,6 +117,7 @@ class GraphTransformerPolicy(TMv2.TorchModelV2, nn.Module):
             for i in range(len(obs)):
                 batch_graphs.append(dgl.from_networkx(self.map.g_acs))
             batch_graphs = dgl.batch(batch_graphs)
+            batch_graphs = batch_graphs.to(self.device)
             self.cache[len(obs)] = batch_graphs.clone()
         else:
             batch_graphs = self.cache[len(obs)].clone()

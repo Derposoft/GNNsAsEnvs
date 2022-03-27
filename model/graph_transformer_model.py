@@ -38,7 +38,7 @@ def initialize_train_artifacts(node_embedding_size):
         torch.cuda.manual_seed(params['seed'])
 
     model = GraphTransformerNet(net_params)
-    model = model.to(device)
+    #model = model.to(device)
 
     optimizer = optim.Adam(model.parameters(), lr=params['init_lr'], weight_decay=params['weight_decay'])
     scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min',
