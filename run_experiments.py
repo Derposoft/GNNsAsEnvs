@@ -35,7 +35,10 @@ def call_proc(cmd):
     p = subprocess.Popen(shlex.split(cmd), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     out, err = p.communicate()
     return (out, err)
-pool = ThreadPool(multiprocessing.cpu_count())
+print(f'running on {multiprocessing.cpu_count()} cpus')
+n_procs = 2 #multiprocessing.cpu_count() // 2
+print(f'choosing to run {n_procs} processes')
+pool = ThreadPool(n_procs)
 results = []
 for cmd in experiment_cmds:
     print(f'starting exp parametrized by: {cmd}')
