@@ -14,7 +14,7 @@ import os
 # our code
 from sigma_graph.envs.figure8.figure8_squad_rllib import Figure8SquadRLLib
 import model # THIS NEEDS TO BE HERE IN ORDER TO RUN __init__.py!
-from metrics import create_env_config, create_trainer_config, parse_arguments
+from metrics import create_env_config, create_trainer_config, parse_arguments, custom_log_creator
 
 # algorithms to test
 from ray.rllib.agents import ppo
@@ -24,7 +24,7 @@ def restore_trainer(checkpoint_path, config):
     https://docs.ray.io/en/latest/serve/tutorials/rllib.html
     '''
     config['log_level'] = 'ERROR'
-    trainer = ppo.PPOTrainer(config, env=Figure8SquadRLLib)
+    trainer = ppo.PPOTrainer(config, env=Figure8SquadRLLib, logger_creator=custom_log_creator('junk', custom_dir='./logs'))
     trainer.restore(checkpoint_path)
     return trainer
 
@@ -106,6 +106,7 @@ def run_tests(config):
                 print(f'agent {agent}R: {rew[agent]}')
                 print(f'agent {agent}H: {hp[agent]}')
                 tot_rew_across_all[agent] = tot_rew_across_all.get(agent, 0) + rew[agent]
+                del actions, locations, rew, hp
         print(f'total model reward among all initializations: {tot_rew_across_all}')
             
     print('done')

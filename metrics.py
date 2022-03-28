@@ -5,9 +5,12 @@ all outputted metrics can be found and visualized in tensorboard at ~/ray_result
 # general
 import argparse
 import pickle
+import sys
 import torch
 import ray
 import time
+from datetime import datetime
+import tempfile
 import os
 
 # our code
@@ -25,8 +28,9 @@ from ray.rllib.agents import ppo
 from ray.rllib.agents import impala # single-threaded stuff only for now
 from ray.rllib.models.catalog import MODEL_DEFAULTS
 from ray.tune.logger import pretty_print
-
+from ray.tune.logger import UnifiedLogger
 ray.init(num_gpus=torch.cuda.device_count())
+
 # create env configuration
 def create_env_config(config):
     n_episodes = config.n_episode
@@ -54,6 +58,18 @@ def create_env_config(config):
     if hasattr(config, "threshold_red"):
         outer_configs["threshold_damage_2_red"] = config.threshold_red
     return outer_configs, n_episodes
+
+# store tb logs in custom named dir
+def custom_log_creator(log_name, custom_dir="~/ray_results"):
+    # https://stackoverflow.com/questions/62241261/change-logdir-of-ray-rllib-training-instead-of-ray-results
+    custom_path=os.path.expanduser(custom_dir)
+    log_name += '_'
+    def logger_creator(config):
+        if not os.path.exists(custom_path):
+            os.makedirs(custom_path)
+        logdir = tempfile.mkdtemp(prefix=log_name, dir=custom_path)
+        return UnifiedLogger(config, logdir, loggers=None)
+    return logger_creator
 
 # create trainer configuration
 def create_trainer_config(outer_configs, trainer_type=None, custom_model=''):
@@ -152,11 +168,11 @@ def run_baselines(config, run_default_baseline_metrics=False, train_time=200, ch
     # train
     if run_default_baseline_metrics:
         ppo_config = create_trainer_config(outer_configs, trainer_type=ppo, custom_model='fc_policy')
-        ppo_trainer_baseline = ppo.PPOTrainer(config=ppo_config, env=Figure8SquadRLLib)
+        ppo_trainer_baseline = ppo.PPOTrainer(config=ppo_config, env=Figure8SquadRLLib, logger_creator=custom_log_creator(config.name))
         train(ppo_trainer_baseline, config.name, train_time, checkpoint_models, ppo_config)
     else:
         ppo_config = create_trainer_config(outer_configs, trainer_type=ppo, custom_model=custom_model)
-        ppo_trainer_custom = ppo.PPOTrainer(config=ppo_config, env=Figure8SquadRLLib)
+        ppo_trainer_custom = ppo.PPOTrainer(config=ppo_config, env=Figure8SquadRLLib, logger_creator=custom_log_creator(config.name))
         train(ppo_trainer_custom, config.name, train_time, checkpoint_models, ppo_config)
 
 # parse arguments
