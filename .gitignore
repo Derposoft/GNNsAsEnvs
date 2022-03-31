@@ -131,12 +131,13 @@ dmypy.json
 # local user data
 logs/
 examples/.ipynb_checkpoints/
-# data/parsed/
 model_checkpoints/
 checkpoints/
-potential_checkpoints/
 _checkpoints/
 data/
 outputs/
 logs/
 test_logs/
+experiments/
+# data/parsed/
+#potential_checkpoints/

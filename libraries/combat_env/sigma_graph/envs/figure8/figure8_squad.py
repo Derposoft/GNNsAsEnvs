@@ -69,6 +69,8 @@ class Figure8Squad(gym.Env):
         self.step_counter = 0
 
     def step(self, n_actions):
+        #if self.step_counter == 0:
+        #    print(f'agent on ')
         assert len(n_actions) == len(self.learning_agent), f"[EnvError] Invalid action shape {n_actions}"
         # store previous state for logging if logger is 'on'
         prev_obs = self._log_step_prev()

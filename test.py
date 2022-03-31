@@ -48,6 +48,8 @@ def run_tests(config):
     checkpoints = os.listdir(dir)
     for checkpoint in checkpoints:
         model_dir = f'{dir}/{checkpoint}'
+        if not os.path.exists(model_dir+'/config.pkl'): # skip over subdirectories that i might be using for storing old checkpoints
+            continue
         print(f'########## model at: {model_dir} ##########')
         with open(model_dir+'/config.pkl', 'rb') as f:
             trainer_config = pickle.load(f)

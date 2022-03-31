@@ -4,10 +4,10 @@
 pip3 install -r requirements.txt
 
 # 2. pull submodules
-git submodule update --init --recursive
+#git submodule update --init --recursive # unnecessary now
 
 # 3. install library dependencies
-cd libraries/
+cd libraries/combat_env
 pip3 install -e .
 
 # garbage zone
