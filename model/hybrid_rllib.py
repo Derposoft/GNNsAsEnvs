@@ -2,44 +2,31 @@
 base class from https://github.com/ray-project/ray/blob/master/rllib/models/torch/fcnet.py
 '''
 # RL/AI imports
-import time
 import ray.rllib.models.torch.torch_modelv2 as TMv2
-from ray.rllib.models.torch.misc import SlimFC, normc_initializer #AppendBiasLayer, \
+from ray.rllib.models.torch.misc import SlimFC, normc_initializer
 from ray.rllib.utils.annotations import override
 from ray.rllib.utils.typing import Dict, TensorType, List, ModelConfigDict
 import torch.nn as nn
 import torch
 import gym
 import dgl
-import networkx as nx
 
 # our code imports
 from sigma_graph.data.graph.skirmish_graph import MapInfo
 from sigma_graph.envs.figure8 import default_setup as env_setup
-from sigma_graph.envs.figure8.action_lookup import MOVE_LOOKUP
-from sigma_graph.envs.figure8.figure8_squad_rllib import Figure8SquadRLLib
-from model.utils import GRAPH_OBS_TOKEN, count_model_params, efficient_embed_obs_in_map, get_loc, load_edge_dictionary, \
-    NETWORK_SETTINGS
+from model.utils import GRAPH_OBS_TOKEN, count_model_params, efficient_embed_obs_in_map, get_loc
 from model.graph_transformer_model import initialize_train_artifacts as initialize_graph_transformer
-
-# 3rd party library imports (s2v, attention model rdkit, etc?)
-#from attention_study.model.s2v.s2v_graph import S2VGraph
-#from attention_study.gnn_libraries.s2v.embedding import EmbedMeanField, EmbedLoopyBP
-#from attention_routing.nets.attention_model import AttentionModel
-#from attention_routing.problems.tsp.problem_tsp import TSP
 
 # other imports
 import numpy as np
-import sys
 
-class GraphTransformerPolicy(TMv2.TorchModelV2, nn.Module):
+class HybridPolicy(TMv2.TorchModelV2, nn.Module):
     def __init__(self, obs_space: gym.spaces.Space,
                  action_space: gym.spaces.Space, num_outputs: int,
                  model_config: ModelConfigDict, name: str, map: MapInfo, **kwargs):
         TMv2.TorchModelV2.__init__(self, obs_space, action_space, num_outputs,
             model_config, name)
         nn.Module.__init__(self)
-        #torch.autograd.anomaly_mode.set_detect_anomaly(True)
         # config
         hiddens = list(model_config.get("fcnet_hiddens", [])) + \
             list(model_config.get("post_fcnet_hiddens", []))
@@ -56,6 +43,10 @@ class GraphTransformerPolicy(TMv2.TorchModelV2, nn.Module):
         self_shape, red_shape, blue_shape = env_setup.get_state_shapes(self.map.get_graph_size(), self.num_red, self.num_blue, env_setup.OBS_TOKEN)
         self.obs_shapes = [self_shape, red_shape, blue_shape, self.num_red, self.num_blue]
         self.map.g_acs.add_node(0) # dummy node that we'll use later
+        self.hidden_proj_sizes = [50, 30]
+        self.GAT_LAYERS = 6
+        self.N_HEADS = 4
+        self.HIDDEN_DIM = 4
 
         # map info
         self.move_map = {} # movement dictionary: d[node][direction] = newnode. newnode is -1 if direction is not possible from node
@@ -67,7 +58,14 @@ class GraphTransformerPolicy(TMv2.TorchModelV2, nn.Module):
                 self.move_map[n][dir] = m
         
         # actor (attention model)
-        self.gats, _, _ = initialize_graph_transformer(GRAPH_OBS_TOKEN['embedding_size'])
+        self.gats, _, _ = initialize_graph_transformer(GRAPH_OBS_TOKEN['embedding_size'], readout='none', L=self.GAT_LAYERS, n_heads=self.N_HEADS, hidden_dim=self.HIDDEN_DIM, out_dim=self.HIDDEN_DIM)
+        self.o_proj = nn.Sequential(
+            nn.Linear(self.gats.embedding_h.out_features+self_shape+red_shape+blue_shape, self.hidden_proj_sizes[0]),
+            nn.Tanh(),
+            nn.Linear(self.hidden_proj_sizes[0], self.hidden_proj_sizes[1]),
+            nn.Tanh(),
+            nn.Linear(self.hidden_proj_sizes[1], self.num_outputs)
+        )
 
         # critic
         self._value_branch_separate = None
@@ -124,9 +122,10 @@ class GraphTransformerPolicy(TMv2.TorchModelV2, nn.Module):
         batch_graphs.ndata['feat'] = attention_input.reshape([-1, GRAPH_OBS_TOKEN['embedding_size']])
         
         # inference
-        batch_x = batch_graphs.ndata['feat']#, None #batch_graphs.edata['feat']
+        batch_x = batch_graphs.ndata['feat']
         batch_e, batch_lap_enc, batch_wl_pos_enc = None, None, None
-        logits = self.gats.forward(batch_graphs, batch_x, batch_e, batch_lap_enc, batch_wl_pos_enc, agent_nodes, self.move_map)
+        gat_output = self.gats(batch_graphs, batch_x, batch_e, batch_lap_enc, batch_wl_pos_enc, agent_nodes, self.move_map)
+        logits = self.o_proj(torch.cat([gat_output, obs], dim=1))
 
         # return
         self._last_flat_in = obs.reshape(obs.shape[0], -1)

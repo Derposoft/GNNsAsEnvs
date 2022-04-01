@@ -15,7 +15,7 @@ from sigma_graph.envs.figure8.figure8_squad_rllib import Figure8SquadRLLib
 
 MAXIMUM_THEORETICAL_REWARD = 25
 
-def initialize_train_artifacts(node_embedding_size):
+def initialize_train_artifacts(node_embedding_size, **kwargs):
     config_file = 'model/graph_transformer_config.json'
     with open(config_file) as f:
         config = json.load(f)
@@ -29,6 +29,9 @@ def initialize_train_artifacts(node_embedding_size):
     device = net_params['device']
     net_params['node_embedding_size'] = node_embedding_size
     net_params['num_actions'] = 15 # TODO HARDCODED FOR NOW
+    possible_kwargs = ['readout', 'L', 'n_heads', 'hidden_dim', 'out_dim']
+    for p in possible_kwargs:
+        if p in kwargs: net_params[p] = kwargs[p]
 
     # setting seeds
     random.seed(params['seed'])

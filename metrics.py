@@ -74,9 +74,9 @@ def custom_log_creator(log_name, custom_dir="~/ray_results"):
 # create trainer configuration
 def create_trainer_config(outer_configs, trainer_type=None, custom_model=''):
     # check params
-    if custom_model != '':
-        if custom_model != 'altr_policy' and custom_model != 'graph_transformer_policy' and custom_model != 'fc_policy':
-            raise ValueError('custom_model parameter must be altr_policy or graph_transformer_policy or empty!')
+    #if custom_model != '':
+    #    if custom_model != 'altr_policy' and custom_model != 'graph_transformer_policy' and custom_model != 'fc_policy':
+    #        raise ValueError('custom_model parameter must be altr_policy or graph_transformer_policy or empty!')
     trainer_types = [dqn, pg, a3c, ppo]
     assert trainer_type != None, f'trainer_type must be one of {trainer_types}'
 
@@ -221,7 +221,7 @@ def parse_arguments():
 
     # model/training config
     parser.add_argument('--name', default='', help='name this model')
-    parser.add_argument('--model', default='graph_transformer', choices=['graph_transformer', 'altr'])
+    parser.add_argument('--model', default='graph_transformer', choices=['graph_transformer', 'altr', 'hybrid'])
     parser.add_argument('--train_time', type=int, default=200, help='how long to train the model')
     parser.add_argument('--use_mean_embed', type=bool, default=False, help='use mean embeddings vs choose embedding for agent\'s node at inference time')
     parser.add_argument('--run_baselines', type=bool, default=False, help='are we running baselines or actual model?')
