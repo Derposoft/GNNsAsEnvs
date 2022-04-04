@@ -69,8 +69,6 @@ class Figure8Squad(gym.Env):
         self.step_counter = 0
 
     def step(self, n_actions):
-        #if self.step_counter == 0:
-        #    print(f'agent on ')
         assert len(n_actions) == len(self.learning_agent), f"[EnvError] Invalid action shape {n_actions}"
         # store previous state for logging if logger is 'on'
         prev_obs = self._log_step_prev()
@@ -513,11 +511,11 @@ class Figure8Squad(gym.Env):
         HP_blue = self.configs["init_health_blue"]
         for idx, init_blue in enumerate(self.configs["init_blue"]):
             b_route = self.team_blue[idx].get_route()
-            b_index = init_blue["idx"]  # int: index of the position on the given route
+            #b_index = init_blue["idx"]  # int: index of the position on the given route
+            route_len = self.routes[b_route].get_route_length()
+            b_index = int(idx * route_len / self.num_blue) % route_len
             b_node, b_code, b_dir = self.routes[b_route].get_location_by_index(b_index)
             self.team_blue[idx].reset(_node=b_node, _code=b_code, _dir=b_dir, _health=HP_blue, _index=b_index, _end=-1)
-        
-        #print(self.team_red[0].agent_node)
 
     def _log_step_prev(self):
         return self.states if self.logger else []

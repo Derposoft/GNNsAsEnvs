@@ -36,7 +36,7 @@ def call_proc(cmd):
     out, err = p.communicate()
     return (out, err)
 print(f'running on {multiprocessing.cpu_count()} cpus')
-n_procs = 2 #multiprocessing.cpu_count() // 2
+n_procs = 3 #multiprocessing.cpu_count() // 2
 print(f'choosing to run {n_procs} processes')
 pool = ThreadPool(n_procs)
 results = []
