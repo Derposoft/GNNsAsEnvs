@@ -1,0 +1,95 @@
+{
+    "fastgat_8L8H8h_2hp": {
+        "init_health": 2
+    },
+    "fastgat_8L8H8h_2hp_fixedat1": {
+        "fixed_start": 1,
+        "init_health": 2
+    },
+    "fastgat_8L8H8h_2hp_fixedat11": {
+        "fixed_start": 11,
+        "init_health": 2
+    },
+    "fastgat_8L8H8h_2hp_fixedat15": {
+        "fixed_start": 15,
+        "init_health": 2
+    },
+    "fastgat_8L8H8h_2hp_fixedat23": {
+        "fixed_start": 23,
+        "init_health": 2
+    },
+
+
+    "baseline_2hp": {
+        "init_health": 2,
+        "run_baselines": "True"
+    },
+    "baseline_2hp_fixedat1": {
+        "fixed_start": 1,
+        "init_health": 2,
+        "run_baselines": "True"
+    },
+    "baseline_2hp_fixedat11": {
+        "fixed_start": 11,
+        "init_health": 2,
+        "run_baselines": "True"
+    },
+    "baseline_2hp_fixedat15": {
+        "fixed_start": 15,
+        "init_health": 2,
+        "run_baselines": "True"
+    },
+    "baseline_2hp_fixedat23": {
+        "fixed_start": 23,
+        "init_health": 2,
+        "run_baselines": "True"
+    },
+
+
+
+    "fastgat_8L8H8h_5hp": {
+        "init_health": 5
+    },
+    "fastgat_8L8H8h_5hp_fixedat1": {
+        "fixed_start": 1,
+        "init_health": 5
+    },
+    "fastgat_8L8H8h_5hp_fixedat11": {
+        "fixed_start": 11,
+        "init_health": 5
+    },
+    "fastgat_8L8H8h_5hp_fixedat15": {
+        "fixed_start": 15,
+        "init_health": 5
+    },
+    "fastgat_8L8H8h_5hp_fixedat23": {
+        "fixed_start": 23,
+        "init_health": 5
+    },
+
+
+    "baseline_5hp": {
+        "init_health": 5,
+        "run_baselines": "True"
+    },
+    "baseline_5hp_fixedat1": {
+        "fixed_start": 1,
+        "init_health": 5,
+        "run_baselines": "True"
+    },
+    "baseline_5hp_fixedat11": {
+        "fixed_start": 11,
+        "init_health": 5,
+        "run_baselines": "True"
+    },
+    "baseline_5hp_fixedat15": {
+        "fixed_start": 15,
+        "init_health": 5,
+        "run_baselines": "True"
+    },
+    "baseline_5hp_fixedat23": {
+        "fixed_start": 23,
+        "init_health": 5,
+        "run_baselines": "True"
+    }
+}

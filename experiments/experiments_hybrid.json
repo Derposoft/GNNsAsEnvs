@@ -1,0 +1,78 @@
+{
+    "hybrid_2hp": {
+        "init_health": 2,
+        "model": "hybrid"
+    },
+    "hybrid_2hp_fixedat1": {
+        "fixed_start": 1,
+        "init_health": 2,
+        "model": "hybrid"
+    },
+    "hybrid_2hp_fixedat11": {
+        "fixed_start": 11,
+        "init_health": 2,
+        "model": "hybrid"
+    },
+    "hybrid_2hp_fixedat15": {
+        "fixed_start": 15,
+        "init_health": 2,
+        "model": "hybrid"
+    },
+    "hybrid_2hp_fixedat23": {
+        "fixed_start": 23,
+        "init_health": 2,
+        "model": "hybrid"
+    },
+
+
+    "hybrid_5hp": {
+        "init_health": 5,
+        "model": "hybrid"
+    },
+    "hybrid_5hp_fixedat1": {
+        "fixed_start": 1,
+        "init_health": 5,
+        "model": "hybrid"
+    },
+    "hybrid_5hp_fixedat11": {
+        "fixed_start": 11,
+        "init_health": 5,
+        "model": "hybrid"
+    },
+    "hybrid_5hp_fixedat15": {
+        "fixed_start": 15,
+        "init_health": 5,
+        "model": "hybrid"
+    },
+    "hybrid_5hp_fixedat23": {
+        "fixed_start": 23,
+        "init_health": 5,
+        "model": "hybrid"
+    },
+
+
+    "hybrid_20hp": {
+        "init_health": 20,
+        "model": "hybrid"
+    },
+    "hybrid_20hp_fixedat1": {
+        "fixed_start": 1,
+        "init_health": 20,
+        "model": "hybrid"
+    },
+    "hybrid_20hp_fixedat11": {
+        "fixed_start": 11,
+        "init_health": 20,
+        "model": "hybrid"
+    },
+    "hybrid_20hp_fixedat15": {
+        "fixed_start": 15,
+        "init_health": 20,
+        "model": "hybrid"
+    },
+    "hybrid_20hp_fixedat23": {
+        "fixed_start": 23,
+        "init_health": 20,
+        "model": "hybrid"
+    }
+}
