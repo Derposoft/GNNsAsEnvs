@@ -281,7 +281,6 @@ class Figure8Squad(gym.Env):
                         if _agent != _r:
                             _state_R[R_nodes[_agent] - 1] = 1
                     _state += _state_R
-
                 # update the local state attribute
                 self.states[_r] = _state
             # [Debug] test state shape
