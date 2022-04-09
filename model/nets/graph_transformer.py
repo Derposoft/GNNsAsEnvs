@@ -63,7 +63,7 @@ class GraphTransformerNet(nn.Module):
         elif self.readout == '5d':
             self.MLP_layer = MLPReadout(out_dim * 5, num_actions) # version that uses 0/1/2/3/4 directions
         elif self.readout == 'full_graph':
-            self.MLP_layer = MLPReadout(out_dim*28, num_actions) # verstion that uses all node embeddings
+            self.MLP_layer = MLPReadout(out_dim*28, num_actions) # version that uses all node embeddings
         elif self.readout == 'none':
             self.MLP_layer = None
         
@@ -92,17 +92,6 @@ class GraphTransformerNet(nn.Module):
         g.ndata['h'] = h
 
         
-        if self.readout == 'default':
-            # attempt -1; use mean of nodes
-            if self.readout == "sum":
-                hg = dgl.sum_nodes(g, 'h')
-            elif self.readout == "max":
-                hg = dgl.max_nodes(g, 'h')
-            elif self.readout == "mean":
-                hg = dgl.mean_nodes(g, 'h')
-            else:
-                hg = dgl.mean_nodes(g, 'h')  # default readout is mean nodes
-            return self.MLP_layer(hg)
         if self.readout == 'agent_node':
             # attempt 0; use curr node
             if agent_nodes != None:
@@ -140,6 +129,17 @@ class GraphTransformerNet(nn.Module):
                 idxs = [g.batch_num_nodes()[0]*i+agent_nodes[i] for i in range(int(h.shape[0]/g.batch_num_nodes()[0].item()))]
                 _embeddings = h[idxs, :]
                 return _embeddings
+        else: #if self.readout == 'default':
+            # attempt -1; use mean of nodes
+            if self.readout == "sum":
+                hg = dgl.sum_nodes(g, 'h')
+            elif self.readout == "max":
+                hg = dgl.max_nodes(g, 'h')
+            elif self.readout == "mean":
+                hg = dgl.mean_nodes(g, 'h')
+            else:
+                hg = dgl.mean_nodes(g, 'h')  # default readout is mean nodes
+            return self.MLP_layer(hg)
         
         
     def loss(self, scores, targets):

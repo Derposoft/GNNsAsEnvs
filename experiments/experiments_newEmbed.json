@@ -1,0 +1,19 @@
+{
+
+    "hybrid_Fembed_2hp": {
+        "init_health": 2,
+        "model": "hybrid"
+    },
+
+
+    "hybrid_Fembed_5hp": {
+        "init_health": 5,
+        "model": "hybrid"
+    },
+
+
+    "hybrid_Fembed_20hp": {
+        "init_health": 20,
+        "model": "hybrid"
+    }
+}

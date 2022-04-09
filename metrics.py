@@ -221,7 +221,7 @@ def parse_arguments():
 
     # model/training config
     parser.add_argument('--name', default='', help='name this model')
-    parser.add_argument('--model', default='graph_transformer', choices=['graph_transformer', 'altr', 'hybrid'])
+    parser.add_argument('--model', default='gat', choices=['gat', 'altr', 'hybrid'])
     parser.add_argument('--train_time', type=int, default=200, help='how long to train the model')
     parser.add_argument('--use_mean_embed', type=bool, default=False, help='use mean embeddings vs choose embedding for agent\'s node at inference time')
     parser.add_argument('--run_baselines', type=bool, default=False, help='are we running baselines or actual model?')

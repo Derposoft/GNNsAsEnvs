@@ -1,34 +1,41 @@
 {
-    "hybrid_2hp_2blue": {
+    "gat_02hp_paper": {
         "init_health": 2,
-        "model": "hybrid",
-        "n_blue": 2
+        "model": "gat"
     },
-    "hybrid_5hp_2blue": {
+    "gat_05hp_paper": {
         "init_health": 5,
-        "model": "hybrid",
-        "n_blue": 2
+        "model": "gat"
     },
-    "hybrid_20hp_2blue": {
+    "gat_20hp_paper": {
         "init_health": 20,
-        "model": "hybrid",
-        "n_blue": 2
+        "model": "gat"
+    },
+
+    "hybrid_02hp_paper": {
+        "init_health": 2,
+        "model": "hybrid"
+    },
+    "hybrid_05hp_paper": {
+        "init_health": 5,
+        "model": "hybrid"
+    },
+    "hybrid_20hp_paper": {
+        "init_health": 20,
+        "model": "hybrid"
     },
 
 
-    "baseline_2hp_2blue": {
+    "baseline_02hp_paper": {
         "init_health": 2,
-        "run_baselines": "True",
-        "n_blue": 2
+        "run_baselines": "True"
     },
-    "baseline_5hp_2blue": {
+    "baseline_05hp_paper": {
         "init_health": 5,
-        "run_baselines": "True",
-        "n_blue": 2
+        "run_baselines": "True"
     },
-    "baseline_20hp_2blue": {
+    "baseline_20hp_paper": {
         "init_health": 20,
-        "run_baselines": "True",
-        "n_blue": 2
+        "run_baselines": "True"
     }
 }

@@ -42,14 +42,14 @@ class HybridPolicy(TMv2.TorchModelV2, nn.Module):
         self.num_blue = kwargs['nblue']
         self_shape, red_shape, blue_shape = env_setup.get_state_shapes(self.map.get_graph_size(), self.num_red, self.num_blue, env_setup.OBS_TOKEN)
         self.obs_shapes = [self_shape, red_shape, blue_shape, self.num_red, self.num_blue]
-        self.map.g_acs.add_node(0) # dummy node that we'll use later
+        #self.map.g_acs.add_node(0) # dummy node that we'll use later
         '''
         self.hidden_proj_sizes = [50, 30]
         self.GAT_LAYERS = 6
         self.N_HEADS = 4
         self.HIDDEN_DIM = 4
         '''
-        self.hidden_proj_sizes = [100, 100]
+        self.hidden_proj_sizes = [45, 45]
         self.GAT_LAYERS = 4
         self.N_HEADS = 4
         self.HIDDEN_DIM = 4

@@ -55,7 +55,7 @@ class GraphTransformerPolicy(TMv2.TorchModelV2, nn.Module):
         self.num_blue = kwargs['nblue']
         self_shape, red_shape, blue_shape = env_setup.get_state_shapes(self.map.get_graph_size(), self.num_red, self.num_blue, env_setup.OBS_TOKEN)
         self.obs_shapes = [self_shape, red_shape, blue_shape, self.num_red, self.num_blue]
-        self.map.g_acs.add_node(0) # dummy node that we'll use later
+        #self.map.g_acs.add_node(0) # dummy node that we'll use later
 
         # map info
         self.move_map = {} # movement dictionary: d[node][direction] = newnode. newnode is -1 if direction is not possible from node
@@ -67,7 +67,10 @@ class GraphTransformerPolicy(TMv2.TorchModelV2, nn.Module):
                 self.move_map[n][dir] = m
         
         # actor (attention model)
-        self.gats, _, _ = initialize_graph_transformer(GRAPH_OBS_TOKEN['embedding_size'])
+        self.GAT_LAYERS = 8
+        self.N_HEADS = 8
+        self.HIDDEN_DIM = 8
+        self.gats, _, _ = initialize_graph_transformer(GRAPH_OBS_TOKEN['embedding_size'], L=self.GAT_LAYERS, n_heads=self.N_HEADS, hidden_dim=self.HIDDEN_DIM, out_dim=self.HIDDEN_DIM)
 
         # critic
         self._value_branch_separate = None

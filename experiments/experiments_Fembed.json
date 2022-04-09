@@ -1,0 +1,17 @@
+{
+    "hybrid_Fembed_2hp_2blue": {
+        "init_health": 2,
+        "model": "hybrid",
+        "n_blue": 2
+    },
+    "hybrid_Fembed_5hp_2blue": {
+        "init_health": 5,
+        "model": "hybrid",
+        "n_blue": 2
+    },
+    "hybrid_Fembed_20hp_2blue": {
+        "init_health": 20,
+        "model": "hybrid",
+        "n_blue": 2
+    }
+}

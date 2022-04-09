@@ -1,0 +1,34 @@
+{
+    "hybrid_2hp_2blue": {
+        "init_health": 2,
+        "model": "hybrid",
+        "n_blue": 2
+    },
+    "hybrid_5hp_2blue": {
+        "init_health": 5,
+        "model": "hybrid",
+        "n_blue": 2
+    },
+    "hybrid_20hp_2blue": {
+        "init_health": 20,
+        "model": "hybrid",
+        "n_blue": 2
+    },
+
+
+    "baseline_2hp_2blue": {
+        "init_health": 2,
+        "run_baselines": "True",
+        "n_blue": 2
+    },
+    "baseline_5hp_2blue": {
+        "init_health": 5,
+        "run_baselines": "True",
+        "n_blue": 2
+    },
+    "baseline_20hp_2blue": {
+        "init_health": 20,
+        "run_baselines": "True",
+        "n_blue": 2
+    }
+}
