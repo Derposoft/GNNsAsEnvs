@@ -11,6 +11,8 @@ import ray
 import time
 from datetime import datetime
 import tempfile
+import numpy as np
+import random
 import os
 
 # our code
@@ -162,7 +164,10 @@ def run_baselines(config, run_default_baseline_metrics=False, train_time=200, ch
     experimentally, ppo was the only one that performed/worked well with the gat model. therefore,
     the experiments are all focused around its use.
     '''
-    # get env config
+    # get env config/setting seeds
+    random.seed(1234)
+    np.random.seed(1234)
+    torch.manual_seed(1234)
     outer_configs, _ = create_env_config(config)
     
     # train

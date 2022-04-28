@@ -59,13 +59,15 @@ class GraphTransformerNet(nn.Module):
                                                     self.layer_norm, self.batch_norm, self.residual) for _ in range(n_layers-1) ]) 
         self.layers.append(GraphTransformerLayer(hidden_dim, out_dim, num_heads, dropout, self.layer_norm, self.batch_norm, self.residual))
         if self.readout == 'default' or 'agent_node':
-            self.MLP_layer = MLPReadout(out_dim, num_actions, L=0) # 1 out dim since regression problem
+            self.MLP_layer = MLPReadout(out_dim, num_actions, L=0)
         elif self.readout == '5d':
             self.MLP_layer = MLPReadout(out_dim * 5, num_actions) # version that uses 0/1/2/3/4 directions
         elif self.readout == 'full_graph':
             self.MLP_layer = MLPReadout(out_dim*28, num_actions) # version that uses all node embeddings
         elif self.readout == 'none':
             self.MLP_layer = None
+        else:
+            self.MLP_layer = MLPReadout(out_dim, num_actions, L=0)
         
     def forward(self, g, h, e, h_lap_pos_enc=None, h_wl_pos_enc=None, agent_nodes=None, move_map=None):
         '''

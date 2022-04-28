@@ -1,0 +1,14 @@
+{
+    "true_baseline_02hp_paper": {
+        "init_health": 2,
+        "run_baselines": "True"
+    },
+    "true_baseline_05hp_paper": {
+        "init_health": 5,
+        "run_baselines": "True"
+    },
+    "true_baseline_20hp_paper": {
+        "init_health": 20,
+        "run_baselines": "True"
+    }
+}

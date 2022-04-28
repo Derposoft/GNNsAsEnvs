@@ -18,7 +18,7 @@ SUPPRESS_WARNINGS = {
 }
 GRAPH_OBS_TOKEN = {
     'obs_embed': True,
-    'embedding_size': 3, #5, #10
+    'embedding_size': 5,#7, #10
     'embed_pos': False,
 }
 def ERROR_MSG(e): return f'ERROR READING OBS: {e}'
@@ -99,8 +99,22 @@ def efficient_embed_obs_in_map(obs: torch.Tensor, map: MapInfo, obs_shapes=None)
             if blue_obs[j]:
                 node_embeddings[i][j][2] += 1
                 blue_positions.add(j)
+        
 
-    node_embeddings[:,-1,:] = 0
+        ## EXTRA EMBEDDINGS TO PROMOTE LEARNING ##
+        # can_red_go_here_t
+        for possible_next in map.g_acs.adj[_node+1]:
+            node_embeddings[i][possible_next-1][3] = 1
+        
+        # can_blue_move_here_t
+        if MOVE_DEGS['move_1deg_away'] == None:
+            MOVE_DEGS['move_1deg_away'] = get_nodes_ndeg_away(map.g_acs.adj, 1)
+        move_1deg_away = MOVE_DEGS['move_1deg_away']
+        for j in blue_positions:
+            for possible_next in move_1deg_away[j+1]:
+                node_embeddings[i][possible_next-1][4] = 1
+
+    #node_embeddings[:,-1,:] = 0
     return node_embeddings.to(device)
 
 # get location of an agent given one-hot positional encoding on graph (0-indexed)
@@ -191,19 +205,15 @@ def count_model_params(model):
 
 L102
 
-        # can_red_go_here_t
-        for possible_next in map.g_acs.adj[_node+1]:
-            node_embeddings[i][possible_next][3] = 1
-        
-        if MOVE_DEGS['move_1deg_away'] == None: # TODO remove view_1deg_away
-            MOVE_DEGS['move_1deg_away'] = get_nodes_ndeg_away(map.g_acs.adj, 1)
-        move_1deg_away = MOVE_DEGS['move_1deg_away']
-        for j in blue_positions:
-            # can_blue_move_here_t,t+1,t+2
-            for possible_next in move_1deg_away[j+1]:
-                node_embeddings[i][possible_next-1][4] = 1
-
 L115
+        #    MOVE_DEGS['move_2deg_away'] = get_nodes_ndeg_away(map.g_acs.adj, 2)
+        #    MOVE_DEGS['move_3deg_away'] = get_nodes_ndeg_away(map.g_acs.adj, 3)
+        #move_2deg_away = MOVE_DEGS['move_2deg_away']
+        #move_3deg_away = MOVE_DEGS['move_3deg_away']
+            #for possible_next in move_2deg_away[j+1]:
+            #    node_embeddings[i][possible_next-1][5] = 1
+            #for possible_next in move_3deg_away[j+1]:
+            #    node_embeddings[i][possible_next-1][6] = 1
 
             #VIEW_DEGS['view_1deg_away'] = get_nodes_ndeg_away(map.g_vis.adj, 1)
             #view_1deg_away = get_nodes_ndeg_away(map.g_vis.adj, 1)
