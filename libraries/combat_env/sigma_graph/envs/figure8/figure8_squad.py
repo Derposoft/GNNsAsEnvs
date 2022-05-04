@@ -70,6 +70,8 @@ class Figure8Squad(gym.Env):
 
     def step(self, n_actions):
         assert len(n_actions) == len(self.learning_agent), f"[EnvError] Invalid action shape {n_actions}"
+        #for idx in range(len(self.team_blue)):
+        #    print(idx, self.team_blue[idx].agent_node)
         # store previous state for logging if logger is 'on'
         prev_obs = self._log_step_prev()
         self.step_counter += 1
@@ -144,7 +146,7 @@ class Figure8Squad(gym.Env):
             if self.team_blue[agent_i].is_frozen():
                 continue
             _route = self.team_blue[agent_i].get_route()
-            _idx = self.step_counter % self.routes[_route].get_route_length()
+            _idx = (self.step_counter + self.blue_offsets[agent_i]) % self.routes[_route].get_route_length()
             _node, _code, _dir = self.routes[_route].get_location_by_index(_idx)
             self.team_blue[agent_i].update_index(_idx, _node, _code, _dir)
         # return [0] * self.num_blue
@@ -508,11 +510,13 @@ class Figure8Squad(gym.Env):
                 self.team_red[idx].set_location(pos, self.map.get_name_by_index(pos), 1)
 
         HP_blue = self.configs["init_health_blue"]
+        self.blue_offsets = []
         for idx, init_blue in enumerate(self.configs["init_blue"]):
             b_route = self.team_blue[idx].get_route()
             #b_index = init_blue["idx"]  # int: index of the position on the given route
             route_len = self.routes[b_route].get_route_length()
             b_index = int(idx * route_len / self.num_blue) % route_len
+            self.blue_offsets.append(b_index)
             b_node, b_code, b_dir = self.routes[b_route].get_location_by_index(b_index)
             self.team_blue[idx].reset(_node=b_node, _code=b_code, _dir=b_dir, _health=HP_blue, _index=b_index, _end=-1)
 
