@@ -4,6 +4,7 @@ import numpy as np
 import torch
 import sigma_graph.envs.figure8.default_setup as env_setup
 from sigma_graph.data.graph.skirmish_graph import MapInfo
+from torchinfo import summary
 
 # constants/helper functions
 NETWORK_SETTINGS = {
@@ -188,8 +189,9 @@ def get_probs_mask(agent_nodes, graph_size, edges_dict):
     mask = [np.delete(node_exclude_list, list(edges_dict[agent_node])+[agent_node]) for agent_node in agent_nodes]
     return mask
 
-def count_model_params(model):
+def count_model_params(model, print_model=False):
     num_params = sum(p.numel() for _, p in model.named_parameters() if p.requires_grad)
+    if print_model: summary(model)
     print(f'{type(model)} using {num_params} #params')
 
 

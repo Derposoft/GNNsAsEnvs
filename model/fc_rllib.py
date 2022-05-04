@@ -150,7 +150,7 @@ class FCPolicy(TMv2.TorchModelV2, nn.Module):
         self._features = None
         # Holds the last input, in case value branch is separate.
         self._last_flat_in = None
-        count_model_params(self)
+        count_model_params(self)#, True)
 
     @override(TMv2.TorchModelV2)
     def forward(self, input_dict: Dict[str, TensorType],

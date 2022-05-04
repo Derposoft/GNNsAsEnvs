@@ -34,11 +34,8 @@ def initialize_train_artifacts(node_embedding_size, **kwargs):
         if p in kwargs: net_params[p] = kwargs[p]
 
     # setting seeds
-    random.seed(params['seed'])
-    np.random.seed(params['seed'])
-    torch.manual_seed(params['seed'])
     if device.type == 'cuda':
-        torch.cuda.manual_seed(params['seed'])
+        torch.cuda.manual_seed(1234)
 
     model = GraphTransformerNet(net_params)
     #model = model.to(device)
