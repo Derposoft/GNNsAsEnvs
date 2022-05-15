@@ -57,6 +57,9 @@ class GraphTransformerNet(nn.Module):
         
         self.layers = nn.ModuleList([ GraphTransformerLayer(hidden_dim, hidden_dim, num_heads, dropout,
                                                     self.layer_norm, self.batch_norm, self.residual) for _ in range(n_layers-1) ]) 
+
+        ######################################### OUR CHANGES BELOW
+
         self.layers.append(GraphTransformerLayer(hidden_dim, out_dim, num_heads, dropout, self.layer_norm, self.batch_norm, self.residual))
         if self.readout == 'default' or 'agent_node':
             self.MLP_layer = MLPReadout(out_dim, num_actions, L=0)
@@ -68,6 +71,8 @@ class GraphTransformerNet(nn.Module):
             self.MLP_layer = None
         else:
             self.MLP_layer = MLPReadout(out_dim, num_actions, L=0)
+
+        #########################################
         
     def forward(self, g, h, e, h_lap_pos_enc=None, h_wl_pos_enc=None, agent_nodes=None, move_map=None):
         '''
@@ -93,6 +98,7 @@ class GraphTransformerNet(nn.Module):
             h, e = conv(g, h, e)
         g.ndata['h'] = h
 
+        ######################################### OUR CHANGES BELOW
         
         if self.readout == 'agent_node':
             # attempt 0; use curr node
@@ -142,6 +148,8 @@ class GraphTransformerNet(nn.Module):
             else:
                 hg = dgl.mean_nodes(g, 'h')  # default readout is mean nodes
             return self.MLP_layer(hg)
+
+        #########################################
         
         
     def loss(self, scores, targets):
