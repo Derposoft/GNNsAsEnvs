@@ -6,6 +6,11 @@ If on Linux:
 1. make sure that this project is root folder
 2. run ./setup.sh
 
+If on Anaconda:
+
+1. conda env create --name <env_name> -f environment.yml
+2. conda activate <env_name>
+
 If that doesn't work:
 
 1. make sure that figure8squad/attention_study is root folder
