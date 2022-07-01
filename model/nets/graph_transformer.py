@@ -66,24 +66,24 @@ class GraphTransformerNet(nn.Module):
                 self.batch_norm,
                 self.residual
             ) for _ in range(n_layers-1)
-        ]) 
+        ])
+        self.layers.append(GraphTransformerLayer(hidden_dim, out_dim, num_heads, dropout, self.layer_norm, self.batch_norm, self.residual))
 
         ######################################### OUR CHANGES BELOW
         """
         choose the proper readout (for the proper output function)
         """
-        self.layers.append(GraphTransformerLayer(hidden_dim, out_dim, num_heads, dropout, self.layer_norm, self.batch_norm, self.residual))
-        if self.gat_output_fn == 'default' or 'agent_node':
+        if self.gat_output_fn == 'default' or self.gat_output_fn == 'agent_node':
             self.MLP_layer = MLPReadout(out_dim, num_actions, L=0)
         elif self.gat_output_fn == '5d':
-            self.MLP_layer = MLPReadout(out_dim * 5, num_actions) # version that uses 0/1/2/3/4 directions
+            self.MLP_layer = MLPReadout(out_dim*5, num_actions) # version that uses 0/1/2/3/4 directions
         elif self.gat_output_fn == 'full_graph':
             self.MLP_layer = MLPReadout(out_dim*28, num_actions) # version that uses all node embeddings
         elif self.gat_output_fn == 'none':
             self.MLP_layer = None
         else:
+            print("warning: defaulting to an readout mlp layer. this may cause problems later on.")
             self.MLP_layer = MLPReadout(out_dim, num_actions, L=0)
-
         #########################################
         
     def forward(self, g, h, e, h_lap_pos_enc=None, h_wl_pos_enc=None, agent_nodes=None, move_map=None):
@@ -121,7 +121,7 @@ class GraphTransformerNet(nn.Module):
                 _embeddings = h[idxs, :]
                 _outputs = self.MLP_layer(_embeddings)
                 return _outputs
-        if self.gat_output_fn == '5d':
+        elif self.gat_output_fn == '5d':
             # attempt 1 code; use embeddings for directions from curr node
             batch_size = g.batch_num_nodes().shape[0]
             h = h.reshape([batch_size, -1, h.shape[-1]])
@@ -140,12 +140,12 @@ class GraphTransformerNet(nn.Module):
             o = h[xs,[m0,m1,m2,m3,m4],:]
             o = torch.permute(o, [1, 0, 2]).reshape([batch_size, -1])
             return self.MLP_layer(o)
-        if self.gat_output_fn == 'full_graph':
+        elif self.gat_output_fn == 'full_graph':
             # attempt 2; concatenate all node embeddings and feed into mlp layers
             batch_size = g.batch_num_nodes().shape[0]
             o = h.reshape([batch_size, -1])
             return self.MLP_layer(o)
-        if self.gat_output_fn == 'none':
+        elif self.gat_output_fn == 'none':
             # attempt 3: no readout; only current agent node
             if agent_nodes != None:
                 idxs = [g.batch_num_nodes()[0]*i+agent_nodes[i] for i in range(int(h.shape[0]/g.batch_num_nodes()[0].item()))]

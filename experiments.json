@@ -1,41 +1,48 @@
 {
-    "gat_02hp_paper": {
+    "5e_graph_transformer_02hp_2blue_paper": {
         "init_health": 2,
-        "model": "gat"
+        "model": "graph_transformer",
+        "n_blue": 2
     },
-    "gat_05hp_paper": {
+    "5e_graph_transformer_05hp_2blue_paper": {
         "init_health": 5,
-        "model": "gat"
+        "model": "graph_transformer",
+        "n_blue": 2
     },
-    "gat_20hp_paper": {
+    "5e_graph_transformer_20hp_2blue_paper": {
         "init_health": 20,
-        "model": "gat"
+        "model": "graph_transformer",
+        "n_blue": 2
     },
 
-    "hybrid_02hp_paper": {
+    "5e_hybrid_02hp_2blue_paper": {
         "init_health": 2,
-        "model": "hybrid"
+        "model": "hybrid",
+        "n_blue": 2
     },
-    "hybrid_05hp_paper": {
+    "5e_hybrid_05hp_2blue_paper": {
         "init_health": 5,
-        "model": "hybrid"
+        "model": "hybrid",
+        "n_blue": 2
     },
-    "hybrid_20hp_paper": {
+    "5e_hybrid_20hp_2blue_paper": {
         "init_health": 20,
-        "model": "hybrid"
+        "model": "hybrid",
+        "n_blue": 2
     },
-
-
-    "baseline_02hp_paper": {
+    "true_baseline_02hp_2blue_paper": {
         "init_health": 2,
-        "run_baselines": "True"
+        "run_baselines": "True",
+        "n_blue": 2
     },
-    "baseline_05hp_paper": {
+    "true_baseline_05hp_2blue_paper": {
         "init_health": 5,
-        "run_baselines": "True"
+        "run_baselines": "True",
+        "n_blue": 2
     },
-    "baseline_20hp_paper": {
+    "true_baseline_20hp_2blue_paper": {
         "init_health": 20,
-        "run_baselines": "True"
+        "run_baselines": "True",
+        "n_blue": 2
     }
 }
