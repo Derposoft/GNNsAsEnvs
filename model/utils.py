@@ -5,6 +5,7 @@ import torch
 import sigma_graph.envs.figure8.default_setup as env_setup
 from sigma_graph.data.graph.skirmish_graph import MapInfo
 from torchinfo import summary
+from ray.rllib.models.torch.misc import SlimFC, normc_initializer 
 
 # constants/helper functions
 NETWORK_SETTINGS = {
@@ -194,7 +195,41 @@ def count_model_params(model, print_model=False):
     if print_model: summary(model)
     print(f'{type(model)} using {num_params} #params')
 
+def parse_config(model_config):
+    hiddens = list(model_config.get("fcnet_hiddens", [])) + \
+        list(model_config.get("post_fcnet_hiddens", []))
+    activation = model_config.get("fcnet_activation")
+    if not model_config.get("fcnet_hiddens", []):
+        activation = model_config.get("post_fcnet_activation")
+    no_final_linear = model_config.get("no_final_linear")
+    vf_share_layers = model_config.get("vf_share_layers") # this is usually 0
+    free_log_std = model_config.get("free_log_std") # skip worrying about log std
+    return hiddens, activation, no_final_linear, vf_share_layers, free_log_std
 
+def create_value_branch(obs_space, action_space, *, vf_share_layers=False, activation='relu', hiddens=[]):
+    _value_branch_separate = None
+    # create value network with equal number of hidden layers as policy net
+    if not vf_share_layers:
+        prev_vf_layer_size = int(np.product(obs_space.shape))
+        vf_layers = []
+        for size in hiddens:
+            vf_layers.append(
+                SlimFC(
+                    in_size=prev_vf_layer_size,
+                    out_size=size,
+                    activation_fn=activation,
+                    initializer=normc_initializer(1.0)))
+            prev_vf_layer_size = size
+        _value_branch_separate = torch.nn.Sequential(*vf_layers)
+    # layer which outputs 1 value
+    #prev_layer_size = hiddens[-1] if self._value_branch_separate else self.map.get_graph_size()
+    prev_layer_size = hiddens[-1] if _value_branch_separate else int(action_space.n)
+    _value_branch = SlimFC(
+        in_size=prev_layer_size,
+        out_size=1,
+        initializer=normc_initializer(0.01),
+        activation_fn=None)
+    return _value_branch, _value_branch_separate
 
 '''
 # junk #

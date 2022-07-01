@@ -40,12 +40,18 @@ def initialize_train_artifacts(node_embedding_size, **kwargs):
     model = GraphTransformerNet(net_params)
     #model = model.to(device)
 
-    optimizer = optim.Adam(model.parameters(), lr=params['init_lr'], weight_decay=params['weight_decay'])
-    scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min',
-                                                     factor=params['lr_reduce_factor'],
-                                                     patience=params['lr_schedule_patience'],
-                                                     verbose=True)
-    
+    optimizer = optim.Adam(
+        model.parameters(),
+        lr=params['init_lr'],
+        weight_decay=params['weight_decay'],
+    )
+    scheduler = optim.lr_scheduler.ReduceLROnPlateau(
+        optimizer,
+        mode='min',
+        factor=params['lr_reduce_factor'],
+        patience=params['lr_schedule_patience'],
+        verbose=True,
+    )
     
     return model, optimizer, scheduler
 

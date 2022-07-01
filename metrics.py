@@ -38,19 +38,21 @@ def create_env_config(config):
     n_episodes = config.n_episode
     # init_red and init_blue should have number of agents dictionary elements if you want to specify it
     # [!!] remember to update this dict if adding new args in parser
-    outer_configs = {"env_path": config.env_path, "max_step": config.max_step, "act_masked": config.act_masked,
-                    "n_red": config.n_red, "n_blue": config.n_blue,
-                    "init_red": config.init_red, "init_blue": config.init_blue,
-                    "init_health_red": config.init_health, "init_health_blue": config.init_health,
-                    "obs_embed": config.obs_embed, "obs_dir": config.obs_dir, "obs_team": config.obs_team,
-                    "obs_sight": config.obs_sight,
-                    "log_on": config.log_on, "log_path": config.log_path,
-                    # "reward_step_on": False, "reward_episode_on": True, "episode_decay_soft": True,
-                    # "health_lookup": {"type": "table", "reward": [8, 4, 2, 0], "damage": [0, 1, 2, 100]},
-                    # "faster_lookup": {"type": "none"},
-                    #"use_mean_embed": config.use_mean_embed,
-                    "fixed_start": config.fixed_start,
-                    }
+    outer_configs = {
+        "env_path": config.env_path, "max_step": config.max_step, "act_masked": config.act_masked,
+        "n_red": config.n_red, "n_blue": config.n_blue,
+        "init_red": config.init_red, "init_blue": config.init_blue,
+        "init_health_red": config.init_health, "init_health_blue": config.init_health,
+        "obs_embed": config.obs_embed, "obs_dir": config.obs_dir, "obs_team": config.obs_team,
+        "obs_sight": config.obs_sight,
+        "log_on": config.log_on, "log_path": config.log_path,
+        # "reward_step_on": False, "reward_episode_on": True, "episode_decay_soft": True,
+        # "health_lookup": {"type": "table", "reward": [8, 4, 2, 0], "damage": [0, 1, 2, 100]},
+        # "faster_lookup": {"type": "none"},
+        #"use_mean_embed": config.use_mean_embed,
+        "fixed_start": config.fixed_start,
+        "gat_output_fn": config.gat_output_fn,
+    }
     ## i.e. init_red 'pos': tuple(x, z) or "L"/"R" region of the map
     # "init_red": [{"pos": (11, 1), "dir": 1}, {"pos": None}, {"pos": "L", "dir": None}]
     if hasattr(config, "penalty_stay"):
@@ -98,6 +100,7 @@ def create_trainer_config(outer_configs, trainer_type=None, custom_model=''):
             "map": setup_env.map,
             "nred": outer_configs['n_red'],
             "nblue": outer_configs['n_blue'],
+            "gat_output_fn": outer_configs['gat_output_fn'],
             #"use_mean_embed": outer_configs['use_mean_embed'],
         },
     }
@@ -231,6 +234,7 @@ def parse_arguments():
     parser.add_argument('--use_mean_embed', type=bool, default=False, help='use mean embeddings vs choose embedding for agent\'s node at inference time')
     parser.add_argument('--run_baselines', type=bool, default=False, help='are we running baselines or actual model?')
     parser.add_argument('--fixed_start', type=int, default=-1, help='where to fix the agent init points when training')
+    parser.add_argument('--gat_output_fn', type=str, default='agent_node', help='which output fn to use after gat')
 
 
     # testing config
