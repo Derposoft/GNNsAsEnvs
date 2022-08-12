@@ -1,7 +1,7 @@
 # script to download/set up dependencies for this example
 
 # 1. python libraries we use
-pip3 install -r requirements.txt
+# pip3 install -r requirements.txt
 
 # 2. pull submodules
 #git submodule update --init --recursive # unnecessary now
