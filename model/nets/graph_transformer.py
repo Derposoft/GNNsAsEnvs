@@ -63,10 +63,20 @@ class GraphTransformerNet(nn.Module):
                 dropout,
                 self.layer_norm,
                 self.batch_norm,
-                self.residual
+                self.residual,
             ) for _ in range(n_layers-1)
         ])
-        self.layers.append(GraphTransformerLayer(hidden_dim, out_dim, num_heads, dropout, self.layer_norm, self.batch_norm, self.residual))
+        self.layers.append(
+            GraphTransformerLayer(
+                hidden_dim,
+                out_dim,
+                num_heads,
+                dropout,
+                self.layer_norm,
+                self.batch_norm,
+                self.residual,
+            )
+        )
 
         ######################################### OUR CHANGES BELOW
         """
@@ -117,13 +127,18 @@ class GraphTransformerNet(nn.Module):
         """
         choosing the right output_fn/aggregation behavior using self.gat_output_fn
         """
-        if self.gat_output_fn == "agent_node":
+        if (
+            self.gat_output_fn == "agent_node"
+            or self.gat_output_fn == "hybrid_global_local"
+        ):
             # attempt 0; use curr node
             if agent_nodes != None:
                 idxs = [g.batch_num_nodes()[0]*i+agent_nodes[i] for i in range(int(h.shape[0]/g.batch_num_nodes()[0].item()))]
-                _embeddings = h[idxs, :]
-                _outputs = self.MLP_layer(_embeddings)
-                return _outputs
+                local_node_embeddings = h[idxs, :]
+                if self.gat_output_fn == "agent_node":
+                    return self.MLP_layer(local_node_embeddings)
+                global_mean_embedding = dgl.mean_nodes(g, "h")
+                return self.MLP_layer(local_node_embeddings + global_mean_embedding)
         elif self.gat_output_fn == "5d":
             # attempt 1 code; use embeddings for directions from curr node
             batch_size = g.batch_num_nodes().shape[0]
@@ -154,7 +169,7 @@ class GraphTransformerNet(nn.Module):
                 idxs = [g.batch_num_nodes()[0]*i+agent_nodes[i] for i in range(int(h.shape[0]/g.batch_num_nodes()[0].item()))]
                 _embeddings = h[idxs, :]
                 return _embeddings
-        else: #if self.gat_output_fn == "default":
+        else:
             # attempt -1; use mean of nodes
             if self.gat_output_fn == "sum":
                 hg = dgl.sum_nodes(g, "h")
