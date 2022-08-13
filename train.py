@@ -49,7 +49,7 @@ def create_env_config(config):
         # "reward_step_on": False, "reward_episode_on": True, "episode_decay_soft": True,
         # "health_lookup": {"type": "table", "reward": [8, 4, 2, 0], "damage": [0, 1, 2, 100]},
         # "faster_lookup": {"type": "none"},
-        #"use_mean_embed": config.use_mean_embed,
+        # "use_mean_embed": config.use_mean_embed,
         "fixed_start": config.fixed_start,
         "gat_output_fn": config.gat_output_fn,
     }

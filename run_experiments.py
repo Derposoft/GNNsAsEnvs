@@ -28,7 +28,7 @@ experiment_cmds = []
 for experiment_name in experiments:
     flags = experiments[experiment_name]
     flags['name'] = experiment_name
-    experiment_cmds.append('python3 metrics.py' + ''.join([f' --{flag}={flags[flag]}' for flag in flags]))
+    experiment_cmds.append('python3 train.py' + ''.join([f' --{flag}={flags[flag]}' for flag in flags]))
 
 # https://stackoverflow.com/questions/25120363/multiprocessing-execute-external-command-and-wait-before-proceeding
 def call_proc(cmd):

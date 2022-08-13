@@ -25,7 +25,7 @@ pip3 install -e .
 You can also define your own experiments in the experiments.json file and run them with run_experiments.py.
 
 **To run baseline tests:**
-`python3 metrics.py`
+`python3 train.py`
 
 Currently, only baselines for ppo are used because the gat model only performs well using ppo. ~and a2c are being used while some issues with pg and dqn are being worked out -- however, previous tests with pg and dqn trainers showed results consistent with baseline_values.png.~
 

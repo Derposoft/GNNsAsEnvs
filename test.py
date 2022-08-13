@@ -14,7 +14,7 @@ import os
 # our code
 from sigma_graph.envs.figure8.figure8_squad_rllib import Figure8SquadRLLib
 import model # THIS NEEDS TO BE HERE IN ORDER TO RUN __init__.py!
-from metrics import create_env_config, create_trainer_config, parse_arguments, custom_log_creator
+from train import create_env_config, create_trainer_config, parse_arguments, custom_log_creator
 
 # algorithms to test
 from ray.rllib.agents import ppo
