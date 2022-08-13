@@ -6,8 +6,7 @@ import torch.nn.functional as F
 import dgl
 
 """
-    Graph Transformer with edge features
-    
+Graph Transformer with edge features
 """
 
 from model.nets.graph_transformer_edge_layer import GraphTransformerLayer
@@ -19,33 +18,33 @@ class GraphTransformerNet(nn.Module):
         """
         read input configuration parameters
         """
-        #num_atom_type = net_params['num_atom_type'] # TODO if we want embedding layer
-        #num_bond_type = net_params['num_bond_type']
-        num_bond_type = net_params.get('num_bond_type', 1)
-        node_embedding_size = net_params['node_embedding_size']
-        num_actions = net_params.get('num_actions', 1)
-        hidden_dim = net_params['hidden_dim'] # import configs start here
-        num_heads = net_params['n_heads']
-        out_dim = net_params['out_dim']
-        in_feat_dropout = net_params['in_feat_dropout']
-        dropout = net_params['dropout']
-        n_layers = net_params['L']
-        self.gat_output_fn = net_params['readout']
-        self.layer_norm = net_params['layer_norm']
-        self.batch_norm = net_params['batch_norm']
-        self.residual = net_params['residual']
-        self.edge_feat = net_params['edge_feat']
-        self.device = net_params['device']
-        self.lap_pos_enc = net_params['lap_pos_enc']
-        self.wl_pos_enc = net_params['wl_pos_enc']
+        #num_atom_type = net_params["num_atom_type"] # TODO if we want embedding layer
+        #num_bond_type = net_params["num_bond_type"]
+        num_bond_type = net_params.get("num_bond_type", 1)
+        node_embedding_size = net_params["node_embedding_size"]
+        num_actions = net_params.get("num_actions", 1)
+        hidden_dim = net_params["hidden_dim"] # import configs start here
+        num_heads = net_params["n_heads"]
+        out_dim = net_params["out_dim"]
+        in_feat_dropout = net_params["in_feat_dropout"]
+        dropout = net_params["dropout"]
+        n_layers = net_params["L"]
+        self.gat_output_fn = net_params["readout"]
+        self.layer_norm = net_params["layer_norm"]
+        self.batch_norm = net_params["batch_norm"]
+        self.residual = net_params["residual"]
+        self.edge_feat = net_params["edge_feat"]
+        self.device = net_params["device"]
+        self.lap_pos_enc = net_params["lap_pos_enc"]
+        self.wl_pos_enc = net_params["wl_pos_enc"]
         max_wl_role_index = 37 # this is maximum graph size in the dataset
-        print(f'GAT is using output function: {self.gat_output_fn}')
+        print(f"GAT is using output function: {self.gat_output_fn}")
         
         """
         build graph transformer network
         """
         if self.lap_pos_enc:
-            pos_enc_dim = net_params['pos_enc_dim']
+            pos_enc_dim = net_params["pos_enc_dim"]
             self.embedding_lap_pos_enc = nn.Linear(pos_enc_dim, hidden_dim)
         if self.wl_pos_enc:
             self.embedding_wl_pos_enc = nn.Embedding(max_wl_role_index, hidden_dim)
@@ -73,13 +72,17 @@ class GraphTransformerNet(nn.Module):
         """
         choose the proper readout (for the proper output function)
         """
-        if self.gat_output_fn == 'default' or self.gat_output_fn == 'agent_node':
+        if (
+            self.gat_output_fn == "default"
+            or self.gat_output_fn == "agent_node"
+            or self.gat_output_fn == "hybrid_global_local"
+        ):
             self.MLP_layer = MLPReadout(out_dim, num_actions, L=0)
-        elif self.gat_output_fn == '5d':
+        elif self.gat_output_fn == "5d":
             self.MLP_layer = MLPReadout(out_dim*5, num_actions) # version that uses 0/1/2/3/4 directions
-        elif self.gat_output_fn == 'full_graph':
+        elif self.gat_output_fn == "full_graph":
             self.MLP_layer = MLPReadout(out_dim*28, num_actions) # version that uses all node embeddings
-        elif self.gat_output_fn == 'none':
+        elif self.gat_output_fn == "none":
             self.MLP_layer = None
         else:
             print("warning: defaulting to an readout mlp layer. this may cause problems later on.")
@@ -108,20 +111,20 @@ class GraphTransformerNet(nn.Module):
         # convnets
         for conv in self.layers:
             h, e = conv(g, h, e)
-        g.ndata['h'] = h
+        g.ndata["h"] = h
 
         ######################################### OUR CHANGES BELOW
         """
         choosing the right output_fn/aggregation behavior using self.gat_output_fn
         """
-        if self.gat_output_fn == 'agent_node':
+        if self.gat_output_fn == "agent_node":
             # attempt 0; use curr node
             if agent_nodes != None:
                 idxs = [g.batch_num_nodes()[0]*i+agent_nodes[i] for i in range(int(h.shape[0]/g.batch_num_nodes()[0].item()))]
                 _embeddings = h[idxs, :]
                 _outputs = self.MLP_layer(_embeddings)
                 return _outputs
-        elif self.gat_output_fn == '5d':
+        elif self.gat_output_fn == "5d":
             # attempt 1 code; use embeddings for directions from curr node
             batch_size = g.batch_num_nodes().shape[0]
             h = h.reshape([batch_size, -1, h.shape[-1]])
@@ -140,27 +143,27 @@ class GraphTransformerNet(nn.Module):
             o = h[xs,[m0,m1,m2,m3,m4],:]
             o = torch.permute(o, [1, 0, 2]).reshape([batch_size, -1])
             return self.MLP_layer(o)
-        elif self.gat_output_fn == 'full_graph':
+        elif self.gat_output_fn == "full_graph":
             # attempt 2; concatenate all node embeddings and feed into mlp layers
             batch_size = g.batch_num_nodes().shape[0]
             o = h.reshape([batch_size, -1])
             return self.MLP_layer(o)
-        elif self.gat_output_fn == 'none':
+        elif self.gat_output_fn == "none":
             # attempt 3: no readout; only current agent node
             if agent_nodes != None:
                 idxs = [g.batch_num_nodes()[0]*i+agent_nodes[i] for i in range(int(h.shape[0]/g.batch_num_nodes()[0].item()))]
                 _embeddings = h[idxs, :]
                 return _embeddings
-        else: #if self.gat_output_fn == 'default':
+        else: #if self.gat_output_fn == "default":
             # attempt -1; use mean of nodes
             if self.gat_output_fn == "sum":
-                hg = dgl.sum_nodes(g, 'h')
+                hg = dgl.sum_nodes(g, "h")
             elif self.gat_output_fn == "max":
-                hg = dgl.max_nodes(g, 'h')
+                hg = dgl.max_nodes(g, "h")
             elif self.gat_output_fn == "mean":
-                hg = dgl.mean_nodes(g, 'h')
+                hg = dgl.mean_nodes(g, "h")
             else:
-                hg = dgl.mean_nodes(g, 'h')  # default readout is mean nodes
+                hg = dgl.mean_nodes(g, "h")  # default readout is mean nodes
             return self.MLP_layer(hg)
 
         #########################################

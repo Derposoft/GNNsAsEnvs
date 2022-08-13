@@ -1,3 +1,7 @@
+"""
+Graph Transformer Layer with edge features
+"""
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -6,13 +10,9 @@ import dgl
 import dgl.function as fn
 import numpy as np
 
-"""
-    Graph Transformer Layer with edge features
-    
-"""
 
 """
-    Util functions
+Util functions
 """
 def src_dot_dst(src_field, dst_field, out_field):
     def func(edges):
@@ -37,7 +37,7 @@ def imp_exp_attn(implicit_attn, explicit_edge):
 # To copy edge features to be passed to FFN_e
 def out_edge_features(edge_feat):
     def func(edges):
-        return {'e_out': edges.data[edge_feat]}
+        return {"e_out": edges.data[edge_feat]}
     return func
 
 
@@ -74,24 +74,24 @@ class MultiHeadAttentionLayer(nn.Module):
     
     def propagate_attention(self, g):
         # Compute attention score
-        g.apply_edges(src_dot_dst('K_h', 'Q_h', 'score')) #, edges)
+        g.apply_edges(src_dot_dst("K_h", "Q_h", "score")) #, edges)
         
         # scaling
-        g.apply_edges(scaling('score', np.sqrt(self.out_dim)))
+        g.apply_edges(scaling("score", np.sqrt(self.out_dim)))
         
         # Use available edge features to modify the scores
-        g.apply_edges(imp_exp_attn('score', 'proj_e'))
+        g.apply_edges(imp_exp_attn("score", "proj_e"))
         
         # Copy edge features as e_out to be passed to FFN_e
-        g.apply_edges(out_edge_features('score'))
+        g.apply_edges(out_edge_features("score"))
         
         # softmax
-        g.apply_edges(exp('score'))
+        g.apply_edges(exp("score"))
 
         # Send weighted values to target nodes
         eids = g.edges()
-        g.send_and_recv(eids, fn.src_mul_edge('V_h', 'score', 'V_h'), fn.sum('V_h', 'wV'))
-        g.send_and_recv(eids, fn.copy_edge('score', 'score'), fn.sum('score', 'z'))
+        g.send_and_recv(eids, fn.src_mul_edge("V_h", "score", "V_h"), fn.sum("V_h", "wV"))
+        g.send_and_recv(eids, fn.copy_edge("score", "score"), fn.sum("score", "z"))
     
     def forward(self, g, h, e):
         Q_h = self.Q(h)
@@ -101,15 +101,15 @@ class MultiHeadAttentionLayer(nn.Module):
         
         # Reshaping into [num_nodes, num_heads, feat_dim] to 
         # get projections for multi-head attention
-        g.ndata['Q_h'] = Q_h.view(-1, self.num_heads, self.out_dim)
-        g.ndata['K_h'] = K_h.view(-1, self.num_heads, self.out_dim)
-        g.ndata['V_h'] = V_h.view(-1, self.num_heads, self.out_dim)
-        g.edata['proj_e'] = proj_e.view(-1, self.num_heads, self.out_dim)
+        g.ndata["Q_h"] = Q_h.view(-1, self.num_heads, self.out_dim)
+        g.ndata["K_h"] = K_h.view(-1, self.num_heads, self.out_dim)
+        g.ndata["V_h"] = V_h.view(-1, self.num_heads, self.out_dim)
+        g.edata["proj_e"] = proj_e.view(-1, self.num_heads, self.out_dim)
         
         self.propagate_attention(g)
         
-        h_out = g.ndata['wV'] / (g.ndata['z'] + torch.full_like(g.ndata['z'], 1e-6)) # adding eps to all values here
-        e_out = g.edata['e_out']
+        h_out = g.ndata["wV"] / (g.ndata["z"] + torch.full_like(g.ndata["z"], 1e-6)) # adding eps to all values here
+        e_out = g.edata["e_out"]
         
         return h_out, e_out
     
@@ -216,6 +216,6 @@ class GraphTransformerLayer(nn.Module):
         return h, e
         
     def __repr__(self):
-        return '{}(in_channels={}, out_channels={}, heads={}, residual={})'.format(self.__class__.__name__,
+        return "{}(in_channels={}, out_channels={}, heads={}, residual={})".format(self.__class__.__name__,
                                              self.in_channels,
                                              self.out_channels, self.num_heads, self.residual)
