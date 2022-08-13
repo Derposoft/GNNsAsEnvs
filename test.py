@@ -1,6 +1,6 @@
-'''
+"""
 tests models that are outputted by generate_metrics.py.
-'''
+"""
 
 # general
 from email import policy
@@ -20,43 +20,43 @@ from train import create_env_config, create_trainer_config, parse_arguments, cus
 from ray.rllib.agents import ppo
 
 def restore_trainer(checkpoint_path, config):
-    '''
+    """
     https://docs.ray.io/en/latest/serve/tutorials/rllib.html
-    '''
-    config['log_level'] = 'ERROR'
-    trainer = ppo.PPOTrainer(config, env=Figure8SquadRLLib, logger_creator=custom_log_creator('junk', custom_dir='./logs'))
+    """
+    config["log_level"] = "ERROR"
+    trainer = ppo.PPOTrainer(config, env=Figure8SquadRLLib, logger_creator=custom_log_creator("junk", custom_dir="./logs"))
     trainer.restore(checkpoint_path)
     return trainer
 
 
 # run baseline tests with a few different algorithms
 def run_tests(config):
-    '''
+    """
     runs a set of tests on the models
-    '''
+    """
     # initialize env
     outer_config, _ = create_env_config(config)
     test_env = Figure8SquadRLLib(outer_config)
     policy_file = {}
-    if config.policy_file != '':
+    if config.policy_file != "":
         with open(config.policy_file) as f:
             policy_file = json.load(f)
     
     # test all models trained so far
-    print('testing...')
-    dir = './checkpoints'
+    print("testing...")
+    dir = "./checkpoints"
     checkpoints = os.listdir(dir)
     for checkpoint in checkpoints:
-        model_dir = f'{dir}/{checkpoint}'
-        if not os.path.exists(model_dir+'/config.pkl'): # skip over subdirectories that i might be using for storing old checkpoints
+        model_dir = f"{dir}/{checkpoint}"
+        if not os.path.exists(model_dir+"/config.pkl"): # skip over subdirectories that i might be using for storing old checkpoints
             continue
-        print(f'########## model at: {model_dir} ##########')
-        with open(model_dir+'/config.pkl', 'rb') as f:
+        print(f"########## model at: {model_dir} ##########")
+        with open(model_dir+"/config.pkl", "rb") as f:
             trainer_config = pickle.load(f)
-        with open(model_dir+'/checkpoint_path.txt', 'r') as f:
+        with open(model_dir+"/checkpoint_path.txt", "r") as f:
             checkpoint_path = f.readlines()[0].lstrip().rstrip()
         trainer = restore_trainer(checkpoint_path, trainer_config)
-        print('restored')
+        print("restored")
         # test all possible starting locations for red and print policy for each of location
         tot_rew_across_all = {}
         for i in range(test_env.map.get_graph_size()):
@@ -98,26 +98,26 @@ def run_tests(config):
                 for agent in obs.keys():
                     if agent not in hp: hp[agent] = 0
                     hp[agent] = test_env.team_red[int(agent)].health
-                    #print('current agent hp:', test_env.team_red[int(agent)].health)
-                if done['__all__']:
+                    #print("current agent hp:", test_env.team_red[int(agent)].health)
+                if done["__all__"]:
                     break
             for agent in obs.keys():
-                print(f'agent{agent}n{i+1} policy:')
-                print(f'agent {agent}A: {actions[agent]}')
-                print(f'agent {agent}N: {locations[agent]}')
-                print(f'agent {agent}R: {rew[agent]}')
-                print(f'agent {agent}H: {hp[agent]}')
+                print(f"agent{agent}n{i+1} policy:")
+                print(f"agent {agent}A: {actions[agent]}")
+                print(f"agent {agent}N: {locations[agent]}")
+                print(f"agent {agent}R: {rew[agent]}")
+                print(f"agent {agent}H: {hp[agent]}")
                 tot_rew_across_all[agent] = tot_rew_across_all.get(agent, 0) + rew[agent]
                 del actions, locations, rew, hp
-        print(f'total model reward among all initializations: {tot_rew_across_all}')
+        print(f"total model reward among all initializations: {tot_rew_across_all}")
             
-    print('done')
+    print("done")
 
 if __name__ == "__main__":
     # parse args and run tests
     parser = parse_arguments()
     config = parser.parse_args()
-    #if 'policy' in config:
+    #if "policy" in config:
     #    print(config.policy)
     #    sys.exit()
     run_tests(config)

@@ -44,7 +44,8 @@ def initialize_train_artifacts(opts):
     
     os.makedirs(opts.save_dir)
     # Save arguments so exact configuration can always be found
-    with open(os.path.join(opts.save_dir, "altr_config.json"), 'w') as f:
+    config_file = "configs/altr_config.json"
+    with open(config_file, 'w') as f:
         json.dump(vars(opts), f, indent=True)
 
     # Set the device
