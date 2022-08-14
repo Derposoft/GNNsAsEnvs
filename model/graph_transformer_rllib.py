@@ -18,9 +18,8 @@ from sigma_graph.data.graph.skirmish_graph import MapInfo
 from sigma_graph.envs.figure8 import default_setup as env_setup
 from sigma_graph.envs.figure8.action_lookup import MOVE_LOOKUP
 from sigma_graph.envs.figure8.figure8_squad_rllib import Figure8SquadRLLib
-from model.utils import GRAPH_OBS_TOKEN, count_model_params, efficient_embed_obs_in_map, get_loc, load_edge_dictionary, \
-    NETWORK_SETTINGS
 from model.graph_transformer_model import initialize_train_artifacts as initialize_graph_transformer
+import model.utils as utils
 
 # 3rd party library imports (s2v, attention model rdkit, etc?)
 #from attention_study.model.s2v.s2v_graph import S2VGraph
@@ -40,6 +39,7 @@ class GraphTransformerPolicy(TMv2.TorchModelV2, nn.Module):
             model_config, name)
         nn.Module.__init__(self)
         #torch.autograd.anomaly_mode.set_detect_anomaly(True)
+
         # config
         hiddens = list(model_config.get("fcnet_hiddens", [])) + \
             list(model_config.get("post_fcnet_hiddens", []))
@@ -49,7 +49,6 @@ class GraphTransformerPolicy(TMv2.TorchModelV2, nn.Module):
         no_final_linear = model_config.get("no_final_linear")
         self.vf_share_layers = model_config.get("vf_share_layers") # this is usually 0
         self.free_log_std = model_config.get("free_log_std") # skip worrying about log std
-        #self.use_mean_embed = kwargs["use_mean_embed"] # obs information
         self.map = map
         self.num_red = kwargs["nred"]
         self.num_blue = kwargs["nblue"]
@@ -72,7 +71,7 @@ class GraphTransformerPolicy(TMv2.TorchModelV2, nn.Module):
         self.N_HEADS = 8
         self.HIDDEN_DIM = 8
         self.gats, _, _ = initialize_graph_transformer(
-            GRAPH_OBS_TOKEN["embedding_size"],
+            utils.NODE_EMBED_SIZE,
             L=self.GAT_LAYERS,
             n_heads=self.N_HEADS,
             hidden_dim=self.HIDDEN_DIM,
@@ -81,34 +80,18 @@ class GraphTransformerPolicy(TMv2.TorchModelV2, nn.Module):
         )
 
         # critic
-        self._value_branch_separate = None
-        # create value network with equal number of hidden layers as policy net
-        if not self.vf_share_layers:
-            prev_vf_layer_size = int(np.product(obs_space.shape))
-            vf_layers = []
-            for size in hiddens:
-                vf_layers.append(
-                    SlimFC(
-                        in_size=prev_vf_layer_size,
-                        out_size=size,
-                        activation_fn=activation,
-                        initializer=normc_initializer(1.0)))
-                prev_vf_layer_size = size
-            self._value_branch_separate = nn.Sequential(*vf_layers)
-        # layer which outputs 1 value
-        #prev_layer_size = hiddens[-1] if self._value_branch_separate else self.map.get_graph_size()
-        prev_layer_size = hiddens[-1] if self._value_branch_separate else int(action_space.n)
-        self._value_branch = SlimFC(
-            in_size=prev_layer_size,
-            out_size=1,
-            initializer=normc_initializer(0.01),
-            activation_fn=None)
-        # Holds the current "base" output (before logits layer)
+        self._value_branch, self._value_branch_separate = utils.create_value_branch(
+            obs_space=obs_space,
+            action_space=action_space,
+            vf_share_layers=self.vf_share_layers,
+            activation=activation,
+            hiddens=hiddens,
+        )
+        # hold previous inputs
         self._features = None
-        # Holds the last input, in case value branch is separate.
         self._last_flat_in = None
 
-        count_model_params(self)
+        utils.count_model_params(self)
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.to(self.device)
         self.cache = {} # minor speedup (~15%) of training
@@ -120,8 +103,8 @@ class GraphTransformerPolicy(TMv2.TorchModelV2, nn.Module):
         #start_time = time.time()
         obs = input_dict["obs_flat"].float()
         # transform obs to graph
-        attention_input = efficient_embed_obs_in_map(obs, self.map, self.obs_shapes)
-        agent_nodes = [get_loc(gx, self.map.get_graph_size()) for gx in obs]
+        attention_input = utils.efficient_embed_obs_in_map(obs, self.map, self.obs_shapes)
+        agent_nodes = [utils.get_loc(gx, self.map.get_graph_size()) for gx in obs]
     
         if len(obs) not in self.cache:
             batch_graphs = []
@@ -132,7 +115,9 @@ class GraphTransformerPolicy(TMv2.TorchModelV2, nn.Module):
             self.cache[len(obs)] = batch_graphs.clone()
         else:
             batch_graphs = self.cache[len(obs)].clone()
-        batch_graphs.ndata["feat"] = attention_input.reshape([-1, GRAPH_OBS_TOKEN["embedding_size"]])
+        batch_graphs.ndata["feat"] = attention_input.reshape(
+            [-1, utils.NODE_EMBED_SIZE]
+        )
         
         # inference
         batch_x = batch_graphs.ndata["feat"]#, None #batch_graphs.edata["feat"]
