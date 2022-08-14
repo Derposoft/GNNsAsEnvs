@@ -29,7 +29,7 @@ class GraphTransformerNet(nn.Module):
         in_feat_dropout = net_params["in_feat_dropout"]
         dropout = net_params["dropout"]
         n_layers = net_params["L"]
-        self.gat_output_fn = net_params["readout"]
+        self.aggregation_fn = net_params["readout"]
         self.layer_norm = net_params["layer_norm"]
         self.batch_norm = net_params["batch_norm"]
         self.residual = net_params["residual"]
@@ -38,7 +38,7 @@ class GraphTransformerNet(nn.Module):
         self.lap_pos_enc = net_params["lap_pos_enc"]
         self.wl_pos_enc = net_params["wl_pos_enc"]
         max_wl_role_index = 37 # this is maximum graph size in the dataset
-        print(f"GAT is using output function: {self.gat_output_fn}")
+        print(f"GAT is using output function: {self.aggregation_fn}")
         
         """
         build graph transformer network
@@ -83,16 +83,16 @@ class GraphTransformerNet(nn.Module):
         choose the proper readout (for the proper output function)
         """
         if (
-            self.gat_output_fn == "default"
-            or self.gat_output_fn == "agent_node"
-            or self.gat_output_fn == "hybrid_global_local"
+            self.aggregation_fn == "default"
+            or self.aggregation_fn == "agent_node"
+            or self.aggregation_fn == "hybrid_global_local"
         ):
             self.MLP_layer = MLPReadout(out_dim, num_actions, L=0)
-        elif self.gat_output_fn == "5d":
+        elif self.aggregation_fn == "5d":
             self.MLP_layer = MLPReadout(out_dim*5, num_actions) # version that uses 0/1/2/3/4 directions
-        elif self.gat_output_fn == "full_graph":
+        elif self.aggregation_fn == "full_graph":
             self.MLP_layer = MLPReadout(out_dim*28, num_actions) # version that uses all node embeddings
-        elif self.gat_output_fn == "none":
+        elif self.aggregation_fn == "none":
             self.MLP_layer = None
         else:
             print("warning: defaulting to an readout mlp layer. this may cause problems later on.")
@@ -128,18 +128,18 @@ class GraphTransformerNet(nn.Module):
         choosing the right output_fn/aggregation behavior using self.gat_output_fn
         """
         if (
-            self.gat_output_fn == "agent_node"
-            or self.gat_output_fn == "hybrid_global_local"
+            self.aggregation_fn == "agent_node"
+            or self.aggregation_fn == "hybrid_global_local"
         ):
             # attempt 0; use curr node
             if agent_nodes != None:
                 idxs = [g.batch_num_nodes()[0]*i+agent_nodes[i] for i in range(int(h.shape[0]/g.batch_num_nodes()[0].item()))]
                 local_node_embeddings = h[idxs, :]
-                if self.gat_output_fn == "agent_node":
+                if self.aggregation_fn == "agent_node":
                     return self.MLP_layer(local_node_embeddings)
                 global_mean_embedding = dgl.mean_nodes(g, "h")
                 return self.MLP_layer(local_node_embeddings + global_mean_embedding)
-        elif self.gat_output_fn == "5d":
+        elif self.aggregation_fn == "5d":
             # attempt 1 code; use embeddings for directions from curr node
             batch_size = g.batch_num_nodes().shape[0]
             h = h.reshape([batch_size, -1, h.shape[-1]])
@@ -158,12 +158,12 @@ class GraphTransformerNet(nn.Module):
             o = h[xs,[m0,m1,m2,m3,m4],:]
             o = torch.permute(o, [1, 0, 2]).reshape([batch_size, -1])
             return self.MLP_layer(o)
-        elif self.gat_output_fn == "full_graph":
+        elif self.aggregation_fn == "full_graph":
             # attempt 2; concatenate all node embeddings and feed into mlp layers
             batch_size = g.batch_num_nodes().shape[0]
             o = h.reshape([batch_size, -1])
             return self.MLP_layer(o)
-        elif self.gat_output_fn == "none":
+        elif self.aggregation_fn == "none":
             # attempt 3: no readout; only current agent node
             if agent_nodes != None:
                 idxs = [g.batch_num_nodes()[0]*i+agent_nodes[i] for i in range(int(h.shape[0]/g.batch_num_nodes()[0].item()))]
@@ -171,11 +171,11 @@ class GraphTransformerNet(nn.Module):
                 return _embeddings
         else:
             # attempt -1; use mean of nodes
-            if self.gat_output_fn == "sum":
+            if self.aggregation_fn == "sum":
                 hg = dgl.sum_nodes(g, "h")
-            elif self.gat_output_fn == "max":
+            elif self.aggregation_fn == "max":
                 hg = dgl.max_nodes(g, "h")
-            elif self.gat_output_fn == "mean":
+            elif self.aggregation_fn == "mean":
                 hg = dgl.mean_nodes(g, "h")
             else:
                 hg = dgl.mean_nodes(g, "h")  # default readout is mean nodes
