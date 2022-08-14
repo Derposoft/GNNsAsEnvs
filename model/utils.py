@@ -27,7 +27,7 @@ GRAPH_OBS_TOKEN = {
 }
 NODE_EMBED_SIZE = (
     GRAPH_OBS_TOKEN["embedding_size"]
-    + (2 if GRAPH_OBS_TOKEN["obs_embed"] else 0)
+    + (2 if GRAPH_OBS_TOKEN["embed_pos"] else 0)
     + (1 if GRAPH_OBS_TOKEN["embed_opt"] else 0)
 )
 OPT_SETTINGS = {
@@ -51,14 +51,24 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 #      figure8_squad.py:_update():line ~250
 def efficient_embed_obs_in_map(obs: torch.Tensor, map: MapInfo, obs_shapes=None):
     """
-    ALWAYS USES GRAPH_EMBEDDING=TRUE
-    obs: a batch of inputs
-    map: a MapInfo object
-
-    new graph embedding:
-    [[agent_is_here, num_red_here, num_blue_here, can_red_go_here_t, can_blue_see_here_t, can_blue_see_here_t+1],
-    [...],
-    ...]
+    :param obs: observation from combat_env gym
+    :param map: MapInfo object from inside of combat_env gym (for graph connectivity info)
+    :param obs_shapes: info used to partition obs into self/blue team/red team observations
+    :return node embeddings for each node of the move graph in map, using obs.
+        GRAPH_EMBEDDING=TRUE must be true in the default_env setup for the combat_env.
+        the new graph embedding looks as follows:
+        [[
+            agent_x  (if GRAPH_OBS_TOKEN["embed_pos"] = True),
+            agent_y  (if GRAPH_OBS_TOKEN["embed_pos"] = True),
+            agent_is_here,
+            num_red_here,
+            num_blue_here,
+            can_red_go_here_t,
+            can_blue_see_here_t,
+            external_optimization (if GRAPH_OBS_TOKEN["embed_opt"] = True)
+        ],
+        [...],
+        ...]
     """
     # initialize node embeddings tensor
     global SUPPRESS_WARNINGS
@@ -115,7 +125,6 @@ def efficient_embed_obs_in_map(obs: torch.Tensor, map: MapInfo, obs_shapes=None)
             if blue_obs[j]:
                 node_embeddings[i][j][2] += 1
                 blue_positions.add(j)
-        
 
         ## EXTRA EMBEDDINGS TO PROMOTE LEARNING ##
         # can_red_go_here_t
