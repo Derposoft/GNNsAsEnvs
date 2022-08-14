@@ -20,7 +20,7 @@ import shlex
 from multiprocessing.pool import ThreadPool
 
 # read experiments.json
-with open("configs/experiments.json", "r") as f:
+with open("configs/experiments/experiments.json", "r") as f:
     experiments = json.load(f)
 
 # turn experiments in json into cmdline commands
