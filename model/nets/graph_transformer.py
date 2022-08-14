@@ -20,16 +20,17 @@ class GraphTransformerNet(nn.Module):
         """
         #num_atom_type = net_params["num_atom_type"] # TODO if we want embedding layer
         #num_bond_type = net_params["num_bond_type"]
+        self.net_params = net_params
         num_bond_type = net_params.get("num_bond_type", 1)
         node_embedding_size = net_params["node_embedding_size"]
-        num_actions = net_params.get("num_actions", 1)
+        self.num_actions = net_params.get("num_actions", 1)
         hidden_dim = net_params["hidden_dim"] # import configs start here
         num_heads = net_params["n_heads"]
         out_dim = net_params["out_dim"]
         in_feat_dropout = net_params["in_feat_dropout"]
         dropout = net_params["dropout"]
         n_layers = net_params["L"]
-        self.aggregation_fn = net_params["readout"]
+        self.aggregation_fn = net_params["aggregation_fn"]
         self.layer_norm = net_params["layer_norm"]
         self.batch_norm = net_params["batch_norm"]
         self.residual = net_params["residual"]
@@ -87,16 +88,16 @@ class GraphTransformerNet(nn.Module):
             or self.aggregation_fn == "agent_node"
             or self.aggregation_fn == "hybrid_global_local"
         ):
-            self.MLP_layer = MLPReadout(out_dim, num_actions, L=0)
+            self.MLP_layer = MLPReadout(out_dim, self.num_actions, L=0)
         elif self.aggregation_fn == "5d":
-            self.MLP_layer = MLPReadout(out_dim*5, num_actions) # version that uses 0/1/2/3/4 directions
+            self.MLP_layer = MLPReadout(out_dim*5, self.num_actions) # version that uses 0/1/2/3/4 directions
         elif self.aggregation_fn == "full_graph":
-            self.MLP_layer = MLPReadout(out_dim*28, num_actions) # version that uses all node embeddings
+            self.MLP_layer = MLPReadout(out_dim*28, self.num_actions) # version that uses all node embeddings
         elif self.aggregation_fn == "none":
             self.MLP_layer = None
         else:
             print("warning: defaulting to an readout mlp layer. this may cause problems later on.")
-            self.MLP_layer = MLPReadout(out_dim, num_actions, L=0)
+            self.MLP_layer = MLPReadout(out_dim, self.num_actions, L=0)
         #########################################
         
     def forward(self, g, h, e, h_lap_pos_enc=None, h_wl_pos_enc=None, agent_nodes=None, move_map=None):

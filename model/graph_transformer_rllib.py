@@ -53,7 +53,7 @@ class GraphTransformerPolicy(TMv2.TorchModelV2, nn.Module):
         self.map = map
         self.num_red = kwargs['nred']
         self.num_blue = kwargs['nblue']
-        self.gat_output_fn = kwargs['gat_output_fn']
+        self.aggregation_fn = kwargs['aggregation_fn']
         self_shape, red_shape, blue_shape = env_setup.get_state_shapes(self.map.get_graph_size(), self.num_red, self.num_blue, env_setup.OBS_TOKEN)
         self.obs_shapes = [self_shape, red_shape, blue_shape, self.num_red, self.num_blue]
         #self.map.g_acs.add_node(0) # dummy node that we'll use later
@@ -77,7 +77,7 @@ class GraphTransformerPolicy(TMv2.TorchModelV2, nn.Module):
             n_heads=self.N_HEADS,
             hidden_dim=self.HIDDEN_DIM,
             out_dim=self.HIDDEN_DIM,
-            readout=self.gat_output_fn,
+            aggregation_fn=self.aggregation_fn,
         )
 
         # critic

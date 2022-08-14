@@ -97,7 +97,7 @@ def create_trainer_config(outer_configs, trainer_type=None, custom_model=""):
             "map": setup_env.map,
             "nred": outer_configs["n_red"],
             "nblue": outer_configs["n_blue"],
-            "gat_output_fn": outer_configs["gat_output_fn"],
+            "aggregation_fn": outer_configs["aggregation_fn"],
         },
     }
     init_trainer_config = {

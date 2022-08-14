@@ -29,7 +29,7 @@ def initialize_train_artifacts(node_embedding_size, **kwargs):
     device = net_params["device"]
     net_params["node_embedding_size"] = node_embedding_size
     net_params["num_actions"] = 15 # TODO HARDCODED FOR NOW
-    possible_kwargs = ["readout", "L", "n_heads", "hidden_dim", "out_dim"]
+    possible_kwargs = ["aggregation_fn", "L", "n_heads", "hidden_dim", "out_dim"]
     for p in possible_kwargs:
         if p in kwargs: net_params[p] = kwargs[p]
 
