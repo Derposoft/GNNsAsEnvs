@@ -26,7 +26,7 @@ import gym
 
 # our code imports
 from sigma_graph.data.graph.skirmish_graph import MapInfo
-from model.utils import count_model_params
+import model.utils as utils
 
 # other imports
 import numpy as np
@@ -123,34 +123,19 @@ class FCPolicy(TMv2.TorchModelV2, nn.Module):
 
         self._hidden_layers = nn.Sequential(*layers)
 
-        self._value_branch_separate = None
-        if not self.vf_share_layers:
-            # Build a parallel set of hidden layers for the value net.
-            prev_vf_layer_size = int(np.product(obs_space.shape))
-            vf_layers = []
-            for size in hiddens:
-                vf_layers.append(
-                    SlimFC(
-                        in_size=prev_vf_layer_size,
-                        out_size=size,
-                        activation_fn=activation,
-                        initializer=normc_initializer(1.0),
-                    )
-                )
-                prev_vf_layer_size = size
-            self._value_branch_separate = nn.Sequential(*vf_layers)
-
-        self._value_branch = SlimFC(
-            in_size=prev_layer_size,
-            out_size=1,
-            initializer=normc_initializer(0.01),
-            activation_fn=None,
+        # value
+        self._value_branch, self._value_branch_separate = utils.create_value_branch(
+            obs_space=obs_space,
+            action_space=action_space,
+            vf_share_layers=self.vf_share_layers,
+            activation=activation,
+            hiddens=utils.VALUE_HIDDENS,
         )
-        # Holds the current "base" output (before logits layer).
+        # hold previous inputs
         self._features = None
-        # Holds the last input, in case value branch is separate.
         self._last_flat_in = None
-        count_model_params(self)#, True)
+
+        utils.count_model_params(self, True)
 
     @override(TMv2.TorchModelV2)
     def forward(self, input_dict: Dict[str, TensorType],

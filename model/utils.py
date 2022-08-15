@@ -10,6 +10,7 @@ from ray.rllib.models.torch.misc import SlimFC, normc_initializer
 
 
 # constants/helper functions
+VALUE_HIDDENS = [177, 177]
 NETWORK_SETTINGS = {
     "has_final_layer": True,
     "use_altr_model": False,

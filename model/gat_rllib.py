@@ -89,7 +89,7 @@ class GATPolicy(TMv2.TorchModelV2, nn.Module):
             action_space=action_space,
             vf_share_layers=self.vf_share_layers,
             activation=activation,
-            hiddens=hiddens,
+            hiddens=utils.VALUE_HIDDENS,
         )
 
         """

@@ -45,29 +45,20 @@ class HybridPolicy(TMv2.TorchModelV2, nn.Module):
         )
         self.obs_shapes = [self_shape, red_shape, blue_shape, self.num_red, self.num_blue]
         self.aggregation_fn = model_config.get("aggregation_fn")
-        #self.map.g_acs.add_node(0) # dummy node that we"ll use later
+        
         """
-        self.hidden_proj_sizes = [50, 30]
-        self.GAT_LAYERS = 6
+        self.hidden_proj_sizes = [45, 45]
+        self.GAT_LAYERS = 4
         self.N_HEADS = 4
         self.HIDDEN_DIM = 4
         """
-        self.hidden_proj_sizes = [45, 45]
+        self.hidden_proj_sizes = [100, 100]
         self.GAT_LAYERS = 4
         self.N_HEADS = 4
         self.HIDDEN_DIM = 4
 
         # map info
         self.move_map = utils.create_move_map(map)
-        """
-        self.move_map = {} # movement dictionary: d[node][direction] = newnode. newnode is -1 if direction is not possible from node
-        for n in self.map.g_acs.adj:
-            self.move_map[n] = {}
-            ms = self.map.g_acs.adj[n]
-            for m in ms:
-                dir = ms[m]["action"]
-                self.move_map[n][dir] = 
-        """
         
         # actor (attention model)
         self.gats, _, _ = initialize_graph_transformer(
@@ -86,19 +77,19 @@ class HybridPolicy(TMv2.TorchModelV2, nn.Module):
             nn.Linear(self.hidden_proj_sizes[1], self.num_outputs)
         )
 
-        # critic
+        # value
         self._value_branch, self._value_branch_separate = utils.create_value_branch(
             obs_space=obs_space,
             action_space=action_space,
             vf_share_layers=self.vf_share_layers,
             activation=activation,
-            hiddens=hiddens,
+            hiddens=utils.VALUE_HIDDENS,
         )
         # hold previous inputs
         self._features = None
         self._last_flat_in = None
 
-        utils.count_model_params(self)
+        utils.count_model_params(self, print_model=True)
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.to(self.device)
         self.cache = {} # minor speedup (~15%) of training
