@@ -32,6 +32,7 @@ from ray.rllib.models.catalog import MODEL_DEFAULTS
 from ray.tune.logger import pretty_print
 from ray.tune.logger import UnifiedLogger
 ray.init(num_gpus=torch.cuda.device_count())
+SEED = 1234
 
 # create env configuration
 def create_env_config(config):
@@ -115,7 +116,8 @@ def create_trainer_config(outer_configs, trainer_type=None, custom_model=""):
         "evaluation_num_workers": 1,
         "rollout_fragment_length": 50, # 50 for a2c, 200 for everyone else?
         "train_batch_size": 200,
-        "log_level": "ERROR"
+        "log_level": "ERROR",
+        "seed": SEED
     }
 
     # initialize specific trainer type config
@@ -161,9 +163,9 @@ def run_baselines(config, run_default_baseline_metrics=False, train_time=200, ch
     the experiments are all focused around its use.
     """
     # get env config/setting seeds
-    random.seed(1234)
-    np.random.seed(1234)
-    torch.manual_seed(1234)
+    random.seed(SEED)
+    np.random.seed(SEED)
+    torch.manual_seed(SEED)
     outer_configs, _ = create_env_config(config)
     
     # train
