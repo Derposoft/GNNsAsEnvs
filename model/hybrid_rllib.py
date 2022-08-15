@@ -58,13 +58,16 @@ class HybridPolicy(TMv2.TorchModelV2, nn.Module):
         self.HIDDEN_DIM = 4
 
         # map info
+        self.move_map = utils.create_move_map(map)
+        """
         self.move_map = {} # movement dictionary: d[node][direction] = newnode. newnode is -1 if direction is not possible from node
         for n in self.map.g_acs.adj:
             self.move_map[n] = {}
             ms = self.map.g_acs.adj[n]
             for m in ms:
                 dir = ms[m]["action"]
-                self.move_map[n][dir] = m
+                self.move_map[n][dir] = 
+        """
         
         # actor (attention model)
         self.gats, _, _ = initialize_graph_transformer(

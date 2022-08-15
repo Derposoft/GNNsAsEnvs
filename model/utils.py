@@ -3,6 +3,7 @@ import time
 import numpy as np
 import torch
 import sigma_graph.envs.figure8.default_setup as env_setup
+from sigma_graph.envs.figure8 import action_lookup
 from sigma_graph.data.graph.skirmish_graph import MapInfo
 from torchinfo import summary
 from ray.rllib.models.torch.misc import SlimFC, normc_initializer 
@@ -18,6 +19,7 @@ SUPPRESS_WARNINGS = {
     "embed": False,
     "embed_noshapes": False,
     "decode": False,
+    "optimization_none": False,
 }
 GRAPH_OBS_TOKEN = {
     "embedding_size": 5,#7, #10
@@ -75,6 +77,7 @@ def efficient_embed_obs_in_map(obs: torch.Tensor, map: MapInfo, obs_shapes=None)
     pos_obs_size = map.get_graph_size()
     batch_size = len(obs)
     node_embeddings = torch.zeros(batch_size, pos_obs_size, NODE_EMBED_SIZE) # TODO changed +1 node for a dummy node that we'll use when needed
+    move_map = create_move_map(map)
 
     # embed x,y
     if GRAPH_OBS_TOKEN["embed_pos"]:
@@ -141,15 +144,31 @@ def efficient_embed_obs_in_map(obs: torch.Tensor, map: MapInfo, obs_shapes=None)
         
         # add feature from some external "optimization", if desired
         if GRAPH_OBS_TOKEN["embed_opt"]:
-            if OPT_SETTINGS["flanking"]: # check if node is a flanking position
-                for j in range(pos_obs_size):
-                    node_embeddings[i][j][5] = 1
+            if OPT_SETTINGS["flanking"]: # use the "flanking" optimization
+                blue_i = 0
+                for blue_position in blue_positions: #HERE
+                    blue_dir = get_loc(blue_obs[-(4*blue_i):-(4*(blue_i-1))], 4) + 1 # direction as defined by action_lookup.py
+                    blue_dir_behind = action_lookup.TURN_L[action_lookup.TURN_L[blue_dir]] # 2 left turns = 180deg turn
+                    blue_dir_behind_node_idx = move_map[blue_position+1][blue_dir_behind] - 1
+                    if blue_dir_behind_node_idx >= 0:
+                        node_embeddings[i][blue_dir_behind_node_idx][5] = 1
+                    blue_i += 1
+            else: # no optimization given; defaulting to 0
+                if not SUPPRESS_WARNINGS["optimization_none"]:
+                    print(ERROR_MSG("external optimization not provided. embedding \
+                        will contain an extra unused 0 and decrease efficiency. \
+                        did you mean to set GRAPH_OBS_TOKEN.embed_opt = False?"
+                    ))
+                    SUPPRESS_WARNINGS["optimization_none"] = True
 
     #node_embeddings[:,-1,:] = 0
     return node_embeddings.to(device)
 
-# get location of an agent given one-hot positional encoding on graph (0-indexed)
+
 def get_loc(one_hot_graph, graph_size, default=0):
+    """
+    get location of an agent given one-hot positional encoding on graph (0-indexed)
+    """
     global SUPPRESS_WARNINGS
     for i in range(graph_size):
         if one_hot_graph[i]:
@@ -158,6 +177,29 @@ def get_loc(one_hot_graph, graph_size, default=0):
         print(f"test batch detected while decoding. agent not found. returning default={default} and suppressing this warning.")
         SUPPRESS_WARNINGS["decode"] = True
     return default
+
+
+def create_move_map(map):
+    """
+    turns map.g_acs into a dictionary in the form of:
+    {
+        start_node: {
+            direction: next_node,
+            ...
+        },
+        ...
+    }
+    """
+    move_map = {} # movement dictionary: d[node][direction] = newnode. newnode is -1 if direction is not possible from node
+    for n in map.g_acs.adj:
+        move_map[n] = {}
+        ms = map.g_acs.adj[n]
+        for m in ms:
+            dir = ms[m]["action"]
+            move_map[n][dir] = m
+        for movement in action_lookup.MOVE_LOOKUP:
+            if movement not in move_map[n]: move_map[n][movement] = -1
+    return move_map
 
 
 def get_nodes_ndeg_away(graph, n):
@@ -195,11 +237,12 @@ def get_nodes_ndeg_from_s(graph, s, n):
     return list(visited)
 
 
-# load edge dictionary from a map (0-indexed)
 def load_edge_dictionary(map_edges):
     """
     :param map_edges: edges from a graph from MapInfo. input should be 1-indexed MapInfo map_edge dictionary.
     :return the 0-indexed edge dictionary for quick lookups.
+
+    load edge dictionary from a map (0-indexed)
     """
     # create initial edge_array and TODO edge_to_action mappings
     edge_array = []
