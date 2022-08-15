@@ -68,8 +68,8 @@ class GraphTransformerPolicy(TMv2.TorchModelV2, nn.Module):
         
         # actor (attention model)
         self.GAT_LAYERS = 8
-        self.N_HEADS = 8
-        self.HIDDEN_DIM = 8
+        self.N_HEADS = 4
+        self.HIDDEN_DIM = 20
         self.gats, _, _ = initialize_graph_transformer(
             utils.NODE_EMBED_SIZE,
             L=self.GAT_LAYERS,
@@ -85,13 +85,13 @@ class GraphTransformerPolicy(TMv2.TorchModelV2, nn.Module):
             action_space=action_space,
             vf_share_layers=self.vf_share_layers,
             activation=activation,
-            hiddens=hiddens,
+            hiddens=utils.VALUE_HIDDENS,
         )
         # hold previous inputs
         self._features = None
         self._last_flat_in = None
 
-        utils.count_model_params(self)
+        utils.count_model_params(self, print_model=True)
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.to(self.device)
         self.cache = {} # minor speedup (~15%) of training

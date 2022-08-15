@@ -1,5 +1,9 @@
 """
 base class from https://github.com/ray-project/ray/blob/master/rllib/models/torch/fcnet.py
+policy: this is a "hybrid model" which has one part FC and one part graph transformer for a policy
+value: standard FC value
+
+# params: 95328
 """
 # RL/AI imports
 import ray.rllib.models.torch.torch_modelv2 as TMv2
@@ -52,10 +56,10 @@ class HybridPolicy(TMv2.TorchModelV2, nn.Module):
         self.N_HEADS = 4
         self.HIDDEN_DIM = 4
         """
-        self.hidden_proj_sizes = [100, 100]
-        self.GAT_LAYERS = 4
-        self.N_HEADS = 4
-        self.HIDDEN_DIM = 4
+        self.hidden_proj_sizes = [152, 152]
+        self.GAT_LAYERS = 8
+        self.N_HEADS = 8
+        self.HIDDEN_DIM = 8
 
         # map info
         self.move_map = utils.create_move_map(map)
