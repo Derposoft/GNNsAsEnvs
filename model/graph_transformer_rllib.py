@@ -56,6 +56,7 @@ class GraphTransformerPolicy(TMv2.TorchModelV2, nn.Module):
         self_shape, red_shape, blue_shape = env_setup.get_state_shapes(self.map.get_graph_size(), self.num_red, self.num_blue, env_setup.OBS_TOKEN)
         self.obs_shapes = [self_shape, red_shape, blue_shape, self.num_red, self.num_blue]
         #self.map.g_acs.add_node(0) # dummy node that we"ll use later
+        print("GT AGG FN", self.aggregation_fn)
 
         # map info
         self.move_map = {} # movement dictionary: d[node][direction] = newnode. newnode is -1 if direction is not possible from node
