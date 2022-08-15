@@ -1,4 +1,8 @@
 {
+    "true_baseline_05hp": {
+        "init_health": 5,
+        "model": "fc"
+    },
     "hybrid_model_05hp_local_embedding": {
         "init_health": 5,
         "model": "hybrid",
@@ -13,9 +17,5 @@
         "init_health": 5,
         "model": "hybrid",
         "aggregation_fn": "hybrid_global_local"
-    },
-    "true_baseline_05hp": {
-        "init_health": 5,
-        "model": "fc"
     }
 }
