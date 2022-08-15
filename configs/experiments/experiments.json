@@ -1,19 +1,15 @@
 {
-    "true_baseline_05hp": {
-        "init_health": 5,
-        "model": "fc"
-    },
-    "hybrid_model_05hp_local_embedding": {
+    "4L4H4E169h_hybrid_model_05hp_local_embedding": {
         "init_health": 5,
         "model": "hybrid",
         "aggregation_fn": "agent_node"
     },
-    "hybrid_model_05hp_global_embedding": {
+    "4L4H4E169h_hybrid_model_05hp_global_embedding": {
         "init_health": 5,
         "model": "hybrid",
         "aggregation_fn": "mean"
     },
-    "hybrid_model_05hp_hybrid_embedding": {
+    "4L4H4E169h_hybrid_model_05hp_hybrid_embedding": {
         "init_health": 5,
         "model": "hybrid",
         "aggregation_fn": "hybrid_global_local"

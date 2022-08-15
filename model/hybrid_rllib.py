@@ -56,10 +56,10 @@ class HybridPolicy(TMv2.TorchModelV2, nn.Module):
         self.N_HEADS = 4
         self.HIDDEN_DIM = 4
         """
-        self.hidden_proj_sizes = [152, 152]
-        self.GAT_LAYERS = 8
-        self.N_HEADS = 8
-        self.HIDDEN_DIM = 8
+        self.hidden_proj_sizes = [169, 169]
+        self.GAT_LAYERS = 4
+        self.N_HEADS = 4
+        self.HIDDEN_DIM = 4
 
         # map info
         self.move_map = utils.create_move_map(map)

@@ -122,11 +122,8 @@ def create_trainer_config(outer_configs, trainer_type=None, custom_model=""):
     trainer_type_config = {}
     trainer_type_config = trainer_type.DEFAULT_CONFIG.copy()
     trainer_type_config.update(init_trainer_config)
-    # TODO tune these with scheduler?
-    if custom_model != "":
-        trainer_type_config["lr"] = 1e-3
-    else:
-        trainer_type_config["lr"] = 1e-3
+    # TODO tune lr with scheduler?
+    trainer_type_config["lr"] = 1e-3
 
     # merge init config and trainer-specific config and return
     trainer_config = { **init_trainer_config, **trainer_type_config }
