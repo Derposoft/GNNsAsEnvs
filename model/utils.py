@@ -1,7 +1,10 @@
 from collections import deque
+import sys
 import time
+from typing import List
 import numpy as np
 import torch
+import heapq
 import sigma_graph.envs.figure8.default_setup as env_setup
 from sigma_graph.envs.figure8 import action_lookup
 from sigma_graph.data.graph.skirmish_graph import MapInfo
@@ -26,12 +29,14 @@ GRAPH_OBS_TOKEN = {
     "embedding_size": 5,#7, #10
     "obs_embed": True,
     "embed_pos": False,
+    "embed_dir": True,
     "embed_opt": True,
 }
 NODE_EMBED_SIZE = (
     GRAPH_OBS_TOKEN["embedding_size"]
     + (2 if GRAPH_OBS_TOKEN["embed_pos"] else 0)
-    + (1 if GRAPH_OBS_TOKEN["embed_opt"] else 0)
+    + (1 if GRAPH_OBS_TOKEN["embed_dir"] else 0)
+    + (4 if GRAPH_OBS_TOKEN["embed_opt"] else 0)
 )
 OPT_SETTINGS = {
     "flanking": True, # does positioning on this node consistute "flanking" the enemy?
@@ -113,10 +118,10 @@ def efficient_embed_obs_in_map(obs: torch.Tensor, map: MapInfo, obs_shapes=None)
         red_obs = obs[i][(self_shape+blue_shape):(self_shape+blue_shape+red_shape)]
         
         # agent_is_here
-        _node = get_loc(self_obs, pos_obs_size)
-        if _node == -1:
+        red_node = get_loc(self_obs, pos_obs_size)
+        if red_node == -1:
             print(ERROR_MSG("agent not found"))
-        node_embeddings[i][_node][0] = 1
+        node_embeddings[i][red_node][0] = 1
         
         # num_red_here
         for j in range(pos_obs_size):
@@ -132,7 +137,7 @@ def efficient_embed_obs_in_map(obs: torch.Tensor, map: MapInfo, obs_shapes=None)
 
         ## EXTRA EMBEDDINGS TO PROMOTE LEARNING ##
         # can_red_go_here_t
-        for possible_next in map.g_acs.adj[_node+1]:
+        for possible_next in map.g_acs.adj[red_node+1]:
             node_embeddings[i][possible_next-1][3] = 1
         
         # can_blue_move_here_t
@@ -144,16 +149,24 @@ def efficient_embed_obs_in_map(obs: torch.Tensor, map: MapInfo, obs_shapes=None)
                 node_embeddings[i][possible_next-1][4] = 1
         
         # add feature from some external "optimization", if desired
+        if GRAPH_OBS_TOKEN["embed_dir"]:
+            blue_i = 0
+            for blue_position in blue_positions: #HERE
+                blue_dir = get_loc(blue_obs[-(4*blue_i):-(4*(blue_i-1))], 4) + 1 # direction as defined by action_lookup.py
+                blue_dir_behind = action_lookup.TURN_L[action_lookup.TURN_L[blue_dir]] # 2 left turns = 180deg turn
+                blue_dir_behind_node_idx = move_map[blue_position+1][blue_dir_behind] - 1
+                if blue_dir_behind_node_idx >= 0:
+                    node_embeddings[i][blue_dir_behind_node_idx][5] = 1
+                blue_i += 1
+
+
         if GRAPH_OBS_TOKEN["embed_opt"]:
             if OPT_SETTINGS["flanking"]: # use the "flanking" optimization
-                blue_i = 0
-                for blue_position in blue_positions: #HERE
-                    blue_dir = get_loc(blue_obs[-(4*blue_i):-(4*(blue_i-1))], 4) + 1 # direction as defined by action_lookup.py
-                    blue_dir_behind = action_lookup.TURN_L[action_lookup.TURN_L[blue_dir]] # 2 left turns = 180deg turn
-                    blue_dir_behind_node_idx = move_map[blue_position+1][blue_dir_behind] - 1
-                    if blue_dir_behind_node_idx >= 0:
-                        node_embeddings[i][blue_dir_behind_node_idx][5] = 1
-                    blue_i += 1
+                node_embeddings[i][red_node][6:10] = flank_optimization(
+                    map,
+                    red_node,
+                    blue_positions
+                )
             else: # no optimization given; defaulting to 0
                 if not SUPPRESS_WARNINGS["optimization_none"]:
                     print(ERROR_MSG("external optimization not provided. embedding \
@@ -180,7 +193,7 @@ def get_loc(one_hot_graph, graph_size, default=0):
     return default
 
 
-def create_move_map(map):
+def create_move_map(map: MapInfo):
     """
     turns map.g_acs into a dictionary in the form of:
     {
@@ -287,7 +300,14 @@ def parse_config(model_config):
     return hiddens, activation, no_final_linear, vf_share_layers, free_log_std
 
 
-def create_value_branch(obs_space, action_space, *, vf_share_layers=False, activation="relu", hiddens=[]):
+def create_value_branch(
+    obs_space,
+    action_space,
+    *,
+    vf_share_layers=False,
+    activation="relu",
+    hiddens=[]
+):
     _value_branch_separate = None
     # create value network with equal number of hidden layers as policy net
     if not vf_share_layers:
@@ -311,6 +331,108 @@ def create_value_branch(obs_space, action_space, *, vf_share_layers=False, activ
         initializer=normc_initializer(0.01),
         activation_fn=None)
     return _value_branch, _value_branch_separate
+
+
+def flank_optimization(
+    map: MapInfo,
+    red_location: List[int],
+    blue_locations: List[int]
+):
+    """
+    :param map: MapInfo object with vis and move information
+    :param red_location: 0-indexed location of red agent node
+    :param blue_locations: 0-indexed locations of blue agent nodes
+    :return a direction that the agent has to go to get behind the enemy agent, 1-hot encoded
+    """
+    red_location += 1
+    blue_locations = [x+1 for x in blue_locations]
+
+    """
+    get information that is required for A* to run efficiently:
+    movement map, visuals map, and nodes visible by some blue agent
+    """
+    # build move graph: node -> {next_node: dir_to_next_node, ...}
+    move_map = {}
+    for n in map.g_acs.adj:
+        move_map[n] = {}
+        ms = map.g_acs.adj[n]
+        for m in ms:
+            dir = ms[m]["action"]
+            move_map[n][m] = dir
+    
+    # build vis graph: node -> {engage_set} = {x in nodes | dist(x, node) < engage_range}
+    vis_map = {}
+    for node in map.g_vis.adj:
+        vis_map[node] = (
+            [
+                x for x in map.g_vis.adj[node] 
+                if map.g_vis.adj[node][x][0]["dist"] < env_setup.INTERACT_LOOKUP["engage_range"]
+            ]
+        )
+    
+    # set of nodes visible by some blue agent
+    blue_visible_nodes = set()
+    for blue_location in blue_locations:
+        for visible_location in vis_map[blue_location]:
+            blue_visible_nodes.add(visible_location)
+    
+    """
+    run A* from each red agent to the closest node which can view blue agent while trying to minimize
+    passing through nodes on which blue can engage. implement using priority queue sorting on H.
+    PQ entries are of the form: pq(n) = (H(n), V(n), D(n), n, last_n)
+
+    V == # nodes visible to enemy & within engagement distance
+    D == degree away from start
+    A* heuristic: H(n) = |G|*V(n) + D(n)
+    """
+    directions = { red_location: -1 } # node -> where we got to this node from
+    nodes = [(0, 0, 0, red_location, -1)]
+    visited = set([red_location])
+    goal_node = -1
+    while nodes:
+        H, V, D, n, last_n = heapq.heappop(nodes)
+        # take note of how we arrived here
+        if n not in visited:
+            directions[n] = last_n
+            visited.add(n)
+        elif n != red_location:
+            continue
+        # check to see if our search is done
+        for blue_location in blue_locations:
+            if blue_location in vis_map[n]:
+                goal_node = n
+                break
+        # continue our search if not done
+        next_nodes = move_map[n]
+        for next_node in next_nodes:
+            if next_node not in visited:
+                is_visible_by_enemy = (
+                    1 if next_node in blue_visible_nodes else 0
+                )
+                next_V = V + is_visible_by_enemy
+                next_D = D+1
+                nodes.append(
+                    (
+                        map.g_acs.number_of_nodes()*next_V+next_D,
+                        next_V,
+                        next_D,
+                        next_node,
+                        n
+                    )
+                )
+
+    """
+    backtrack back from goal_node->red_location using directions map
+    """
+    if goal_node == -1:
+        return 0 # no direction if no nodes could be found from where we can see blue
+    last_node = goal_node
+    curr_node = goal_node
+    while curr_node != red_location:
+        last_node = curr_node
+        curr_node = directions[curr_node]
+    direction = move_map[red_location][last_node]
+    return direction
 
 """
 # junk #

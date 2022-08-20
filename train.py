@@ -32,7 +32,7 @@ from ray.rllib.models.catalog import MODEL_DEFAULTS
 from ray.tune.logger import pretty_print
 from ray.tune.logger import UnifiedLogger
 ray.init(num_gpus=torch.cuda.device_count())
-SEED = 1234
+SEED = 0
 
 # create env configuration
 def create_env_config(config):
