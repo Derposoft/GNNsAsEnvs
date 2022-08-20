@@ -83,21 +83,26 @@ class GraphTransformerNet(nn.Module):
         """
         choose the proper readout (for the proper output function)
         """
-        if (
-            self.aggregation_fn == "default"
-            or self.aggregation_fn == "agent_node"
-            or self.aggregation_fn == "hybrid_global_local"
-        ):
-            self.MLP_layer = MLPReadout(out_dim, self.num_actions, L=0)
-        elif self.aggregation_fn == "5d":
-            self.MLP_layer = MLPReadout(out_dim*5, self.num_actions) # version that uses 0/1/2/3/4 directions
-        elif self.aggregation_fn == "full_graph":
-            self.MLP_layer = MLPReadout(out_dim*28, self.num_actions) # version that uses all node embeddings
-        elif self.aggregation_fn == "none":
+        mlp_output_dim_by_agg_fn = {
+            "default": out_dim,
+            "agent_node": out_dim,
+            "hybrid_global_local": out_dim*2,
+            "5d": out_dim*5,
+            "full_graph": out_dim*28,
+        }
+        if self.aggregation_fn == "none":
             self.MLP_layer = None
         else:
-            print("warning: defaulting to an readout mlp layer. this may cause problems later on.")
-            self.MLP_layer = MLPReadout(out_dim, self.num_actions, L=0)
+            self.MLP_layer = MLPReadout(
+                mlp_output_dim_by_agg_fn.get(self.aggregation_fn, out_dim),
+                self.num_actions,
+                L=0 # maybe we can afford to set L=2 for some other agg_fns?
+            )
+            if self.aggregation_fn not in mlp_output_dim_by_agg_fn:
+                print(
+                    "warning: defaulting to an readout mlp layer. \
+                    this may cause problems later on."
+                )
         #########################################
         
     def forward(self, g, h, e, h_lap_pos_enc=None, h_wl_pos_enc=None, agent_nodes=None, move_map=None):
@@ -138,8 +143,15 @@ class GraphTransformerNet(nn.Module):
                 local_node_embeddings = h[idxs, :]
                 if self.aggregation_fn == "agent_node":
                     return self.MLP_layer(local_node_embeddings)
-                global_mean_embedding = dgl.mean_nodes(g, "h")
-                return self.MLP_layer(local_node_embeddings + global_mean_embedding)
+                global_mean_embeddings = dgl.mean_nodes(g, "h")
+                hybrid_embeddings = torch.concat(
+                    [local_node_embeddings, global_mean_embeddings],
+                    dim=-1
+                )
+                return self.MLP_layer(hybrid_embeddings)
+            else:
+                print("ERROR: agent_nodes are empty, but are required for your agg_fn")
+                sys.exit()
         elif self.aggregation_fn == "5d":
             # attempt 1 code; use embeddings for directions from curr node
             batch_size = g.batch_num_nodes().shape[0]
