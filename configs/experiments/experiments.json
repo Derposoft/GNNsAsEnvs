@@ -1,19 +1,5 @@
 {
-    "true_baseline_05hp_SEED": {
-        "init_health": 5,
-        "model": "fc"
-    },
-    "4L4H4E169h_hybrid_model_05hp_local_embedding_SEED": {
-        "init_health": 5,
-        "model": "hybrid",
-        "aggregation_fn": "agent_node"
-    },
-    "4L4H4E169h_hybrid_model_05hp_global_embedding_SEED": {
-        "init_health": 5,
-        "model": "hybrid",
-        "aggregation_fn": "mean"
-    },
-    "4L4H4E169h_hybrid_model_05hp_hybrid_embedding_SEED": {
+    "4L4H4E169h_hybrid_model_05hp_hybrid_CONCATNOTSUM_embedding_SEED": {
         "init_health": 5,
         "model": "hybrid",
         "aggregation_fn": "hybrid_global_local"

@@ -5,13 +5,13 @@ import torch.nn.functional as F
 
 import dgl
 
-"""
-Graph Transformer with edge features
-"""
-
 from model.nets.graph_transformer_edge_layer import GraphTransformerLayer
 from model.nets.mlp_readout_layer import MLPReadout
 
+
+"""
+Graph Transformer with edge features
+"""
 class GraphTransformerNet(nn.Module):
     def __init__(self, net_params):
         super().__init__()
@@ -79,7 +79,6 @@ class GraphTransformerNet(nn.Module):
             )
         )
 
-        ######################################### OUR CHANGES BELOW
         """
         choose the proper readout (for the proper output function)
         """
@@ -90,34 +89,40 @@ class GraphTransformerNet(nn.Module):
             "5d": out_dim*5,
             "full_graph": out_dim*28,
         }
+        mlp_layers_by_agg_fn = {
+            "default": 1,
+            "agent_node": 1,
+            "hybrid_global_local": 2,
+            "5d": 2,
+            "full_graph": 1,
+        }
         if self.aggregation_fn == "none":
             self.MLP_layer = None
         else:
             self.MLP_layer = MLPReadout(
                 mlp_output_dim_by_agg_fn.get(self.aggregation_fn, out_dim),
                 self.num_actions,
-                L=0 # maybe we can afford to set L=2 for some other agg_fns?
+                L=mlp_layers_by_agg_fn.get(self.aggregation_fn, 1)
             )
             if self.aggregation_fn not in mlp_output_dim_by_agg_fn:
                 print(
                     "warning: defaulting to an readout mlp layer. \
                     this may cause problems later on."
                 )
-        #########################################
-        
+
+
     def forward(self, g, h, e, h_lap_pos_enc=None, h_wl_pos_enc=None, agent_nodes=None, move_map=None):
         """
         for more info on these inputs see: graph_transformer_rllib.py:forward()
         """
-        
         # input embedding
         h = self.embedding_h(h)
         h = self.in_feat_dropout(h)
         if self.lap_pos_enc:
-            h_lap_pos_enc = self.embedding_lap_pos_enc(h_lap_pos_enc.float()) 
+            h_lap_pos_enc = self.embedding_lap_pos_enc(h_lap_pos_enc.float())
             h = h + h_lap_pos_enc
         if self.wl_pos_enc:
-            h_wl_pos_enc = self.embedding_wl_pos_enc(h_wl_pos_enc) 
+            h_wl_pos_enc = self.embedding_wl_pos_enc(h_wl_pos_enc)
             h = h + h_wl_pos_enc
         if not self.edge_feat: # edge feature set to 1
             #e = torch.ones(e.size(0),1).to(self.device)
@@ -129,7 +134,6 @@ class GraphTransformerNet(nn.Module):
             h, e = conv(g, h, e)
         g.ndata["h"] = h
 
-        ######################################### OUR CHANGES BELOW
         """
         choosing the right output_fn/aggregation behavior using self.gat_output_fn
         """
@@ -194,8 +198,6 @@ class GraphTransformerNet(nn.Module):
                 hg = dgl.mean_nodes(g, "h")  # default readout is mean nodes
             return self.MLP_layer(hg)
 
-        #########################################
-        
         
     def loss(self, scores, targets):
         # loss = nn.MSELoss()(scores,targets)
