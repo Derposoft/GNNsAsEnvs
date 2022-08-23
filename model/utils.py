@@ -148,7 +148,7 @@ def efficient_embed_obs_in_map(obs: torch.Tensor, map: MapInfo, obs_shapes=None)
             for possible_next in move_1deg_away[j+1]:
                 node_embeddings[i][possible_next-1][4] = 1
         
-        # add feature from some external "optimization", if desired
+        # direction of blue agent
         if GRAPH_OBS_TOKEN["embed_dir"]:
             blue_i = 0
             for blue_position in blue_positions: #HERE
@@ -159,7 +159,7 @@ def efficient_embed_obs_in_map(obs: torch.Tensor, map: MapInfo, obs_shapes=None)
                     node_embeddings[i][blue_dir_behind_node_idx][5] = 1
                 blue_i += 1
 
-
+        # add feature from some external "optimization", if desired
         if GRAPH_OBS_TOKEN["embed_opt"]:
             if OPT_SETTINGS["flanking"]: # use the "flanking" optimization
                 node_embeddings[i][red_node][6:10] = flank_optimization(

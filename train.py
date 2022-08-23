@@ -220,7 +220,7 @@ def parse_arguments():
 
     # model/training config
     parser.add_argument("--name", default="", help="name this model")
-    parser.add_argument("--model", default="graph_transformer", choices=["graph_transformer", "altr", "hybrid", "fc"])
+    parser.add_argument("--model", default="graph_transformer", choices=["graph_transformer", "hybrid", "fc", "gat"])
     parser.add_argument("--train_time", type=int, default=200, help="how long to train the model")
     parser.add_argument("--fixed_start", type=int, default=-1, help="where to fix the agent init points when training")
     parser.add_argument("--aggregation_fn", type=str, default="agent_node", help="which output fn to use after gat")

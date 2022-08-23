@@ -7,6 +7,8 @@ import ray.rllib.models.torch.torch_modelv2 as TMv2
 from ray.rllib.utils.annotations import override
 from ray.rllib.utils.typing import Dict, TensorType, List, ModelConfigDict
 import gym
+from torch_geometric.data import Data
+from torch_geometric.data.batch import Batch
 
 import dgl
 from torch_geometric.nn.conv import GATConv
@@ -66,7 +68,12 @@ class GATPolicy(TMv2.TorchModelV2, nn.Module):
             self.num_red,
             self.num_blue,
         ]
-        self.map_adjacency = nx.adjacency_matrix(self.map.g_acs)
+        self.adjacency = []
+        for n in map.g_acs.adj:
+            ms = map.g_acs.adj[n]
+            for m in ms:
+                self.adjacency.append([n-1, m-1])
+        self.adjacency = torch.LongTensor(self.adjacency).t().contiguous()
         self._features = None  # current "base" output before logits
         self._last_flat_in = None  # last input
 
@@ -78,11 +85,11 @@ class GATPolicy(TMv2.TorchModelV2, nn.Module):
         self.HIDDEN_DIM = 8
         self.gats = [
             GATConv(
-                in_channels=utils.GRAPH_OBS_TOKEN["embedding_size"],
+                in_channels=utils.NODE_EMBED_SIZE if i == 0 else self.HIDDEN_DIM*self.N_HEADS,
                 out_channels=self.HIDDEN_DIM,
                 heads=self.N_HEADS,
             )
-            for _ in range(self.GAT_LAYERS)
+            for i in range(self.GAT_LAYERS)
         ]
         self._value_branch, self._value_branch_separate = utils.create_value_branch(
             obs_space=obs_space,
@@ -108,14 +115,20 @@ class GATPolicy(TMv2.TorchModelV2, nn.Module):
         state: List[TensorType],
         seq_lens: TensorType,
     ):
-        # transform obs to graph
+        # transform obs to graph (for pyG, also do list[data]->torch_geometric.Batch)
         obs = input_dict["obs_flat"].float()
         x = utils.efficient_embed_obs_in_map(obs, self.map, self.obs_shapes)
-
+        #x = list(x)
+        #x = [Data(x_, self.adjacency) for x_ in x] 
+        #x = Batch.from_data_list(x)
+        #print(x)
+        
         # inference
         for conv in self.gats:
-            print("shape is", x.shape)
-            x = conv.forward(x, self.map_adjacency)
+            print("STARTED LAYER", x.shape)
+            x = torch.stack([conv(_x, self.adjacency) for _x in x], dim=0)
+            #x = conv(x, self.adjacency)
+            print("DONE LAYER", x.shape)
         logits = x
 
         # return
