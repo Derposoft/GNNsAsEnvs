@@ -52,6 +52,7 @@ def create_env_config(config):
         # "faster_lookup": {"type": "none"},
         "fixed_start": config.fixed_start,
         "aggregation_fn": config.aggregation_fn,
+        "hidden_size": config.hidden_size,
     }
     ## i.e. init_red "pos": tuple(x, z) or "L"/"R" region of the map
     # "init_red": [{"pos": (11, 1), "dir": 1}, {"pos": None}, {"pos": "L", "dir": None}]
@@ -99,6 +100,7 @@ def create_trainer_config(outer_configs, trainer_type=None, custom_model=""):
             "nred": outer_configs["n_red"],
             "nblue": outer_configs["n_blue"],
             "aggregation_fn": outer_configs["aggregation_fn"],
+            "hidden_size": outer_configs["hidden_size"],
         },
     }
     init_trainer_config = {
@@ -224,6 +226,7 @@ def parse_arguments():
     parser.add_argument("--train_time", type=int, default=200, help="how long to train the model")
     parser.add_argument("--fixed_start", type=int, default=-1, help="where to fix the agent init points when training")
     parser.add_argument("--aggregation_fn", type=str, default="agent_node", help="which output fn to use after gat")
+    parser.add_argument("--hidden_size", type=int, default=169, help="size of the hidden layer to use")
 
     # testing config
     parser.add_argument("--policy_file", type=str, default="", help="use hardcoded policy from provided policy file")
