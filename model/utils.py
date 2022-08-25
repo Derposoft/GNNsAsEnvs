@@ -3,6 +3,7 @@ import sys
 import time
 from typing import List
 import numpy as np
+import torch.nn as nn
 import torch
 import heapq
 import sigma_graph.envs.figure8.default_setup as env_setup
@@ -331,6 +332,64 @@ def create_value_branch(
         initializer=normc_initializer(0.01),
         activation_fn=None)
     return _value_branch, _value_branch_separate
+
+
+def create_policy_fc(
+    hiddens,
+    activation,
+    num_outputs,
+    no_final_linear,
+    num_inputs,
+):
+    layers = []
+    prev_layer_size = num_inputs
+    _logits = None
+    # Create layers 0 to second-last.
+    for size in hiddens[:-1]:
+        layers.append(
+            SlimFC(
+                in_size=prev_layer_size,
+                out_size=size,
+                initializer=normc_initializer(1.0),
+                activation_fn=activation,
+            )
+        )
+        prev_layer_size = size
+
+    # The last layer is adjusted to be of size num_outputs, but it's a
+    # layer with activation.
+    if no_final_linear and num_outputs:
+        layers.append(
+            SlimFC(
+                in_size=prev_layer_size,
+                out_size=num_outputs,
+                initializer=normc_initializer(1.0),
+                activation_fn=activation,
+            )
+        )
+        prev_layer_size = num_outputs
+    # Finish the layers with the provided sizes (`hiddens`), plus -
+    # iff num_outputs > 0 - a last linear layer of size num_outputs.
+    else:
+        if len(hiddens) > 0:
+            layers.append(
+                SlimFC(
+                    in_size=prev_layer_size,
+                    out_size=hiddens[-1],
+                    initializer=normc_initializer(1.0),
+                    activation_fn=activation,
+                )
+            )
+            prev_layer_size = hiddens[-1]
+        if num_outputs:
+            _logits = SlimFC(
+                in_size=prev_layer_size,
+                out_size=num_outputs,
+                initializer=normc_initializer(0.01),
+                activation_fn=None,
+            )
+    _hidden_layers = nn.Sequential(*layers)
+    return _hidden_layers, _logits
 
 
 def flank_optimization(

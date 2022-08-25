@@ -56,18 +56,18 @@ class FCPolicy(TMv2.TorchModelV2, nn.Module):
         self.free_log_std = model_config.get("free_log_std")
         # Generate free-floating bias variables for the second half of
         # the outputs.
-        if self.free_log_std:
-            assert num_outputs % 2 == 0, (
-                "num_outputs must be divisible by two",
-                num_outputs,
-            )
-            num_outputs = num_outputs // 2
         #print(hiddens) TODO use this to figure out how to tune this baseline model to control for #params
         #sys.exit()
-        layers = []
-        prev_layer_size = int(np.product(obs_space.shape))
         self._logits = None
-
+        self._hidden_layers = None
+        self._hidden_layers, self._logits = utils.create_policy_fc(
+            hiddens=hiddens,
+            activation=activation,
+            num_outputs=num_outputs,
+            no_final_linear=no_final_linear,
+            num_inputs=int(np.product(obs_space.shape)),
+        )
+        """
         # Create layers 0 to second-last.
         for size in hiddens[:-1]:
             layers.append(
@@ -112,16 +112,8 @@ class FCPolicy(TMv2.TorchModelV2, nn.Module):
                     initializer=normc_initializer(0.01),
                     activation_fn=None,
                 )
-            else:
-                self.num_outputs = ([int(np.product(obs_space.shape))] + hiddens[-1:])[
-                    -1
-                ]
 
-        # Layer to add the log std vars to the state-dependent means.
-        if self.free_log_std and self._logits:
-            self._append_free_log_std = AppendBiasLayer(num_outputs)
-
-        self._hidden_layers = nn.Sequential(*layers)
+        self._hidden_layers = nn.Sequential(*layers)"""
 
         # value
         self._value_branch, self._value_branch_separate = utils.create_value_branch(
@@ -145,8 +137,6 @@ class FCPolicy(TMv2.TorchModelV2, nn.Module):
         self._last_flat_in = obs.reshape(obs.shape[0], -1)
         self._features = self._hidden_layers(self._last_flat_in)
         logits = self._logits(self._features) if self._logits else self._features
-        if self.free_log_std:
-            logits = self._append_free_log_std(logits)
         return logits, state
 
     @override(TMv2.TorchModelV2)

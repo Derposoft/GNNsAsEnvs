@@ -56,7 +56,8 @@ class HybridPolicy(TMv2.TorchModelV2, nn.Module):
         self.N_HEADS = 4
         self.HIDDEN_DIM = 4
         """
-        self.hidden_proj_sizes = [169, 169]
+        #self.hidden_proj_sizes = [150, 150]
+        self.hiddens = [169, 169]
         #self.hidden_proj_sizes = [177, 177]
         self.GAT_LAYERS = 4
         self.N_HEADS = 4
@@ -65,7 +66,7 @@ class HybridPolicy(TMv2.TorchModelV2, nn.Module):
         # map info
         self.move_map = utils.create_move_map(map)
         
-        # actor (attention model)
+        # policy -- gats and mlp
         self.gats, _, _ = initialize_graph_transformer(
             utils.NODE_EMBED_SIZE,
             aggregation_fn=self.aggregation_fn,
@@ -74,14 +75,13 @@ class HybridPolicy(TMv2.TorchModelV2, nn.Module):
             hidden_dim=self.HIDDEN_DIM,
             out_dim=self.HIDDEN_DIM,
         )
-        self.o_proj = nn.Sequential(
-            nn.Linear(self.gats.num_actions+self_shape+red_shape+blue_shape, self.hidden_proj_sizes[0]),
-            nn.Tanh(),
-            nn.Linear(self.hidden_proj_sizes[0], self.hidden_proj_sizes[1]),
-            nn.Tanh(),
-            nn.Linear(self.hidden_proj_sizes[1], self.num_outputs)
+        self._hiddens, self._logits = utils.create_policy_fc(
+            hiddens=self.hiddens,
+            activation=activation,
+            num_outputs=num_outputs,
+            no_final_linear=no_final_linear,
+            num_inputs=int(np.product(obs_space.shape))+self.gats.num_actions,
         )
-
         # value
         self._value_branch, self._value_branch_separate = utils.create_value_branch(
             obs_space=obs_space,
@@ -134,11 +134,11 @@ class HybridPolicy(TMv2.TorchModelV2, nn.Module):
             agent_nodes,
             self.move_map
         )
-        logits = self.o_proj(torch.cat([gat_output, obs], dim=1))
+        self._features = self._hiddens(torch.cat([gat_output, obs], dim=1))
 
         # return
         self._last_flat_in = obs.reshape(obs.shape[0], -1)
-        self._features = logits
+        logits = self._logits(self._features)
         #print("forward takes", time.time()-start_time)
         return logits, state
 
