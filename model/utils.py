@@ -499,7 +499,8 @@ def flank_optimization(
 
 class LocalAggregation(Aggregation):
     def __init__(self):
-        pass
+        Aggregation.__init__(self)
+
     def forward(x, edge_index, agent_node=None):
         if agent_node == None:
             print("agent node not provided to local aggregation")

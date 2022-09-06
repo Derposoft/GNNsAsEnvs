@@ -23,11 +23,12 @@ import sigma_graph.envs.figure8.default_setup as default_setup
 import model # THIS NEEDS TO BE HERE IN ORDER TO RUN __init__.py!
 
 # algorithms to test
-from ray.rllib.agents import dqn
-from ray.rllib.agents import pg
-from ray.rllib.agents import a3c
-from ray.rllib.agents import ppo
-from ray.rllib.agents import impala # not currently used; single-threaded stuff only for now
+#from ray.rllib.agents import dqn
+#from ray.rllib.algorithms import dqn, pg, a3c, impala
+from ray.rllib.agents import ppo, dqn, pg, a3c, impala
+#from ray.rllib.agents import a3c
+#from ray.rllib.agents import ppo
+#from ray.rllib.agents import impala # not currently used; single-threaded stuff only for now
 from ray.rllib.models.catalog import MODEL_DEFAULTS
 from ray.tune.logger import pretty_print
 from ray.tune.logger import UnifiedLogger
