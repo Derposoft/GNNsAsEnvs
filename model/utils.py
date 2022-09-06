@@ -10,7 +10,10 @@ import sigma_graph.envs.figure8.default_setup as env_setup
 from sigma_graph.envs.figure8 import action_lookup
 from sigma_graph.data.graph.skirmish_graph import MapInfo
 from torchinfo import summary
-from ray.rllib.models.torch.misc import SlimFC, normc_initializer 
+from ray.rllib.models.torch.misc import SlimFC, normc_initializer
+from torch_geometric.nn.aggr import Aggregation
+import torch_geometric.nn.aggr as aggr
+import torch_geometric.nn.pool as pool
 
 
 # constants/helper functions
@@ -492,6 +495,47 @@ def flank_optimization(
         curr_node = directions[curr_node]
     direction = move_map[red_location][last_node]
     return direction
+
+
+class LocalAggregation(Aggregation):
+    def __init__(self):
+        pass
+    def forward(x, edge_index, agent_node=None):
+        if agent_node == None:
+            print("agent node not provided to local aggregation")
+        x = x[range(len(x)), agent_node, :]
+        return x
+class GeneralGNNAggregation(Aggregation):
+    def __init__(
+        self,
+        aggregator_name: str,
+        input_dim: int,
+        output_dim: int,
+    ):
+        Aggregation.__init__(self)
+        self.aggregator_name = aggregator_name
+        self.input_dim = input_dim
+        self.output_dim = output_dim
+        self.aggregator = None
+        self.reducer = nn.Sequential(
+            SlimFC(input_dim, input_dim, activation_fn="relu"),
+            SlimFC(input_dim, output_dim, activation_fn="relu"),
+        )
+        self.softmax = nn.Softmax(dim=-1)
+        if self.aggregator_name == "attention":
+            self.aggregator = pool.SAGPooling(input_dim)
+        elif self.aggregator_name == "mean":
+            self.aggregator = aggr.MeanAggregation()
+        elif self.aggregator_name == "local" or self.aggregator_name == "agent_node":
+            self.aggregator = LocalAggregation()
+    
+    def forward(self, x, edge_index, agent_nodes=None):
+        if self.aggregator_name == "local" or self.aggregator_name == "agent_node":
+            x = self.aggregator(x, edge_index, agent_nodes=agent_nodes)
+        else:
+            x = self.aggregator(x, edge_index)
+        x = self.reducer(x)
+        return self.softmax(x)
 
 """
 # junk #

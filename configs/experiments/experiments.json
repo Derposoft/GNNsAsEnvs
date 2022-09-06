@@ -1,38 +1,12 @@
 {
-    "4L4H4E169h_hybrid_model_05hp_local_emb_NOOPT": {
+    "gt_5hp_mean_emb_paper": {
         "init_health": 5,
-        "model": "hybrid",
-        "aggregation_fn": "agent_node",
-        "hidden_size": 169
+        "model": "graph_transformer",
+        "aggregation_fn": "mean"
     },
-    "4L4H4E169h_hybrid_model_05hp_global_emb_NOOPT": {
+    "gt_5hp_hybrid_emb_paper": {
         "init_health": 5,
-        "model": "hybrid",
-        "aggregation_fn": "mean",
-        "hidden_size": 169
-    },
-    "4L4H4E169h_hybrid_model_05hp_hybrid_emb_NOOPT": {
-        "init_health": 5,
-        "model": "hybrid",
-        "aggregation_fn": "hybrid_global_local",
-        "hidden_size": 169
-    },
-    "4L4H4E177h_hybrid_model_05hp_local_emb_NOOPT": {
-        "init_health": 5,
-        "model": "hybrid",
-        "aggregation_fn": "agent_node",
-        "hidden_size": 177
-    },
-    "4L4H4E177h_hybrid_model_05hp_global_emb_NOOPT": {
-        "init_health": 5,
-        "model": "hybrid",
-        "aggregation_fn": "mean",
-        "hidden_size": 177
-    },
-    "4L4H4E177h_hybrid_model_05hp_hybrid_emb_NOOPT": {
-        "init_health": 5,
-        "model": "hybrid",
-        "aggregation_fn": "hybrid_global_local",
-        "hidden_size": 177
+        "model": "graph_transformer",
+        "aggregation_fn": "hybrid_global_local"
     }
 }

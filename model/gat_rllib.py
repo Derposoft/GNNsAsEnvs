@@ -7,12 +7,11 @@ import ray.rllib.models.torch.torch_modelv2 as TMv2
 from ray.rllib.utils.annotations import override
 from ray.rllib.utils.typing import Dict, TensorType, List, ModelConfigDict
 import gym
-from torch_geometric.data import Data
-from torch_geometric.data.batch import Batch
 
 import dgl
 from torch_geometric.nn.conv import GATConv
 import networkx as nx
+import numpy as np
 
 from sigma_graph.data.graph.skirmish_graph import MapInfo
 from sigma_graph.envs.figure8 import default_setup as env_setup
@@ -55,6 +54,7 @@ class GATPolicy(TMv2.TorchModelV2, nn.Module):
         self.map = map
         self.num_red = kwargs["nred"]
         self.num_blue = kwargs["nblue"]
+        self.aggregation_fn = kwargs["aggregation_fn"]
         self_shape, red_shape, blue_shape = env_setup.get_state_shapes(
             self.map.get_graph_size(),
             self.num_red,
@@ -91,6 +91,11 @@ class GATPolicy(TMv2.TorchModelV2, nn.Module):
             )
             for i in range(self.GAT_LAYERS)
         ]
+        self.aggregator = utils.GeneralGNNAggregation(
+            aggregator_name=self.aggregation_fn,
+            input_dim=self.HIDDEN_DIM*self.N_HEADS,
+            output_dim=int(np.product(action_space.shape))
+        )
         self._value_branch, self._value_branch_separate = utils.create_value_branch(
             obs_space=obs_space,
             action_space=action_space,
@@ -118,18 +123,11 @@ class GATPolicy(TMv2.TorchModelV2, nn.Module):
         # transform obs to graph (for pyG, also do list[data]->torch_geometric.Batch)
         obs = input_dict["obs_flat"].float()
         x = utils.efficient_embed_obs_in_map(obs, self.map, self.obs_shapes)
-        #x = list(x)
-        #x = [Data(x_, self.adjacency) for x_ in x] 
-        #x = Batch.from_data_list(x)
-        #print(x)
         
         # inference
         for conv in self.gats:
-            print("STARTED LAYER", x.shape)
             x = torch.stack([conv(_x, self.adjacency) for _x in x], dim=0)
-            #x = conv(x, self.adjacency)
-            print("DONE LAYER", x.shape)
-        logits = x
+        logits = self.aggregator(x, self.adjacency)
 
         # return
         self._last_flat_in = obs.reshape(obs.shape[0], -1)
