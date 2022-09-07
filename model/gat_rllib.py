@@ -107,7 +107,7 @@ class GATPolicy(TMv2.TorchModelV2, nn.Module):
         """
         produce debug output and ensure that model is on right device
         """
-        utils.count_model_params(self)
+        utils.count_model_params(self, print_model=True)
         self.device = torch.device(
             "cuda" if torch.cuda.is_available() else "cpu"
         )
@@ -123,11 +123,12 @@ class GATPolicy(TMv2.TorchModelV2, nn.Module):
         # transform obs to graph (for pyG, also do list[data]->torch_geometric.Batch)
         obs = input_dict["obs_flat"].float()
         x = utils.efficient_embed_obs_in_map(obs, self.map, self.obs_shapes)
+        agent_nodes = [utils.get_loc(gx, self.map.get_graph_size()) for gx in obs]
         
         # inference
         for conv in self.gats:
             x = torch.stack([conv(_x, self.adjacency) for _x in x], dim=0)
-        logits = self.aggregator(x, self.adjacency)
+        logits = self.aggregator(x, self.adjacency, agent_nodes=agent_nodes)
 
         # return
         self._last_flat_in = obs.reshape(obs.shape[0], -1)

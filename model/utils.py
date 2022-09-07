@@ -505,6 +505,7 @@ class LocalPooling(nn.Module):
     def forward(self, x, edge_index, agent_nodes=None):
         if agent_nodes == None:
             print("agent node not provided to local aggregation")
+            sys.exit()
         x = x[range(len(x)), agent_nodes, :]
         return x
 class GeneralGNNPooling(nn.Module):
