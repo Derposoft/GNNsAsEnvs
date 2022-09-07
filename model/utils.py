@@ -536,7 +536,10 @@ class GeneralGNNPooling(nn.Module):
     def forward(self, x, edge_index, agent_nodes=None):
         if self.aggregator_name == "local" or self.aggregator_name == "agent_node":
             x = self.aggregator(x, edge_index, agent_nodes=agent_nodes)
+        elif self.aggregator_name == "mean":
+            x = self.aggregator(x).reshape([x.shape[0], -1])
         else:
+            print(x.shape, self.aggregator_name, "AGGREGATOR NAME AND INPUT SHAPE")
             x = self.aggregator(x, edge_index)
         x = self.reducer(x)
         return x  # self.softmax(x)

@@ -82,9 +82,9 @@ class GNNPolicy(TMv2.TorchModelV2, nn.Module):
         """
         instantiate policy and value networks
         """
-        self.GAT_LAYERS = 8
-        self.N_HEADS = 8
-        self.HIDDEN_DIM = 8
+        self.GAT_LAYERS = 4
+        self.N_HEADS = 4
+        self.HIDDEN_DIM = 4
         self.hiddens = [self.hidden_size, self.hidden_size]
         self.gats = [
             GATConv(
@@ -140,6 +140,7 @@ class GNNPolicy(TMv2.TorchModelV2, nn.Module):
             x = torch.stack([conv(_x, self.adjacency) for _x in x], dim=0)
         self._features = self.aggregator(x, self.adjacency, agent_nodes=agent_nodes)
         if self.is_hybrid:
+            #print(self._features.shape, obs.shape, "GRAPH FEATURES AND OBS SHAPES")
             self._features = self._hiddens(torch.cat([self._features, obs], dim=1))
         logits = self._logits(self._features)
 
