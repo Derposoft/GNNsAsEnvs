@@ -20,7 +20,7 @@ from sigma_graph.envs.figure8.figure8_squad_rllib import Figure8SquadRLLib
 import model.utils as utils
 
 
-class GATPolicy(TMv2.TorchModelV2, nn.Module):
+class GNNPolicy(TMv2.TorchModelV2, nn.Module):
     def __init__(
         self,
         obs_space: gym.spaces.Space,
@@ -55,6 +55,8 @@ class GATPolicy(TMv2.TorchModelV2, nn.Module):
         self.num_red = kwargs["nred"]
         self.num_blue = kwargs["nblue"]
         self.aggregation_fn = kwargs["aggregation_fn"]
+        self.hidden_size = kwargs["hidden_size"]
+        self.is_hybrid = kwargs["is_hybrid"]  # is this a hybrid model or a gat-only model?
         self_shape, red_shape, blue_shape = env_setup.get_state_shapes(
             self.map.get_graph_size(),
             self.num_red,
@@ -83,6 +85,7 @@ class GATPolicy(TMv2.TorchModelV2, nn.Module):
         self.GAT_LAYERS = 8
         self.N_HEADS = 8
         self.HIDDEN_DIM = 8
+        self.hiddens = [self.hidden_size, self.hidden_size]
         self.gats = [
             GATConv(
                 in_channels=utils.NODE_EMBED_SIZE if i == 0 else self.HIDDEN_DIM*self.N_HEADS,
@@ -94,7 +97,14 @@ class GATPolicy(TMv2.TorchModelV2, nn.Module):
         self.aggregator = utils.GeneralGNNPooling(
             aggregator_name=self.aggregation_fn,
             input_dim=self.HIDDEN_DIM*self.N_HEADS,
-            output_dim=int(np.product(action_space.shape))
+            output_dim=int(action_space.n)
+        )
+        self._hiddens, self._logits = utils.create_policy_fc(
+            hiddens=self.hiddens,
+            activation=activation,
+            num_outputs=num_outputs,
+            no_final_linear=no_final_linear,
+            num_inputs=int(np.product(obs_space.shape))+num_outputs,
         )
         self._value_branch, self._value_branch_separate = utils.create_value_branch(
             obs_space=obs_space,
@@ -128,11 +138,13 @@ class GATPolicy(TMv2.TorchModelV2, nn.Module):
         # inference
         for conv in self.gats:
             x = torch.stack([conv(_x, self.adjacency) for _x in x], dim=0)
-        logits = self.aggregator(x, self.adjacency, agent_nodes=agent_nodes)
+        self._features = self.aggregator(x, self.adjacency, agent_nodes=agent_nodes)
+        if self.is_hybrid:
+            self._features = self._hiddens(torch.cat([self._features, obs], dim=1))
+        logits = self._logits(self._features)
 
         # return
         self._last_flat_in = obs.reshape(obs.shape[0], -1)
-        self._features = logits
         return logits, state
 
     @override(TMv2.TorchModelV2)

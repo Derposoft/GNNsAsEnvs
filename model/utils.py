@@ -539,7 +539,7 @@ class GeneralGNNPooling(nn.Module):
         else:
             x = self.aggregator(x, edge_index)
         x = self.reducer(x)
-        return self.softmax(x)
+        return x  # self.softmax(x)
 
 """
 # junk #
