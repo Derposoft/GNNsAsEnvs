@@ -10,6 +10,7 @@ import sigma_graph.envs.figure8.default_setup as env_setup
 from sigma_graph.envs.figure8 import action_lookup
 from sigma_graph.data.graph.skirmish_graph import MapInfo
 from torchinfo import summary
+from ray.rllib.utils.annotations import override
 from ray.rllib.models.torch.misc import SlimFC, normc_initializer
 from torch_geometric.nn.aggr import Aggregation
 import torch_geometric.nn.aggr as aggr
@@ -497,16 +498,16 @@ def flank_optimization(
     return direction
 
 
-class LocalAggregation(Aggregation):
+class LocalPooling(nn.Module):
     def __init__(self):
         Aggregation.__init__(self)
 
-    def forward(x, edge_index, agent_node=None):
-        if agent_node == None:
+    def forward(self, x, edge_index, agent_nodes=None):
+        if agent_nodes == None:
             print("agent node not provided to local aggregation")
-        x = x[range(len(x)), agent_node, :]
+        x = x[range(len(x)), agent_nodes, :]
         return x
-class GeneralGNNAggregation(Aggregation):
+class GeneralGNNPooling(nn.Module):
     def __init__(
         self,
         aggregator_name: str,
@@ -528,8 +529,9 @@ class GeneralGNNAggregation(Aggregation):
         elif self.aggregator_name == "mean":
             self.aggregator = aggr.MeanAggregation()
         elif self.aggregator_name == "local" or self.aggregator_name == "agent_node":
-            self.aggregator = LocalAggregation()
+            self.aggregator = LocalPooling()
     
+    @override(nn.Module)
     def forward(self, x, edge_index, agent_nodes=None):
         if self.aggregator_name == "local" or self.aggregator_name == "agent_node":
             x = self.aggregator(x, edge_index, agent_nodes=agent_nodes)

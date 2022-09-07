@@ -91,7 +91,7 @@ class GATPolicy(TMv2.TorchModelV2, nn.Module):
             )
             for i in range(self.GAT_LAYERS)
         ]
-        self.aggregator = utils.GeneralGNNAggregation(
+        self.aggregator = utils.GeneralGNNPooling(
             aggregator_name=self.aggregation_fn,
             input_dim=self.HIDDEN_DIM*self.N_HEADS,
             output_dim=int(np.product(action_space.shape))
