@@ -9,7 +9,7 @@ from ray.rllib.utils.typing import Dict, TensorType, List, ModelConfigDict
 import gym
 
 import dgl
-from torch_geometric.nn.conv import GATv2Conv
+from torch_geometric.nn.conv import GATv2Conv, GCNConv
 import networkx as nx
 import numpy as np
 
@@ -57,6 +57,7 @@ class GNNPolicy(TMv2.TorchModelV2, nn.Module):
         self.aggregation_fn = kwargs["aggregation_fn"]
         self.hidden_size = kwargs["hidden_size"]
         self.is_hybrid = kwargs["is_hybrid"]  # is this a hybrid model or a gat-only model?
+        self.conv_type = kwargs["conv_type"]
         self_shape, red_shape, blue_shape = env_setup.get_state_shapes(
             self.map.get_graph_size(),
             self.num_red,
@@ -83,11 +84,12 @@ class GNNPolicy(TMv2.TorchModelV2, nn.Module):
         instantiate policy and value networks
         """
         self.GAT_LAYERS = 4
-        self.N_HEADS = 4
+        self.N_HEADS = 1 if self.conv_type == "gcn" else 4
         self.HIDDEN_DIM = 4
         self.hiddens = [self.hidden_size, self.hidden_size]
+        gat = GATv2Conv if self.conv_type == "gat" else GCNConv
         self.gats = [
-            GATv2Conv(
+            gat(
                 in_channels=utils.NODE_EMBED_SIZE if i == 0 else self.HIDDEN_DIM*self.N_HEADS,
                 out_channels=self.HIDDEN_DIM,
                 heads=self.N_HEADS,

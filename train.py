@@ -55,6 +55,7 @@ def create_env_config(config):
         "aggregation_fn": config.aggregation_fn,
         "hidden_size": config.hidden_size,
         "is_hybrid": config.is_hybrid,
+        "conv_type": config.conv_type,
     }
     ## i.e. init_red "pos": tuple(x, z) or "L"/"R" region of the map
     # "init_red": [{"pos": (11, 1), "dir": 1}, {"pos": None}, {"pos": "L", "dir": None}]
@@ -103,7 +104,8 @@ def create_trainer_config(outer_configs, trainer_type=None, custom_model=""):
             "nblue": outer_configs["n_blue"],
             "aggregation_fn": outer_configs["aggregation_fn"],
             "hidden_size": outer_configs["hidden_size"],
-            "is_hybrid": outer_configs["is_hybrid"]
+            "is_hybrid": outer_configs["is_hybrid"],
+            "conv_type": outer_configs["conv_type"]
         },
     }
     init_trainer_config = {
@@ -227,7 +229,7 @@ def parse_arguments():
     parser.add_argument("--name", default="", help="name this model")
     parser.add_argument("--model", default="graph_transformer", choices=["graph_transformer", "hybrid", "fc", "gnn"])
     parser.add_argument("--is_hybrid", type=str, default=True, help="choose between hybrid/not hybrid for gnn")
-    parser.add_argument("--conv", default="gcn", choices=["gcn", "gat"])
+    parser.add_argument("--conv_type", default="gcn", choices=["gcn", "gat"])
     parser.add_argument("--train_time", type=int, default=200, help="how long to train the model")
     parser.add_argument("--fixed_start", type=int, default=-1, help="where to fix the agent init points when training")
     parser.add_argument("--aggregation_fn", type=str, default="agent_node", help="which output fn to use after gat")
