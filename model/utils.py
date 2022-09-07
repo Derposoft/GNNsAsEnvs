@@ -531,6 +531,13 @@ class GeneralGNNPooling(nn.Module):
             self.aggregator = aggr.MeanAggregation()
         elif self.aggregator_name == "local" or self.aggregator_name == "agent_node":
             self.aggregator = LocalPooling()
+        elif self.aggregator_name == "hybrid":
+            self.aggregator1 = LocalPooling()
+            self.aggregator2 = aggr.MeanAggregation()
+            self.reducer = nn.Sequential(
+                SlimFC(2*input_dim, input_dim, activation_fn="relu"),
+                SlimFC(input_dim, output_dim, activation_fn="relu"),
+            )
     
     @override(nn.Module)
     def forward(self, x, edge_index, agent_nodes=None):
@@ -538,6 +545,11 @@ class GeneralGNNPooling(nn.Module):
             x = self.aggregator(x, edge_index, agent_nodes=agent_nodes)
         elif self.aggregator_name == "mean":
             x = self.aggregator(x).reshape([x.shape[0], -1])
+        elif self.aggregator_name == "hybrid":
+            x = torch.concat(
+                [self.aggregator1(x, edge_index, agent_nodes=agent_nodes), self.aggregator2(x).reshape([x.shape[0], -1])],
+                dim=1,
+            )
         else:
             print(x.shape, self.aggregator_name, "AGGREGATOR NAME AND INPUT SHAPE")
             x = self.aggregator(x, edge_index)
