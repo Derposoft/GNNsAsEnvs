@@ -9,7 +9,7 @@ from ray.rllib.utils.typing import Dict, TensorType, List, ModelConfigDict
 import gym
 
 import dgl
-from torch_geometric.nn.conv import GATConv
+from torch_geometric.nn.conv import GATv2Conv
 import networkx as nx
 import numpy as np
 
@@ -87,7 +87,7 @@ class GNNPolicy(TMv2.TorchModelV2, nn.Module):
         self.HIDDEN_DIM = 4
         self.hiddens = [self.hidden_size, self.hidden_size]
         self.gats = [
-            GATConv(
+            GATv2Conv(
                 in_channels=utils.NODE_EMBED_SIZE if i == 0 else self.HIDDEN_DIM*self.N_HEADS,
                 out_channels=self.HIDDEN_DIM,
                 heads=self.N_HEADS,
