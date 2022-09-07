@@ -516,17 +516,11 @@ class GeneralGNNPooling(nn.Module):
         output_dim: int,
     ):
         Aggregation.__init__(self)
-        self.aggregator_name = aggregator_name
-        self.input_dim = input_dim
-        self.output_dim = output_dim
         self.aggregator = None
-        self.reducer = nn.Sequential(
-            SlimFC(input_dim, input_dim, activation_fn="relu"),
-            SlimFC(input_dim, output_dim, activation_fn="relu"),
-        )
-        self.softmax = nn.Softmax(dim=-1)
+        self.aggregator_name = aggregator_name
         if self.aggregator_name == "attention":
-            self.aggregator = pool.SAGPooling(input_dim)
+            raise NotImplementedError("SAGPooling not yet implemented")
+            # self.aggregator = pool.SAGPooling(input_dim)
         elif self.aggregator_name == "mean":
             self.aggregator = aggr.MeanAggregation()
         elif self.aggregator_name == "local" or self.aggregator_name == "agent_node":
@@ -534,22 +528,25 @@ class GeneralGNNPooling(nn.Module):
         elif self.aggregator_name == "hybrid":
             self.aggregator1 = LocalPooling()
             self.aggregator2 = aggr.MeanAggregation()
-            self.reducer = nn.Sequential(
-                SlimFC(2*input_dim, input_dim, activation_fn="relu"),
-                SlimFC(input_dim, output_dim, activation_fn="relu"),
-            )
+            input_dim *= 2
         else:
             raise NotImplementedError("aggregation_fn/aggregator_name is not one of the supported aggregations.")
+        self.input_dim = input_dim
+        self.output_dim = output_dim
+        self.reducer = nn.Sequential(
+            SlimFC(input_dim, input_dim, activation_fn="relu"),
+            SlimFC(input_dim, output_dim, activation_fn="relu"),
+        )
     
     @override(nn.Module)
     def forward(self, x, edge_index, agent_nodes=None):
         if self.aggregator_name == "attention":
             print(x.shape, self.aggregator_name, "AGGREGATOR NAME AND INPUT SHAPE")
-            x = self.aggregator(x, edge_index)
-        elif self.aggregator_name == "local" or self.aggregator_name == "agent_node":
-            x = self.aggregator(x, edge_index, agent_nodes=agent_nodes)
+            x = self.aggregator.forward(x, edge_index)
         elif self.aggregator_name == "mean":
             x = self.aggregator(x).reshape([x.shape[0], -1])
+        elif self.aggregator_name == "local" or self.aggregator_name == "agent_node":
+            x = self.aggregator(x, edge_index, agent_nodes=agent_nodes)
         elif self.aggregator_name == "hybrid":
             x = torch.concat(
                 [self.aggregator1(x, edge_index, agent_nodes=agent_nodes), self.aggregator2(x).reshape([x.shape[0], -1])],
