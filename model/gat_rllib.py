@@ -44,6 +44,7 @@ class GNNPolicy(TMv2.TorchModelV2, nn.Module):
         """
         values that we need to instantiate and use GNNs
         """
+        utils.set_obs_token(kwargs["graph_obs_token"])
         (
             hiddens,
             activation,
@@ -88,14 +89,14 @@ class GNNPolicy(TMv2.TorchModelV2, nn.Module):
         self.HIDDEN_DIM = 4
         self.hiddens = [self.hidden_size, self.hidden_size]
         gat = GATv2Conv if self.conv_type == "gat" else GCNConv
-        self.gats = [
+        self.gats = nn.ModuleList([
             gat(
                 in_channels=utils.NODE_EMBED_SIZE if i == 0 else self.HIDDEN_DIM*self.N_HEADS,
                 out_channels=self.HIDDEN_DIM,
                 heads=self.N_HEADS,
             )
             for i in range(self.GAT_LAYERS)
-        ]
+        ])
         self.aggregator = utils.GeneralGNNPooling(
             aggregator_name=self.aggregation_fn,
             input_dim=self.HIDDEN_DIM*self.N_HEADS,
@@ -142,7 +143,6 @@ class GNNPolicy(TMv2.TorchModelV2, nn.Module):
             x = torch.stack([conv(_x, self.adjacency) for _x in x], dim=0)
         self._features = self.aggregator(x, self.adjacency, agent_nodes=agent_nodes)
         if self.is_hybrid:
-            #print(self._features.shape, obs.shape, "GRAPH FEATURES AND OBS SHAPES")
             self._features = self._hiddens(torch.cat([self._features, obs], dim=1))
         logits = self._logits(self._features)
 

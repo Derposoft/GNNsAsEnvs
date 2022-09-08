@@ -21,6 +21,7 @@ from sigma_graph.envs.figure8.default_setup import OBS_TOKEN
 from sigma_graph.envs.figure8.figure8_squad_rllib import Figure8SquadRLLib
 import sigma_graph.envs.figure8.default_setup as default_setup
 import model # THIS NEEDS TO BE HERE IN ORDER TO RUN __init__.py!
+import model.utils as utils
 
 # algorithms to test
 #from ray.rllib.agents import dqn
@@ -52,10 +53,10 @@ def create_env_config(config):
         # "health_lookup": {"type": "table", "reward": [8, 4, 2, 0], "damage": [0, 1, 2, 100]},
         # "faster_lookup": {"type": "none"},
         "fixed_start": config.fixed_start,
-        "aggregation_fn": config.aggregation_fn,
-        "hidden_size": config.hidden_size,
-        "is_hybrid": config.is_hybrid,
-        "conv_type": config.conv_type,
+        #"aggregation_fn": config.aggregation_fn,
+        #"hidden_size": config.hidden_size,
+        #"is_hybrid": config.is_hybrid,
+        #"conv_type": config.conv_type,
     }
     ## i.e. init_red "pos": tuple(x, z) or "L"/"R" region of the map
     # "init_red": [{"pos": (11, 1), "dir": 1}, {"pos": None}, {"pos": "L", "dir": None}]
@@ -80,7 +81,7 @@ def custom_log_creator(log_name, custom_dir="~/ray_results"):
     return logger_creator
 
 # create trainer configuration
-def create_trainer_config(outer_configs, trainer_type=None, custom_model=""):
+def create_trainer_config(outer_configs, inner_configs, trainer_type=None, custom_model=""):
     # check params
     trainer_types = [dqn, pg, a3c, ppo]
     assert trainer_type != None, f"trainer_type must be one of {trainer_types}"
@@ -95,6 +96,14 @@ def create_trainer_config(outer_configs, trainer_type=None, custom_model=""):
     # policy mapping function not currently used.
     #def policy_mapping_fn(agent_id, episode, worker, **kwargs):
     #    return str(agent_id)
+
+    # create graph obs
+    GRAPH_OBS_TOKEN = {
+        "embed_opt": inner_configs.embed_opt,
+        "embed_dir": inner_configs.embed_dir,
+    }
+
+    # set model defaults
     CUSTOM_DEFAULTS = {
         "custom_model": custom_model,
         # Extra kwargs to be passed to your model"s c"tor.
@@ -102,10 +111,11 @@ def create_trainer_config(outer_configs, trainer_type=None, custom_model=""):
             "map": setup_env.map,
             "nred": outer_configs["n_red"],
             "nblue": outer_configs["n_blue"],
-            "aggregation_fn": outer_configs["aggregation_fn"],
-            "hidden_size": outer_configs["hidden_size"],
-            "is_hybrid": outer_configs["is_hybrid"],
-            "conv_type": outer_configs["conv_type"]
+            "aggregation_fn": inner_configs.aggregation_fn,
+            "hidden_size": inner_configs.hidden_size,
+            "is_hybrid": inner_configs.is_hybrid,
+            "conv_type": inner_configs.conv_type,
+            "graph_obs_token": GRAPH_OBS_TOKEN,
         },
     }
     init_trainer_config = {
@@ -176,7 +186,7 @@ def run_baselines(config, run_default_baseline_metrics=False, train_time=200, ch
     outer_configs, _ = create_env_config(config)
     
     # train
-    ppo_config = create_trainer_config(outer_configs, trainer_type=ppo, custom_model=custom_model)
+    ppo_config = create_trainer_config(outer_configs, config, trainer_type=ppo, custom_model=custom_model)
     ppo_trainer_custom = ppo.PPOTrainer(config=ppo_config, env=Figure8SquadRLLib, logger_creator=custom_log_creator(config.name))
     train(ppo_trainer_custom, config.name, train_time, checkpoint_models, ppo_config)
 
@@ -228,12 +238,16 @@ def parse_arguments():
     # model/training config
     parser.add_argument("--name", default="", help="name this model")
     parser.add_argument("--model", default="graph_transformer", choices=["graph_transformer", "hybrid", "fc", "gnn"])
-    parser.add_argument("--is_hybrid", type=str, default=True, help="choose between hybrid/not hybrid for gnn")
+    parser.add_argument("--is_hybrid", type=bool, default=True, help="choose between hybrid/not hybrid for gnn")
     parser.add_argument("--conv_type", default="gcn", choices=["gcn", "gat"])
-    parser.add_argument("--train_time", type=int, default=200, help="how long to train the model")
-    parser.add_argument("--fixed_start", type=int, default=-1, help="where to fix the agent init points when training")
     parser.add_argument("--aggregation_fn", type=str, default="agent_node", help="which output fn to use after gat")
     parser.add_argument("--hidden_size", type=int, default=169, help="size of the hidden layer to use")
+    parser.add_argument("--train_time", type=int, default=200, help="how long to train the model")
+    parser.add_argument("--fixed_start", type=int, default=-1, help="where to fix the agent init points when training")
+
+    # graph obs config
+    parser.add_argument("--embed_opt", type=bool, default=False, help="embed graph optimization")
+    parser.add_argument("--embed_dir", type=bool, default=True, help="embed agent dirs")
 
     # testing config
     parser.add_argument("--policy_file", type=str, default="", help="use hardcoded policy from provided policy file")
@@ -241,9 +255,10 @@ def parse_arguments():
     return parser
 
 if __name__ == "__main__":
-    # parse args and run baselines
+    # parse args
     parser = parse_arguments()
     config = parser.parse_args()
+    # run models
     run_baselines(config, custom_model=config.model+"_policy", train_time=config.train_time)
 
 

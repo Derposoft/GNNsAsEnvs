@@ -35,7 +35,7 @@ GRAPH_OBS_TOKEN = {
     "obs_embed": True,
     "embed_pos": False,
     "embed_dir": True,
-    "embed_opt": False,
+    "embed_opt": True,
 }
 NODE_EMBED_SIZE = (
     GRAPH_OBS_TOKEN["embedding_size"]
@@ -58,6 +58,21 @@ MOVE_DEGS = {
     "move_3deg_away": None,
 }
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+
+def set_obs_token(OBS_TOKEN):
+    """
+    update obs token and update node embedding size accordingly. only run BEFORE
+    training (not during or after), otherwise everything breaks since tensor sizes will change.
+    """
+    global NODE_EMBED_SIZE
+    GRAPH_OBS_TOKEN.update(OBS_TOKEN)
+    NODE_EMBED_SIZE = (
+        GRAPH_OBS_TOKEN["embedding_size"]
+        + (2 if GRAPH_OBS_TOKEN["embed_pos"] else 0)
+        + (1 if GRAPH_OBS_TOKEN["embed_dir"] else 0)
+        + (4 if GRAPH_OBS_TOKEN["embed_opt"] else 0)
+    )
 
 
 # TODO read obs using obs_token instead of hardcoding.
