@@ -519,8 +519,14 @@ class GeneralGNNPooling(nn.Module):
         self.aggregator = None
         self.aggregator_name = aggregator_name
         if self.aggregator_name == "attention":
-            raise NotImplementedError("SAGPooling not yet implemented")
-            # self.aggregator = pool.SAGPooling(input_dim)
+            #self.aggregator = pool.SAGPooling(input_dim)
+            self.aggregator = aggr.AttentionalAggregation(
+                gate_nn=nn.Sequential(
+                    SlimFC(input_dim, input_dim),
+                    SlimFC(input_dim, 1),
+                )
+            )
+            raise NotImplementedError("attention aggregation not yet implemented")
         elif self.aggregator_name == "mean":
             self.aggregator = aggr.MeanAggregation()
         elif self.aggregator_name == "local" or self.aggregator_name == "agent_node":
@@ -542,7 +548,11 @@ class GeneralGNNPooling(nn.Module):
     def forward(self, x, edge_index, agent_nodes=None):
         if self.aggregator_name == "attention":
             print(x.shape, self.aggregator_name, "AGGREGATOR NAME AND INPUT SHAPE")
-            x = self.aggregator.forward(x, edge_index)
+            x = torch.concat(
+                [self.aggregator(_x, edge_index) for _x in x],
+                dim=1,
+            )
+            print(x.shape, "AFTER AGGREGATION")
         elif self.aggregator_name == "mean":
             x = self.aggregator(x).reshape([x.shape[0], -1])
         elif self.aggregator_name == "local" or self.aggregator_name == "agent_node":
