@@ -1,12 +1,44 @@
 {
-    "gt_5hp_mean_emb_paper": {
+    "hybridGAT_5hp_localemb": {
         "init_health": 5,
-        "model": "graph_transformer",
-        "aggregation_fn": "mean"
+        "model": "gnn",
+        "is_hybrid": true,
+        "conv_type": "gat",
+        "aggregation_fn": "local"
     },
-    "gt_5hp_hybrid_emb_paper": {
+    "hybridGAT_5hp_globalemb": {
         "init_health": 5,
-        "model": "graph_transformer",
-        "aggregation_fn": "hybrid_global_local"
+        "model": "gnn",
+        "is_hybrid": true,
+        "conv_type": "gat",
+        "aggregation_fn": "global"
+    },
+    "hybridGAT_5hp_hybridemb": {
+        "init_health": 5,
+        "model": "gnn",
+        "is_hybrid": true,
+        "conv_type": "gat",
+        "aggregation_fn": "hybrid"
+    },
+    "hybridGCN_5hp_localemb": {
+        "init_health": 5,
+        "model": "gnn",
+        "is_hybrid": true,
+        "conv_type": "gcn",
+        "aggregation_fn": "local"
+    },
+    "hybridGCN_5hp_globalemb": {
+        "init_health": 5,
+        "model": "gnn",
+        "is_hybrid": true,
+        "conv_type": "gcn",
+        "aggregation_fn": "global"
+    },
+    "hybridGCN_5hp_hybridemb": {
+        "init_health": 5,
+        "model": "gnn",
+        "is_hybrid": true,
+        "conv_type": "gcn",
+        "aggregation_fn": "hybrid"
     }
 }

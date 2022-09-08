@@ -527,7 +527,7 @@ class GeneralGNNPooling(nn.Module):
                 )
             )
             raise NotImplementedError("attention aggregation not yet implemented")
-        elif self.aggregator_name == "mean":
+        elif self.aggregator_name == "global" or self.aggregator_name == "mean":
             self.aggregator = aggr.MeanAggregation()
         elif self.aggregator_name == "local" or self.aggregator_name == "agent_node":
             self.aggregator = LocalPooling()
@@ -553,7 +553,7 @@ class GeneralGNNPooling(nn.Module):
                 dim=1,
             )
             print(x.shape, "AFTER AGGREGATION")
-        elif self.aggregator_name == "mean":
+        elif self.aggregator_name == "global" or self.aggregator_name == "mean":
             x = self.aggregator(x).reshape([x.shape[0], -1])
         elif self.aggregator_name == "local" or self.aggregator_name == "agent_node":
             x = self.aggregator(x, edge_index, agent_nodes=agent_nodes)
