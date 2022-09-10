@@ -86,6 +86,7 @@ class GraphTransformerNet(nn.Module):
             "default": out_dim,
             "agent_node": out_dim,
             "hybrid_global_local": out_dim*2,
+            "hybrid": out_dim*2,
             "5d": out_dim*5,
             "full_graph": out_dim*28,
         }
@@ -93,6 +94,7 @@ class GraphTransformerNet(nn.Module):
             "default": 1,
             "agent_node": 1,
             "hybrid_global_local": 2,
+            "hybrid": 2,
             "5d": 2,
             "full_graph": 1,
         }
@@ -140,12 +142,14 @@ class GraphTransformerNet(nn.Module):
         if (
             self.aggregation_fn == "agent_node"
             or self.aggregation_fn == "hybrid_global_local"
+            or self.aggregation_fn == "local"
+            or self.aggregation_fn == "hybrid"
         ):
             # attempt 0; use curr node
             if agent_nodes != None:
                 idxs = [g.batch_num_nodes()[0]*i+agent_nodes[i] for i in range(int(h.shape[0]/g.batch_num_nodes()[0].item()))]
                 local_node_embeddings = h[idxs, :]
-                if self.aggregation_fn == "agent_node":
+                if self.aggregation_fn == "agent_node" or self.aggregation_fn == "local":
                     return self.MLP_layer(local_node_embeddings)
                 global_mean_embeddings = dgl.mean_nodes(g, "h")
                 hybrid_embeddings = torch.concat(

@@ -125,7 +125,7 @@ def efficient_embed_obs_in_map(obs: torch.Tensor, map: MapInfo, obs_shapes=None)
             if not SUPPRESS_WARNINGS["embed"]:
                 print(ERROR_MSG("shapes not provided. skipping embed and suppressing this warning."))
                 SUPPRESS_WARNINGS["embed_noshapes"] = True
-        self_shape, red_shape, blue_shape, n_red, n_blue = obs_shapes
+        self_shape, blue_shape, red_shape, n_red, n_blue = obs_shapes
         if self_shape < pos_obs_size or red_shape < pos_obs_size or blue_shape < pos_obs_size:
             if not SUPPRESS_WARNINGS["embed"]:
                 print(ERROR_MSG("test batch detected while embedding. skipping embed and suppressing this warning."))
@@ -172,7 +172,10 @@ def efficient_embed_obs_in_map(obs: torch.Tensor, map: MapInfo, obs_shapes=None)
         if GRAPH_OBS_TOKEN["embed_dir"]:
             blue_i = 0
             for blue_position in blue_positions: #HERE
-                blue_dir = get_loc(blue_obs[-(4*blue_i):-(4*(blue_i-1))], 4) + 1 # direction as defined by action_lookup.py
+                start_idx_for_dir_i = len(blue_obs)-1-4*(blue_i+1)
+                end_idx_for_dir_i = len(blue_obs)-1-4*blue_i
+                dir_i = blue_obs[start_idx_for_dir_i:end_idx_for_dir_i]
+                blue_dir = get_loc(dir_i, 4) + 1 # direction as defined by action_lookup.py
                 blue_dir_behind = action_lookup.TURN_L[action_lookup.TURN_L[blue_dir]] # 2 left turns = 180deg turn
                 blue_dir_behind_node_idx = move_map[blue_position+1][blue_dir_behind] - 1
                 if blue_dir_behind_node_idx >= 0:

@@ -46,10 +46,10 @@ class HybridPolicy(TMv2.TorchModelV2, nn.Module):
         self.num_blue = kwargs["nblue"]
         self.aggregation_fn = kwargs["aggregation_fn"]
         self.hidden_size = kwargs["hidden_size"]
-        self_shape, red_shape, blue_shape = env_setup.get_state_shapes(
+        self_shape, blue_shape, red_shape = env_setup.get_state_shapes(
             self.map.get_graph_size(), self.num_red, self.num_blue, env_setup.OBS_TOKEN
         )
-        self.obs_shapes = [self_shape, red_shape, blue_shape, self.num_red, self.num_blue]
+        self.obs_shapes = [self_shape, blue_shape, red_shape, self.num_red, self.num_blue]
         
         """
         self.hidden_proj_sizes = [45, 45]

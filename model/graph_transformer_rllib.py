@@ -53,8 +53,8 @@ class GraphTransformerPolicy(TMv2.TorchModelV2, nn.Module):
         self.num_red = kwargs["nred"]
         self.num_blue = kwargs["nblue"]
         self.aggregation_fn = kwargs["aggregation_fn"]
-        self_shape, red_shape, blue_shape = env_setup.get_state_shapes(self.map.get_graph_size(), self.num_red, self.num_blue, env_setup.OBS_TOKEN)
-        self.obs_shapes = [self_shape, red_shape, blue_shape, self.num_red, self.num_blue]
+        self_shape, blue_shape, red_shape = env_setup.get_state_shapes(self.map.get_graph_size(), self.num_red, self.num_blue, env_setup.OBS_TOKEN)
+        self.obs_shapes = [self_shape, blue_shape, red_shape, self.num_red, self.num_blue]
         #self.map.g_acs.add_node(0) # dummy node that we"ll use later
         print("GT AGG FN", self.aggregation_fn)
 

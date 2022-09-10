@@ -59,7 +59,7 @@ class GNNPolicy(TMv2.TorchModelV2, nn.Module):
         self.hidden_size = kwargs["hidden_size"]
         self.is_hybrid = kwargs["is_hybrid"]  # is this a hybrid model or a gat-only model?
         self.conv_type = kwargs["conv_type"]
-        self_shape, red_shape, blue_shape = env_setup.get_state_shapes(
+        self_shape, blue_shape, red_shape = env_setup.get_state_shapes(
             self.map.get_graph_size(),
             self.num_red,
             self.num_blue,
@@ -67,8 +67,8 @@ class GNNPolicy(TMv2.TorchModelV2, nn.Module):
         )
         self.obs_shapes = [
             self_shape,
-            red_shape,
             blue_shape,
+            red_shape,
             self.num_red,
             self.num_blue,
         ]
