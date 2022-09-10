@@ -198,7 +198,6 @@ def efficient_embed_obs_in_map(obs: torch.Tensor, map: MapInfo, obs_shapes=None)
                     ))
                     SUPPRESS_WARNINGS["optimization_none"] = True
 
-    #node_embeddings[:,-1,:] = 0
     return node_embeddings.to(device)
 
 
@@ -584,61 +583,3 @@ class GeneralGNNPooling(nn.Module):
             raise NotImplementedError("aggregation_fn/aggregator_name is not one of the supported aggregations.")
         x = self.reducer(x)
         return x  # self.softmax(x)
-
-"""
-# junk #
-        # can_blue_see_here_t,t+1,t+2
-    #start = time.time()
-    #print(time.time() - start, "embedding init time")
-    #print("batch size is", batch_size)
-    #start = time.time()
-    #print(time.time() - start, "rest embed time")
-
-L102
-
-L115
-        #    MOVE_DEGS["move_2deg_away"] = get_nodes_ndeg_away(map.g_acs.adj, 2)
-        #    MOVE_DEGS["move_3deg_away"] = get_nodes_ndeg_away(map.g_acs.adj, 3)
-        #move_2deg_away = MOVE_DEGS["move_2deg_away"]
-        #move_3deg_away = MOVE_DEGS["move_3deg_away"]
-            #for possible_next in move_2deg_away[j+1]:
-            #    node_embeddings[i][possible_next-1][5] = 1
-            #for possible_next in move_3deg_away[j+1]:
-            #    node_embeddings[i][possible_next-1][6] = 1
-
-            #VIEW_DEGS["view_1deg_away"] = get_nodes_ndeg_away(map.g_vis.adj, 1)
-            #view_1deg_away = get_nodes_ndeg_away(map.g_vis.adj, 1)
-            #view_2deg_away = get_nodes_ndeg_away(map.g_vis.adj, 2)
-            #view_3deg_away = get_nodes_ndeg_away(map.g_vis.adj, 3)
-            #move_1deg_away = get_nodes_ndeg_away(map.g_acs.adj, 1)
-            #move_2deg_away = get_nodes_ndeg_away(map.g_acs.adj, 2)
-            #move_3deg_away = get_nodes_ndeg_away(map.g_acs.adj, 3)
-        #else:
-        #view_1deg_away = VIEW_DEGS["view_1deg_away"]
-        #view_2deg_away = VIEW_DEGS["view_2deg_away"]
-        #view_3deg_away = VIEW_DEGS["view_3deg_away"]
-        #move_2deg_away = MOVE_DEGS["move_2deg_away"]
-        #move_3deg_away = MOVE_DEGS["move_3deg_away"]
-
-L132
-
-        #for j in range(pos_obs_size):
-        #    if blue_obs[j]:
-            for possible_next in view_1deg_away[j+1]:
-                node_embeddings[i][possible_next-1][4] = 1
-            for possible_next in view_2deg_away[j+1]:
-                node_embeddings[i][possible_next-1][5] = 1
-            for possible_next in view_3deg_away[j+1]:
-                node_embeddings[i][possible_next-1][6] = 1
-            
-
-
-L144
-
-            for possible_next in move_2deg_away[j+1]:
-                node_embeddings[i][possible_next-1][8] = 1
-            for possible_next in move_3deg_away[j+1]:
-                node_embeddings[i][possible_next-1][9] = 1
-
-"""
-
