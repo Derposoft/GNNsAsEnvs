@@ -85,8 +85,8 @@ class HybridPolicy(TMv2.TorchModelV2, nn.Module):
         )
         # value
         self._value_branch, self._value_branch_separate = utils.create_value_branch(
-            obs_space=obs_space,
-            action_space=action_space,
+            num_inputs=int(np.product(obs_space.shape)),
+            num_outputs=num_outputs,
             vf_share_layers=self.vf_share_layers,
             activation=activation,
             hiddens=utils.VALUE_HIDDENS,

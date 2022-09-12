@@ -22,6 +22,7 @@ from ray.rllib.models.torch.misc import SlimFC, normc_initializer
 from ray.rllib.utils.annotations import override
 from ray.rllib.utils.typing import Dict, TensorType, List, ModelConfigDict
 import torch.nn as nn
+import torch
 import gym
 
 # our code imports
@@ -40,24 +41,26 @@ class FCPolicy(TMv2.TorchModelV2, nn.Module):
         )
         nn.Module.__init__(self)
         
+        self.embed_opt = kwargs["graph_obs_token"]["embed_opt"]
         self.map = map
         hiddens = list(model_config.get("fcnet_hiddens", [])) + list(
             model_config.get("post_fcnet_hiddens", [])
         )
         #hiddens = [170, 170] # ensures that this model has ~90k params
         hiddens = [177, 177] # ensures that this model has ~96k params
-        #print(hiddens, 'HIDDENS')
-        #sys.exit()
+        
         activation = model_config.get("fcnet_activation")
         if not model_config.get("fcnet_hiddens", []):
             activation = model_config.get("post_fcnet_activation")
         no_final_linear = model_config.get("no_final_linear")
         self.vf_share_layers = model_config.get("vf_share_layers")
         self.free_log_std = model_config.get("free_log_std")
-        # Generate free-floating bias variables for the second half of
-        # the outputs.
-        #print(hiddens) TODO use this to figure out how to tune this baseline model to control for #params
-        #sys.exit()
+        num_inputs = (
+            int(np.product(obs_space.shape))
+            + (4 if self.embed_opt else 0)
+        )
+
+        # policy
         self._logits = None
         self._hidden_layers = None
         self._hidden_layers, self._logits = utils.create_policy_fc(
@@ -65,60 +68,13 @@ class FCPolicy(TMv2.TorchModelV2, nn.Module):
             activation=activation,
             num_outputs=num_outputs,
             no_final_linear=no_final_linear,
-            num_inputs=int(np.product(obs_space.shape)),
+            num_inputs=num_inputs,
         )
-        """
-        # Create layers 0 to second-last.
-        for size in hiddens[:-1]:
-            layers.append(
-                SlimFC(
-                    in_size=prev_layer_size,
-                    out_size=size,
-                    initializer=normc_initializer(1.0),
-                    activation_fn=activation,
-                )
-            )
-            prev_layer_size = size
-
-        # The last layer is adjusted to be of size num_outputs, but it's a
-        # layer with activation.
-        if no_final_linear and num_outputs:
-            layers.append(
-                SlimFC(
-                    in_size=prev_layer_size,
-                    out_size=num_outputs,
-                    initializer=normc_initializer(1.0),
-                    activation_fn=activation,
-                )
-            )
-            prev_layer_size = num_outputs
-        # Finish the layers with the provided sizes (`hiddens`), plus -
-        # iff num_outputs > 0 - a last linear layer of size num_outputs.
-        else:
-            if len(hiddens) > 0:
-                layers.append(
-                    SlimFC(
-                        in_size=prev_layer_size,
-                        out_size=hiddens[-1],
-                        initializer=normc_initializer(1.0),
-                        activation_fn=activation,
-                    )
-                )
-                prev_layer_size = hiddens[-1]
-            if num_outputs:
-                self._logits = SlimFC(
-                    in_size=prev_layer_size,
-                    out_size=num_outputs,
-                    initializer=normc_initializer(0.01),
-                    activation_fn=None,
-                )
-
-        self._hidden_layers = nn.Sequential(*layers)"""
 
         # value
         self._value_branch, self._value_branch_separate = utils.create_value_branch(
-            obs_space=obs_space,
-            action_space=action_space,
+            num_inputs=num_inputs,
+            num_outputs=num_outputs,
             vf_share_layers=self.vf_share_layers,
             activation=activation,
             hiddens=utils.VALUE_HIDDENS,
@@ -134,6 +90,25 @@ class FCPolicy(TMv2.TorchModelV2, nn.Module):
                 state: List[TensorType],
                 seq_lens: TensorType):
         obs = input_dict["obs_flat"].float()
+        if self.embed_opt:
+            opts = []
+            for x in obs:
+                blue_positions = set([])
+                pos_obs_size = self.map.get_graph_size()
+                for j in range(pos_obs_size):
+                    if x[pos_obs_size:2*pos_obs_size][j]:
+                        blue_positions.add(j)
+                opt = utils.flank_optimization(
+                    self.map,
+                    utils.get_loc(x, pos_obs_size),
+                    blue_positions,
+                )
+                opt_vector = [0]*4
+                if opt != 0:
+                    opt_vector[opt-1] = 1
+                opts.append(opt_vector)
+            opts = torch.Tensor(opts)
+            obs = torch.cat([obs, opts], dim=-1)
         self._last_flat_in = obs.reshape(obs.shape[0], -1)
         self._features = self._hidden_layers(self._last_flat_in)
         logits = self._logits(self._features) if self._logits else self._features

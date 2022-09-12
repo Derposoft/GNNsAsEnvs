@@ -323,8 +323,8 @@ def parse_config(model_config):
 
 
 def create_value_branch(
-    obs_space,
-    action_space,
+    num_inputs,
+    num_outputs,
     *,
     vf_share_layers=False,
     activation="relu",
@@ -333,7 +333,7 @@ def create_value_branch(
     _value_branch_separate = None
     # create value network with equal number of hidden layers as policy net
     if not vf_share_layers:
-        prev_vf_layer_size = int(np.product(obs_space.shape))
+        prev_vf_layer_size = num_inputs
         vf_layers = []
         for size in hiddens:
             vf_layers.append(
@@ -346,7 +346,7 @@ def create_value_branch(
         _value_branch_separate = torch.nn.Sequential(*vf_layers)
     # layer which outputs 1 value
     #prev_layer_size = hiddens[-1] if self._value_branch_separate else self.map.get_graph_size()
-    prev_layer_size = hiddens[-1] if _value_branch_separate else int(action_space.n)
+    prev_layer_size = hiddens[-1] if _value_branch_separate else num_outputs
     _value_branch = SlimFC(
         in_size=prev_layer_size,
         out_size=1,
@@ -415,7 +415,7 @@ def create_policy_fc(
 
 def flank_optimization(
     map: MapInfo,
-    red_location: List[int],
+    red_location: int,
     blue_locations: List[int]
 ):
     """

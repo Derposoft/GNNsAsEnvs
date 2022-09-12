@@ -1,48 +1,72 @@
 {
-    "5e_graph_transformer_02hp_2blue_paper": {
-        "init_health": 2,
-        "model": "graph_transformer",
-        "n_blue": 2
-    },
-    "5e_graph_transformer_05hp_2blue_paper": {
+    "hybridGT_5hp_localemb_NOOPT_1r2b": {
         "init_health": 5,
-        "model": "graph_transformer",
+        "model": "hybrid",
+        "aggregation_fn": "local",
         "n_blue": 2
     },
-    "5e_graph_transformer_20hp_2blue_paper": {
-        "init_health": 20,
-        "model": "graph_transformer",
+    "hybridGT_5hp_globalemb_NOOPT_1r2b": {
+        "init_health": 5,
+        "model": "hybrid",
+        "aggregation_fn": "global",
+        "n_blue": 2
+    },
+    "hybridGT_5hp_hybridemb_NOOPT_1r2b": {
+        "init_health": 5,
+        "model": "hybrid",
+        "aggregation_fn": "hybrid",
         "n_blue": 2
     },
 
-    "5e_hybrid_02hp_2blue_paper": {
-        "init_health": 2,
-        "model": "hybrid",
-        "n_blue": 2
-    },
-    "5e_hybrid_05hp_2blue_paper": {
+
+    "hybridGAT_5hp_localemb_NOOPT_1r2b": {
         "init_health": 5,
-        "model": "hybrid",
+        "model": "gnn",
+        "is_hybrid": true,
+        "conv_type": "gat",
+        "aggregation_fn": "local",
         "n_blue": 2
     },
-    "5e_hybrid_20hp_2blue_paper": {
-        "init_health": 20,
-        "model": "hybrid",
-        "n_blue": 2
-    },
-    "true_baseline_02hp_2blue_paper": {
-        "init_health": 2,
-        "run_baselines": "True",
-        "n_blue": 2
-    },
-    "true_baseline_05hp_2blue_paper": {
+    "hybridGAT_5hp_globalemb_NOOPT_1r2b": {
         "init_health": 5,
-        "run_baselines": "True",
+        "model": "gnn",
+        "is_hybrid": true,
+        "conv_type": "gat",
+        "aggregation_fn": "global",
         "n_blue": 2
     },
-    "true_baseline_20hp_2blue_paper": {
-        "init_health": 20,
-        "run_baselines": "True",
+    "hybridGAT_5hp_hybridemb_NOOPT_1r2b": {
+        "init_health": 5,
+        "model": "gnn",
+        "is_hybrid": true,
+        "conv_type": "gat",
+        "aggregation_fn": "hybrid",
+        "n_blue": 2
+    },
+
+
+    "hybridGCN_5hp_localemb_NOOPT_1r2b": {
+        "init_health": 5,
+        "model": "gnn",
+        "is_hybrid": true,
+        "conv_type": "gcn",
+        "aggregation_fn": "local",
+        "n_blue": 2
+    },
+    "hybridGCN_5hp_globalemb_NOOPT_1r2b": {
+        "init_health": 5,
+        "model": "gnn",
+        "is_hybrid": true,
+        "conv_type": "gcn",
+        "aggregation_fn": "global",
+        "n_blue": 2
+    },
+    "hybridGCN_5hp_hybridemb_NOOPT_1r2b": {
+        "init_health": 5,
+        "model": "gnn",
+        "is_hybrid": true,
+        "conv_type": "gcn",
+        "aggregation_fn": "hybrid",
         "n_blue": 2
     }
 }
