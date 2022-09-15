@@ -1,4 +1,12 @@
 {
+    "baseline_2r2b": {
+        "init_health": 5,
+        "model": "fc",
+        "n_blue": 2,
+        "n_red": 2
+    },
+
+    
     "hybridGT_5hp_localemb_NOOPT_2r2b": {
         "init_health": 5,
         "model": "hybrid",
@@ -10,13 +18,15 @@
         "init_health": 5,
         "model": "hybrid",
         "aggregation_fn": "global",
-        "n_blue": 2
+        "n_blue": 2,
+        "n_red": 2
     },
     "hybridGT_5hp_hybridemb_NOOPT_2r2b": {
         "init_health": 5,
         "model": "hybrid",
         "aggregation_fn": "hybrid",
-        "n_blue": 2
+        "n_blue": 2,
+        "n_red": 2
     },
 
 
@@ -26,7 +36,8 @@
         "is_hybrid": true,
         "conv_type": "gat",
         "aggregation_fn": "local",
-        "n_blue": 2
+        "n_blue": 2,
+        "n_red": 2
     },
     "hybridGAT_5hp_globalemb_NOOPT_2r2b": {
         "init_health": 5,
@@ -34,7 +45,8 @@
         "is_hybrid": true,
         "conv_type": "gat",
         "aggregation_fn": "global",
-        "n_blue": 2
+        "n_blue": 2,
+        "n_red": 2
     },
     "hybridGAT_5hp_hybridemb_NOOPT_2r2b": {
         "init_health": 5,
@@ -42,7 +54,8 @@
         "is_hybrid": true,
         "conv_type": "gat",
         "aggregation_fn": "hybrid",
-        "n_blue": 2
+        "n_blue": 2,
+        "n_red": 2
     },
 
 
@@ -52,7 +65,8 @@
         "is_hybrid": true,
         "conv_type": "gcn",
         "aggregation_fn": "local",
-        "n_blue": 2
+        "n_blue": 2,
+        "n_red": 2
     },
     "hybridGCN_5hp_globalemb_NOOPT_2r2b": {
         "init_health": 5,
@@ -60,7 +74,8 @@
         "is_hybrid": true,
         "conv_type": "gcn",
         "aggregation_fn": "global",
-        "n_blue": 2
+        "n_blue": 2,
+        "n_red": 2
     },
     "hybridGCN_5hp_hybridemb_NOOPT_2r2b": {
         "init_health": 5,
@@ -68,6 +83,7 @@
         "is_hybrid": true,
         "conv_type": "gcn",
         "aggregation_fn": "hybrid",
-        "n_blue": 2
+        "n_blue": 2,
+        "n_red": 2
     }
 }
