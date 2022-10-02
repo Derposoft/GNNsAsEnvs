@@ -33,7 +33,10 @@ from ray.rllib.agents import ppo, dqn, pg, a3c, impala
 from ray.rllib.models.catalog import MODEL_DEFAULTS
 from ray.tune.logger import pretty_print
 from ray.tune.logger import UnifiedLogger
-ray.init(num_gpus=torch.cuda.device_count())
+ray.init(
+    num_gpus=torch.cuda.device_count(),
+    num_cpus=30
+)
 SEED = 0
 
 # create env configuration
@@ -244,6 +247,7 @@ def parse_arguments():
     parser.add_argument("--hidden_size", type=int, default=169, help="size of the hidden layer to use")
     parser.add_argument("--train_time", type=int, default=200, help="how long to train the model")
     parser.add_argument("--fixed_start", type=int, default=-1, help="where to fix the agent init points when training")
+    parser.add_argument("--seed", type=int, default=0, help="seed to use for reproducibility purposes")
 
     # graph obs config
     parser.add_argument("--embed_opt", type=bool, default=False, help="embed graph optimization")
@@ -258,6 +262,7 @@ if __name__ == "__main__":
     # parse args
     parser = parse_arguments()
     config = parser.parse_args()
+    SEED = config.seed
     # run models
     run_baselines(config, custom_model=config.model+"_policy", train_time=config.train_time)
 

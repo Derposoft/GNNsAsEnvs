@@ -19,6 +19,10 @@ import subprocess
 import shlex
 from multiprocessing.pool import ThreadPool
 
+
+N_PROCS = 1     #multiprocessing.cpu_count() // 2
+N_SEEDS = 10
+
 # read experiments.json
 with open("configs/experiments/experiments.json", "r") as f:
     experiments = json.load(f)
@@ -27,8 +31,13 @@ with open("configs/experiments/experiments.json", "r") as f:
 experiment_cmds = []
 for experiment_name in experiments:
     flags = experiments[experiment_name]
-    flags["name"] = experiment_name
-    experiment_cmds.append("python3 train.py" + "".join([f" --{flag}={flags[flag]}" for flag in flags]))
+    for i in range(N_SEEDS):
+        flags["name"] = experiment_name + f"_SEED{i}"
+        experiment_cmds.append(
+            "python3 train.py"
+            + "".join([f" --{flag}={flags[flag]}" for flag in flags])
+            + f" --seed {i}"
+        )
 
 # https://stackoverflow.com/questions/25120363/multiprocessing-execute-external-command-and-wait-before-proceeding
 def call_proc(cmd):
@@ -36,9 +45,8 @@ def call_proc(cmd):
     out, err = p.communicate()
     return (out, err)
 print(f"running on {multiprocessing.cpu_count()} cpus")
-n_procs = 3 #multiprocessing.cpu_count() // 2
-print(f"choosing to run {n_procs} processes")
-pool = ThreadPool(n_procs)
+print(f"choosing to run {N_PROCS} processes")
+pool = ThreadPool(N_PROCS)
 results = []
 for cmd in experiment_cmds:
     print(f"starting exp parametrized by: {cmd}")
