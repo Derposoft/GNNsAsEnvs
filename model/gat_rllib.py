@@ -10,6 +10,7 @@ import gym
 
 import dgl
 from torch_geometric.nn.conv import GATv2Conv, GCNConv
+from torch_geometric.nn.norm import BatchNorm
 import networkx as nx
 import numpy as np
 
@@ -59,6 +60,7 @@ class GNNPolicy(TMv2.TorchModelV2, nn.Module):
         self.hidden_size = kwargs["hidden_size"]
         self.is_hybrid = kwargs["is_hybrid"]  # is this a hybrid model or a gat-only model?
         self.conv_type = kwargs["conv_type"]
+        self.layernorm = kwargs["layernorm"]
         self_shape, blue_shape, red_shape = env_setup.get_state_shapes(
             self.map.get_graph_size(),
             self.num_red,
@@ -96,6 +98,10 @@ class GNNPolicy(TMv2.TorchModelV2, nn.Module):
                 heads=self.N_HEADS,
             )
             for i in range(self.GAT_LAYERS)
+        ])
+        self.norms = nn.ModuleList([
+            BatchNorm(len(list(self.map.g_acs.adj.keys())))
+            for _ in range(self.GAT_LAYERS)
         ])
         self.aggregator = utils.GeneralGNNPooling(
             aggregator_name=self.aggregation_fn,
@@ -139,8 +145,9 @@ class GNNPolicy(TMv2.TorchModelV2, nn.Module):
         agent_nodes = [utils.get_loc(gx, self.map.get_graph_size()) for gx in obs]
         
         # inference
-        for conv in self.gats:
+        for conv, norm in zip(self.gats, self.norms):
             x = torch.stack([conv(_x, self.adjacency) for _x in x], dim=0)
+            if self.layernorm: x = norm(x)
         self._features = self.aggregator(x, self.adjacency, agent_nodes=agent_nodes)
         if self.is_hybrid:
             self._features = self._hiddens(torch.cat([self._features, obs], dim=1))

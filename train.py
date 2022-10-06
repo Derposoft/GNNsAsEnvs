@@ -118,6 +118,7 @@ def create_trainer_config(outer_configs, inner_configs, trainer_type=None, custo
             "hidden_size": inner_configs.hidden_size,
             "is_hybrid": inner_configs.is_hybrid,
             "conv_type": inner_configs.conv_type,
+            "layernorm": inner_configs.layernorm,
             "graph_obs_token": GRAPH_OBS_TOKEN,
         },
     }
@@ -243,6 +244,7 @@ def parse_arguments():
     parser.add_argument("--model", default="graph_transformer", choices=["graph_transformer", "hybrid", "fc", "gnn"])
     parser.add_argument("--is_hybrid", type=bool, default=True, help="choose between hybrid/not hybrid for gnn")
     parser.add_argument("--conv_type", default="gcn", choices=["gcn", "gat"])
+    parser.add_argument("--layernorm", type=bool, default=False, help="add layer norm in between each layer of graph network")
     parser.add_argument("--aggregation_fn", type=str, default="agent_node", help="which output fn to use after gat")
     parser.add_argument("--hidden_size", type=int, default=169, help="size of the hidden layer to use")
     parser.add_argument("--train_time", type=int, default=200, help="how long to train the model")
