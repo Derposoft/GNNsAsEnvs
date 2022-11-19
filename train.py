@@ -19,6 +19,7 @@ import os
 from sigma_graph.envs.figure8.action_lookup import MOVE_LOOKUP, TURN_90_LOOKUP
 from sigma_graph.envs.figure8.default_setup import OBS_TOKEN
 from sigma_graph.envs.figure8.figure8_squad_rllib import Figure8SquadRLLib
+from graph_scout.envs.base import ScoutMissionStdRLLib
 import sigma_graph.envs.figure8.default_setup as default_setup
 import model # THIS NEEDS TO BE HERE IN ORDER TO RUN __init__.py!
 import model.utils as utils
@@ -71,6 +72,7 @@ def create_env_config(config):
         outer_configs["threshold_damage_2_red"] = config.threshold_red
     return outer_configs, n_episodes
 
+
 # store tb logs in custom named dir
 def custom_log_creator(log_name, custom_dir="~/ray_results"):
     # https://stackoverflow.com/questions/62241261/change-logdir-of-ray-rllib-training-instead-of-ray-results
@@ -83,6 +85,7 @@ def custom_log_creator(log_name, custom_dir="~/ray_results"):
         return UnifiedLogger(config, logdir, loggers=None)
     return logger_creator
 
+
 # create trainer configuration
 def create_trainer_config(outer_configs, inner_configs, trainer_type=None, custom_model=""):
     # check params
@@ -90,12 +93,13 @@ def create_trainer_config(outer_configs, inner_configs, trainer_type=None, custo
     assert trainer_type != None, f"trainer_type must be one of {trainer_types}"
 
     # initialize env and required config settings
-    setup_env = Figure8SquadRLLib(outer_configs)
-    obs_space = setup_env.observation_space
-    act_space = setup_env.action_space
-    policies = {}
-    for agent_id in setup_env.learning_agent:
-        policies[str(agent_id)] = (None, obs_space, act_space, {})
+    env = ScoutMissionStdRLLib if "scout" in custom_model else Figure8SquadRLLib
+    setup_env = env(outer_configs)
+    #obs_space = setup_env.observation_space
+    #act_space = setup_env.action_space
+    #policies = {}
+    #for agent_id in setup_env.learning_agent:
+    #    policies[str(agent_id)] = (None, obs_space, act_space, {})
     # policy mapping function not currently used.
     #def policy_mapping_fn(agent_id, episode, worker, **kwargs):
     #    return str(agent_id)
@@ -123,7 +127,7 @@ def create_trainer_config(outer_configs, inner_configs, trainer_type=None, custo
         },
     }
     init_trainer_config = {
-        "env": Figure8SquadRLLib,
+        "env": env,
         "env_config": {
             **outer_configs
         },
@@ -190,8 +194,9 @@ def run_baselines(config, run_default_baseline_metrics=False, train_time=200, ch
     outer_configs, _ = create_env_config(config)
     
     # train
+    env = ScoutMissionStdRLLib if "scout" in custom_model else Figure8SquadRLLib
     ppo_config = create_trainer_config(outer_configs, config, trainer_type=ppo, custom_model=custom_model)
-    ppo_trainer_custom = ppo.PPOTrainer(config=ppo_config, env=Figure8SquadRLLib, logger_creator=custom_log_creator(config.name))
+    ppo_trainer_custom = ppo.PPOTrainer(config=ppo_config, env=env, logger_creator=custom_log_creator(config.name))
     train(ppo_trainer_custom, config.name, train_time, checkpoint_models, ppo_config)
 
 # parse arguments
@@ -241,7 +246,7 @@ def parse_arguments():
 
     # model/training config
     parser.add_argument("--name", default="", help="name this model")
-    parser.add_argument("--model", default="graph_transformer", choices=["graph_transformer", "hybrid", "fc", "gnn"])
+    parser.add_argument("--model", default="graph_transformer", choices=["graph_transformer", "hybrid", "fc", "gnn", "fc_scout"])
     parser.add_argument("--is_hybrid", type=bool, default=True, help="choose between hybrid/not hybrid for gnn")
     parser.add_argument("--conv_type", default="gcn", choices=["gcn", "gat"])
     parser.add_argument("--layernorm", type=bool, default=False, help="add layer norm in between each layer of graph network")
