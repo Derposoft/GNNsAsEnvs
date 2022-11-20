@@ -1,20 +1,21 @@
 from collections import deque
 import sys
-import time
-from typing import List
 import numpy as np
-import torch.nn as nn
-import torch
+from graph_scout.envs.data.terrain_graph import MapInfo as ScoutMapInfo
 import heapq
 import sigma_graph.envs.figure8.default_setup as env_setup
 from sigma_graph.envs.figure8 import action_lookup
-from sigma_graph.data.graph.skirmish_graph import MapInfo
+from sigma_graph.data.graph.skirmish_graph import MapInfo as Fig8MapInfo
 from torchinfo import summary
 from ray.rllib.utils.annotations import override
 from ray.rllib.models.torch.misc import SlimFC, normc_initializer
+import time
+import torch.nn as nn
+import torch
 from torch_geometric.nn.aggr import Aggregation
 import torch_geometric.nn.aggr as aggr
 import torch_geometric.nn.pool as pool
+from typing import List
 
 
 # constants/helper functions
@@ -43,6 +44,7 @@ NODE_EMBED_SIZE = (
     + (1 if GRAPH_OBS_TOKEN["embed_dir"] else 0)
     + (4 if GRAPH_OBS_TOKEN["embed_opt"] else 0)
 )
+SCOUT_NODE_EMBED_SIZE = 2
 OPT_SETTINGS = {
     "flanking": True, # does positioning on this node consistute "flanking" the enemy?
 }
@@ -75,9 +77,23 @@ def set_obs_token(OBS_TOKEN):
     )
 
 
+def scout_embed_obs_in_map(obs: torch.Tensor, map: ScoutMapInfo):
+    """
+    :param obs: observation from combat_env gym
+    :param map: MapInfo object from inside of combat_env gym (for graph connectivity info)
+    :returns: node embeddings for each node of the move graph in map, using obs
+    """
+    global SUPPRESS_WARNINGS
+    pos_obs_size = map.get_graph_size()
+    batch_size = len(obs)
+    node_embeddings = torch.zeros(batch_size, pos_obs_size, 2)
+    move_map = create_move_map(map.g_move)
+    return node_embeddings
+
+
 # TODO read obs using obs_token instead of hardcoding.
 #      figure8_squad.py:_update():line ~250
-def efficient_embed_obs_in_map(obs: torch.Tensor, map: MapInfo, obs_shapes=None):
+def efficient_embed_obs_in_map(obs: torch.Tensor, map: Fig8MapInfo, obs_shapes=None):
     """
     :param obs: observation from combat_env gym
     :param map: MapInfo object from inside of combat_env gym (for graph connectivity info)
@@ -103,7 +119,7 @@ def efficient_embed_obs_in_map(obs: torch.Tensor, map: MapInfo, obs_shapes=None)
     pos_obs_size = map.get_graph_size()
     batch_size = len(obs)
     node_embeddings = torch.zeros(batch_size, pos_obs_size, NODE_EMBED_SIZE) # TODO changed +1 node for a dummy node that we'll use when needed
-    move_map = create_move_map(map)
+    move_map = create_move_map(map.g_acs)
 
     # embed x,y
     if GRAPH_OBS_TOKEN["embed_pos"]:
@@ -215,7 +231,7 @@ def get_loc(one_hot_graph, graph_size, default=0):
     return default
 
 
-def create_move_map(map: MapInfo):
+def create_move_map(graph):#: Fig8MapInfo):
     """
     turns map.g_acs into a dictionary in the form of:
     {
@@ -227,9 +243,9 @@ def create_move_map(map: MapInfo):
     }
     """
     move_map = {} # movement dictionary: d[node][direction] = newnode. newnode is -1 if direction is not possible from node
-    for n in map.g_acs.adj:
+    for n in graph.adj:
         move_map[n] = {}
-        ms = map.g_acs.adj[n]
+        ms = graph.adj[n]
         for m in ms:
             dir = ms[m]["action"]
             move_map[n][dir] = m
@@ -414,7 +430,7 @@ def create_policy_fc(
 
 
 def flank_optimization(
-    map: MapInfo,
+    map: Fig8MapInfo,
     red_location: int,
     blue_locations: List[int]
 ):

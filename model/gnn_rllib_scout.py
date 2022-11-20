@@ -7,17 +7,12 @@ import ray.rllib.models.torch.torch_modelv2 as TMv2
 from ray.rllib.utils.annotations import override
 from ray.rllib.utils.typing import Dict, TensorType, List, ModelConfigDict
 import gym
-
-import dgl
 from torch_geometric.nn.conv import GATv2Conv, GCNConv
 from torch_geometric.nn.norm import BatchNorm
-import networkx as nx
 import numpy as np
 
-from sigma_graph.data.graph.skirmish_graph import MapInfo
-from sigma_graph.envs.figure8 import default_setup as env_setup
-from sigma_graph.envs.figure8.action_lookup import MOVE_LOOKUP
-from sigma_graph.envs.figure8.figure8_squad_rllib import Figure8SquadRLLib
+from graph_scout.envs.data.terrain_graph import MapInfo
+from graph_scout.envs.utils.config import default_configs as env_setup
 import model.utils as utils
 
 
@@ -61,27 +56,15 @@ class GNNScoutPolicy(TMv2.TorchModelV2, nn.Module):
         self.is_hybrid = kwargs["is_hybrid"]  # is this a hybrid model or a gat-only model?
         self.conv_type = kwargs["conv_type"]
         self.layernorm = kwargs["layernorm"]
-        self_shape, blue_shape, red_shape = env_setup.get_state_shapes(
-            self.map.get_graph_size(),
-            self.num_red,
-            self.num_blue,
-            env_setup.OBS_TOKEN,
-        )
-        self.obs_shapes = [
-            self_shape,
-            blue_shape,
-            red_shape,
-            self.num_red,
-            self.num_blue,
-        ]
         self.adjacency = []
-        for n in map.g_acs.adj:
-            ms = map.g_acs.adj[n]
+        for n in map.g_move.adj:
+            ms = map.g_move.adj[n]
             for m in ms:
                 self.adjacency.append([n-1, m-1])
         self.adjacency = torch.LongTensor(self.adjacency).t().contiguous()
         self._features = None  # current "base" output before logits
         self._last_flat_in = None  # last input
+        self.action_space_output_dim = np.sum(action_space.nvec)
 
         """
         instantiate policy and value networks
@@ -93,20 +76,20 @@ class GNNScoutPolicy(TMv2.TorchModelV2, nn.Module):
         gat = GATv2Conv if self.conv_type == "gat" else GCNConv
         self.gats = nn.ModuleList([
             gat(
-                in_channels=utils.NODE_EMBED_SIZE if i == 0 else self.HIDDEN_DIM*self.N_HEADS,
+                in_channels=utils.SCOUT_NODE_EMBED_SIZE if i == 0 else self.HIDDEN_DIM*self.N_HEADS,
                 out_channels=self.HIDDEN_DIM,
                 heads=self.N_HEADS,
             )
             for i in range(self.GAT_LAYERS)
         ])
         self.norms = nn.ModuleList([
-            BatchNorm(len(list(self.map.g_acs.adj.keys())))
+            BatchNorm(len(list(self.map.g_move.adj.keys())))
             for _ in range(self.GAT_LAYERS)
         ])
         self.aggregator = utils.GeneralGNNPooling(
             aggregator_name=self.aggregation_fn,
             input_dim=self.HIDDEN_DIM*self.N_HEADS,
-            output_dim=int(action_space.n)
+            output_dim=self.action_space_output_dim,
         )
         self._hiddens, self._logits = utils.create_policy_fc(
             hiddens=self.hiddens,
@@ -141,7 +124,7 @@ class GNNScoutPolicy(TMv2.TorchModelV2, nn.Module):
     ):
         # transform obs to graph (for pyG, also do list[data]->torch_geometric.Batch)
         obs = input_dict["obs_flat"].float()
-        x = utils.efficient_embed_obs_in_map(obs, self.map, self.obs_shapes)
+        x = utils.scout_embed_obs_in_map(obs, self.map)
         agent_nodes = [utils.get_loc(gx, self.map.get_graph_size()) for gx in obs]
         
         # inference

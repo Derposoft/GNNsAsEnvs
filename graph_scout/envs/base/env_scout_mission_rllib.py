@@ -24,16 +24,8 @@ class ScoutMissionStdRLLib(ScoutMissionStd, MultiAgentEnv):
         super().__init__(**config)
         
         # extra values to make graph embedding viable
-        num_extra_graph_obs = 0# 5 if self.obs_token["obs_graph"] else 0
-        # self.action_space = spaces.MultiDiscrete([len(local_action_move), len(local_action_turn)])
-        # "flatten" the above action space into the below discrete action space
-        #self.action_space = spaces.Discrete(len(local_action_move)*len(local_action_turn))
-        #self.observation_space = spaces.Box(low=0, high=1, shape=(self.state_shape + num_extra_graph_obs,), dtype=np.int8)
         self.action_space = self.action_space[0] #spaces.Tuple(self.action_space)
         self.observation_space = self.observation_space[0]# spaces.Tuple(self.observation_space)
-        #print(len(self.observation_space), "OBS SPACE SHAPE")
-        #import sys
-        #sys.exit()
         self.done = set()
 
     # return an arbitrary encoding from the "flat" action space to the normal action space 0-indexed
@@ -57,7 +49,6 @@ class ScoutMissionStdRLLib(ScoutMissionStd, MultiAgentEnv):
                 n_actions.append(_n_actions[_id])
             else:
                 n_actions.append(self.action_space.sample())
-            #print("IN ACT", self.action_space.contains(n_actions[-1]))
         super().step(n_actions)
         obs, rew, done = self.states.dump_dict()
         all_done = True
@@ -66,6 +57,7 @@ class ScoutMissionStdRLLib(ScoutMissionStd, MultiAgentEnv):
                 self.done.add(k)
             all_done = all_done and done[k]
         done['__all__'] = all_done
+
         # make sure to only report done ids once
         for id in self.done:
             done.pop(id)
