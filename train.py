@@ -46,6 +46,8 @@ def create_env_config(config):
     # init_red and init_blue should have number of agents dictionary elements if you want to specify it
     # [!!] remember to update this dict if adding new args in parser
     outer_configs = {
+        # FIG8 PARAMETERS
+
         "env_path": config.env_path, "max_step": config.max_step, "act_masked": config.act_masked,
         "n_red": config.n_red, "n_blue": config.n_blue,
         "init_red": config.init_red, "init_blue": config.init_blue,
@@ -61,6 +63,10 @@ def create_env_config(config):
         #"hidden_size": config.hidden_size,
         #"is_hybrid": config.is_hybrid,
         #"conv_type": config.conv_type,
+
+        # SCOUT PARAMETERS
+
+        "num_red": config.n_red, "num_blue": config.n_blue,
     }
     ## i.e. init_red "pos": tuple(x, z) or "L"/"R" region of the map
     # "init_red": [{"pos": (11, 1), "dir": 1}, {"pos": None}, {"pos": "L", "dir": None}]
@@ -139,7 +145,7 @@ def create_trainer_config(outer_configs, inner_configs, trainer_type=None, custo
         "evaluation_interval": 1,
         "evaluation_num_episodes": 10,
         "evaluation_num_workers": 1,
-        "rollout_fragment_length": 50, # 50 for a2c, 200 for everyone else?
+        "rollout_fragment_length": 100, # 50 for a2c, 200 for everyone else?
         "train_batch_size": 200,
         "log_level": "ERROR",
         "seed": SEED
@@ -150,7 +156,7 @@ def create_trainer_config(outer_configs, inner_configs, trainer_type=None, custo
     trainer_type_config = trainer_type.DEFAULT_CONFIG.copy()
     trainer_type_config.update(init_trainer_config)
     # TODO tune lr with scheduler?
-    trainer_type_config["lr"] = 1e-3
+    trainer_type_config["lr"] = inner_configs.lr # 1e-3
 
     # merge init config and trainer-specific config and return
     trainer_config = { **init_trainer_config, **trainer_type_config }
@@ -255,6 +261,7 @@ def parse_arguments():
     parser.add_argument("--train_time", type=int, default=200, help="how long to train the model")
     parser.add_argument("--fixed_start", type=int, default=-1, help="where to fix the agent init points when training")
     parser.add_argument("--seed", type=int, default=0, help="seed to use for reproducibility purposes")
+    parser.add_argument("--lr", type=float, default=1e-3, help="learning rate")
 
     # graph obs config
     parser.add_argument("--embed_opt", type=bool, default=False, help="embed graph optimization")

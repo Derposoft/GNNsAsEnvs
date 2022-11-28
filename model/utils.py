@@ -86,8 +86,15 @@ def scout_embed_obs_in_map(obs: torch.Tensor, map: ScoutMapInfo):
     global SUPPRESS_WARNINGS
     pos_obs_size = map.get_graph_size()
     batch_size = len(obs)
+    """
     node_embeddings = torch.zeros(batch_size, pos_obs_size, 2)
     move_map = create_move_map(map.g_move)
+    for i in range(batch_size):
+        #get_loc()
+        #node_embeddings[i]
+        pass
+    """
+    node_embeddings = obs.reshape([batch_size, pos_obs_size, 2])
     return node_embeddings
 
 
@@ -217,7 +224,7 @@ def efficient_embed_obs_in_map(obs: torch.Tensor, map: Fig8MapInfo, obs_shapes=N
     return node_embeddings.to(device)
 
 
-def get_loc(one_hot_graph, graph_size, default=0):
+def get_loc(one_hot_graph, graph_size, default=0, get_all=False):
     """
     get location of an agent given one-hot positional encoding on graph (0-indexed)
     """

@@ -96,7 +96,7 @@ class GNNScoutPolicy(TMv2.TorchModelV2, nn.Module):
             activation=activation,
             num_outputs=num_outputs,
             no_final_linear=no_final_linear,
-            num_inputs=int(np.product(obs_space.shape))+num_outputs,
+            num_inputs=int(np.product(obs_space.shape)) +num_outputs,
         )
         self._value_branch, self._value_branch_separate = utils.create_value_branch(
             num_inputs=int(np.product(obs_space.shape)),
@@ -126,7 +126,7 @@ class GNNScoutPolicy(TMv2.TorchModelV2, nn.Module):
         obs = input_dict["obs_flat"].float()
         x = utils.scout_embed_obs_in_map(obs, self.map)
         agent_nodes = [utils.get_loc(gx, self.map.get_graph_size()) for gx in obs]
-        
+
         # inference
         for conv, norm in zip(self.gats, self.norms):
             x = torch.stack([conv(_x, self.adjacency) for _x in x], dim=0)

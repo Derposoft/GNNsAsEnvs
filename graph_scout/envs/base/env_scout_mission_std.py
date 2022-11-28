@@ -713,6 +713,10 @@ class AgentManager:
             _pos = a_dict["posture"]
             _HP = a_dict["health"] if "health" in a_dict else default_HP[_team]
 
+            # ensure that only the agents we need are added in case more agent configs than required are provided
+            if _team and len(self.ids_B) == n_blue: continue
+            elif not _team and len(self.ids_R) == n_red: continue # TODO EDITED HERE
+
             # learning agents
             if _type == "RL":
                 _node = a_dict["node"]

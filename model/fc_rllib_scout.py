@@ -48,7 +48,8 @@ class FCScoutPolicy(TMv2.TorchModelV2, nn.Module):
             model_config.get("post_fcnet_hiddens", [])
         )
         #hiddens = [170, 170] # ensures that this model has ~90k params
-        hiddens = [177, 177] # ensures that this model has ~96k params
+        #hiddens = [177, 177] # ensures that this model has ~96k params
+        hiddens = [200, 200]
         
         activation = model_config.get("fcnet_activation")
         if not model_config.get("fcnet_hiddens", []):
