@@ -69,10 +69,14 @@ class GNNScoutPolicy(TMv2.TorchModelV2, nn.Module):
         """
         instantiate policy and value networks
         """
-        self.GAT_LAYERS = 4
+        #self.GAT_LAYERS = 4
+        #self.N_HEADS = 1 if self.conv_type == "gcn" else 4
+        #self.HIDDEN_DIM = 4
+        self.GAT_LAYERS = 2
         self.N_HEADS = 1 if self.conv_type == "gcn" else 4
-        self.HIDDEN_DIM = 4
-        self.hiddens = [self.hidden_size, self.hidden_size]
+        self.HIDDEN_DIM = 2
+
+        self.hiddens = [self.hidden_size, self.hidden_size//2] # TODO withut //2
         gat = GATv2Conv if self.conv_type == "gat" else GCNConv
         self.gats = nn.ModuleList([
             gat(
@@ -143,6 +147,8 @@ class GNNScoutPolicy(TMv2.TorchModelV2, nn.Module):
     @override(TMv2.TorchModelV2)
     def value_function(self):
         assert self._features is not None, "must call forward() first"
+        if not self._value_branch:
+            return torch.Tensor([0]*len(self._features))
         if self._value_branch_separate:
             return self._value_branch(
                 self._value_branch_separate(self._last_flat_in)

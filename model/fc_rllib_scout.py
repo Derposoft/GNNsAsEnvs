@@ -44,12 +44,18 @@ class FCScoutPolicy(TMv2.TorchModelV2, nn.Module):
         
         self.embed_opt = kwargs["graph_obs_token"]["embed_opt"]
         self.map = map
+        self.hidden_size = kwargs["hidden_size"]
         hiddens = list(model_config.get("fcnet_hiddens", [])) + list(
             model_config.get("post_fcnet_hiddens", [])
         )
         #hiddens = [170, 170] # ensures that this model has ~90k params
         #hiddens = [177, 177] # ensures that this model has ~96k params
-        hiddens = [200, 200]
+        #hiddens = [200, 200] # ~160k params
+        #hiddens = [100, 50] # ~100k params
+        #hiddens = [50, 25] # ~85k params
+        #hiddens = [20, 10] # ~76k
+        #hiddens = [10, 5] # ~2.5k
+        hiddens = [self.hidden_size, self.hidden_size//2]
         
         activation = model_config.get("fcnet_activation")
         if not model_config.get("fcnet_hiddens", []):
@@ -119,6 +125,8 @@ class FCScoutPolicy(TMv2.TorchModelV2, nn.Module):
     @override(TMv2.TorchModelV2)
     def value_function(self) -> TensorType:
         assert self._features is not None, "must call forward() first"
+        if not self._value_branch:
+            return torch.Tensor([0]*len(self._features))
         if self._value_branch_separate:
             return self._value_branch(
                 self._value_branch_separate(self._last_flat_in)

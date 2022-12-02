@@ -257,7 +257,7 @@ def parse_arguments():
     parser.add_argument("--conv_type", default="gcn", choices=["gcn", "gat"])
     parser.add_argument("--layernorm", type=bool, default=False, help="add layer norm in between each layer of graph network")
     parser.add_argument("--aggregation_fn", type=str, default="agent_node", help="which output fn to use after gat")
-    parser.add_argument("--hidden_size", type=int, default=169, help="size of the hidden layer to use")
+    parser.add_argument("--hidden_size", type=int, default=10, help="size of the hidden layer to use") # 169
     parser.add_argument("--train_time", type=int, default=200, help="how long to train the model")
     parser.add_argument("--fixed_start", type=int, default=-1, help="where to fix the agent init points when training")
     parser.add_argument("--seed", type=int, default=0, help="seed to use for reproducibility purposes")
