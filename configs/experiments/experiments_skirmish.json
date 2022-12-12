@@ -1,0 +1,18 @@
+{
+    "fcskirmish_5hp_baseline100_50_PAPER": {
+        "n_red": 1,
+        "n_blue": 1,
+        "model": "fc",
+        "init_health": 5,
+        "hidden_size": 100
+    },
+    "gcnskirmish_5hp_baseline100_50_3.4_PAPER": {
+        "n_red": 1,
+        "n_blue": 1,
+        "model": "gnn",
+        "conv_type": "gcn",
+        "is_hybrid": true,
+        "init_health": 5,
+        "hidden_size": 100
+    }
+}

@@ -1,0 +1,9 @@
+{
+    "gatscout_200h2.2l_1r2b": {
+        "n_red": 1,
+        "n_blue": 2,
+        "model": "gnn_scout",
+        "hidden_size": 200,
+        "conv_type": "gat"
+    }
+}

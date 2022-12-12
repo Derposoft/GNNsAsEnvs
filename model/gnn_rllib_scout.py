@@ -72,7 +72,7 @@ class GNNScoutPolicy(TMv2.TorchModelV2, nn.Module):
         #self.GAT_LAYERS = 4
         #self.N_HEADS = 1 if self.conv_type == "gcn" else 4
         #self.HIDDEN_DIM = 4
-        self.GAT_LAYERS = 2
+        self.GAT_LAYERS = 2 # 1_6:1804, 3_50: ~15k
         self.N_HEADS = 1 if self.conv_type == "gcn" else 4
         self.HIDDEN_DIM = 2
 
@@ -95,13 +95,23 @@ class GNNScoutPolicy(TMv2.TorchModelV2, nn.Module):
             input_dim=self.HIDDEN_DIM*self.N_HEADS,
             output_dim=self.action_space_output_dim,
         )
-        self._hiddens, self._logits = utils.create_policy_fc(
-            hiddens=self.hiddens,
-            activation=activation,
-            num_outputs=num_outputs,
-            no_final_linear=no_final_linear,
-            num_inputs=int(np.product(obs_space.shape)) +num_outputs,
-        )
+        if self.is_hybrid:
+            self._hiddens, self._logits = utils.create_policy_fc(
+                hiddens=self.hiddens,
+                activation=activation,
+                num_outputs=num_outputs,
+                no_final_linear=no_final_linear,
+                num_inputs=int(np.product(obs_space.shape)) +num_outputs,
+            )
+        else:
+            self._hiddens, self._logits = None, utils.create_policy_fc(
+                hiddens=self.hiddens,
+                activation=activation,
+                num_outputs=num_outputs,
+                no_final_linear=no_final_linear,
+                num_inputs=int(np.product(obs_space.shape)) +num_outputs,
+            )[1]
+            
         self._value_branch, self._value_branch_separate = utils.create_value_branch(
             num_inputs=int(np.product(obs_space.shape)),
             num_outputs=num_outputs,

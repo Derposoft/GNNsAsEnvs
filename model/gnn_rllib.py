@@ -86,10 +86,10 @@ class GNNPolicy(TMv2.TorchModelV2, nn.Module):
         """
         instantiate policy and value networks
         """
-        self.GAT_LAYERS = 4
+        self.GAT_LAYERS = 3
         self.N_HEADS = 1 if self.conv_type == "gcn" else 4
         self.HIDDEN_DIM = 4
-        self.hiddens = [self.hidden_size, self.hidden_size]
+        self.hiddens = [self.hidden_size, self.hidden_size//2] # TODO TEMP added //2
         gat = GATv2Conv if self.conv_type == "gat" else GCNConv
         self.gats = nn.ModuleList([
             gat(

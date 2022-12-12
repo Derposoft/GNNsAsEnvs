@@ -253,7 +253,7 @@ def parse_arguments():
     # model/training config
     parser.add_argument("--name", default="", help="name this model")
     parser.add_argument("--model", default="graph_transformer", choices=["graph_transformer", "hybrid", "fc", "gnn", "fc_scout", "gnn_scout"])
-    parser.add_argument("--is_hybrid", type=bool, default=True, help="choose between hybrid/not hybrid for gnn")
+    parser.add_argument("--is_hybrid", type=bool, default=False, help="choose between hybrid/not hybrid for gnn")
     parser.add_argument("--conv_type", default="gcn", choices=["gcn", "gat"])
     parser.add_argument("--layernorm", type=bool, default=False, help="add layer norm in between each layer of graph network")
     parser.add_argument("--aggregation_fn", type=str, default="agent_node", help="which output fn to use after gat")
