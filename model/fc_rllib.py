@@ -49,7 +49,7 @@ class FCPolicy(TMv2.TorchModelV2, nn.Module):
         self.hidden_size = kwargs["hidden_size"]
         #hiddens = [170, 170] # ensures that this model has ~90k params
         #hiddens = [177, 177] # ensures that this model has ~96k params
-        hiddens = [self.hidden_size, self.hidden_size//2]
+        hiddens = [self.hidden_size, self.hidden_size] # TODO temp removed //2
         
         activation = model_config.get("fcnet_activation")
         if not model_config.get("fcnet_hiddens", []):

@@ -12,6 +12,7 @@ ModelCatalog.register_custom_model("gnn_policy", GNNPolicy)
 ModelCatalog.register_custom_model("gnn_scout_policy", GNNScoutPolicy)
 ModelCatalog.register_custom_model("graph_transformer_policy", GraphTransformerPolicy)
 ModelCatalog.register_custom_model("hybrid_policy", HybridPolicy)
+ModelCatalog.register_custom_model("gt_policy", HybridPolicy)
 ModelCatalog.register_custom_model("fc_policy", FCPolicy)
 ModelCatalog.register_custom_model("fc_scout_policy", FCScoutPolicy)
 

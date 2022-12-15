@@ -352,7 +352,10 @@ def create_value_branch(
     vf_share_layers=False,
     activation="relu",
     hiddens=[],
+    is_actor_critic=False,
 ):
+    if not is_actor_critic:
+        return None, None
     _value_branch_separate = None
     # create value network with equal number of hidden layers as policy net
     if not vf_share_layers:
@@ -375,7 +378,6 @@ def create_value_branch(
         out_size=1,
         initializer=normc_initializer(0.01),
         activation_fn=None)
-    return None, None
     return _value_branch, _value_branch_separate
 
 

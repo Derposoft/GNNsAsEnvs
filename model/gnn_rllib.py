@@ -86,10 +86,11 @@ class GNNPolicy(TMv2.TorchModelV2, nn.Module):
         """
         instantiate policy and value networks
         """
-        self.GAT_LAYERS = 3
+        self.GAT_LAYERS = 4
         self.N_HEADS = 1 if self.conv_type == "gcn" else 4
         self.HIDDEN_DIM = 4
-        self.hiddens = [self.hidden_size, self.hidden_size//2] # TODO TEMP added //2
+        self.hiddens = [self.hidden_size, self.hidden_size] # TODO TEMP removed //2
+        #self.hiddens = [169, 169]
         gat = GATv2Conv if self.conv_type == "gat" else GCNConv
         self.gats = nn.ModuleList([
             gat(
@@ -99,10 +100,13 @@ class GNNPolicy(TMv2.TorchModelV2, nn.Module):
             )
             for i in range(self.GAT_LAYERS)
         ])
-        self.norms = nn.ModuleList([
-            BatchNorm(len(list(self.map.g_acs.adj.keys())))
-            for _ in range(self.GAT_LAYERS)
-        ])
+        if self.layernorm:
+            self.norms = nn.ModuleList([
+                BatchNorm(len(list(self.map.g_acs.adj.keys())))
+                for _ in range(self.GAT_LAYERS)
+            ])
+        else:
+            self.norms = [None]*self.GAT_LAYERS
         self.aggregator = utils.GeneralGNNPooling(
             aggregator_name=self.aggregation_fn,
             input_dim=self.HIDDEN_DIM*self.N_HEADS,
