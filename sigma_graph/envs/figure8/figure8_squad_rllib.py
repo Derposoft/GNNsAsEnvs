@@ -1,8 +1,7 @@
-from typing import overload
 from gym import spaces
 from ray.rllib.env.multi_agent_env import MultiAgentEnv
 from ray.rllib.models.catalog import MODEL_DEFAULTS
-from sigma_graph.data.data_helper import get_emb_from_name
+from ray.rllib.agents import dqn
 import numpy as np
 import os
 
@@ -83,24 +82,29 @@ class Figure8SquadRLLib(Figure8Squad, MultiAgentEnv):
         return obs, rew, done, {}
 
 
-from ray.rllib.agents import dqn
 # create env configuration
 def create_env_config(config):
     n_episodes = config.n_episode
     # init_red and init_blue should have number of agents dictionary elements if you want to specify it
     # [!!] remember to update this dict if adding new args in parser
-    outer_configs = {"env_path": config.env_path, "max_step": config.max_step, "act_masked": config.act_masked,
-                    "n_red": config.n_red, "n_blue": config.n_blue,
-                    "init_red": config.init_red, "init_blue": config.init_blue,
-                    "init_health_red": config.init_health, "init_health_blue": config.init_health,
-                    "obs_embed": config.obs_embed, "obs_dir": config.obs_dir, "obs_team": config.obs_team,
-                    "obs_sight": config.obs_sight,
-                    "log_on": config.log_on, "log_path": config.log_path,
-                    # "reward_step_on": False, "reward_episode_on": True, "episode_decay_soft": True,
-                    # "health_lookup": {"type": "table", "reward": [8, 4, 2, 0], "damage": [0, 1, 2, 100]},
-                    # "faster_lookup": {"type": "none"},
-                    }
-    ## i.e. init_red 'pos': tuple(x, z) or "L"/"R" region of the map
+    outer_configs = {
+        "env_path": config.env_path, "max_step": config.max_step, "act_masked": config.act_masked,
+        "n_red": config.n_red, "n_blue": config.n_blue,
+        "init_red": config.init_red, "init_blue": config.init_blue,
+        "init_health_red": config.init_health, "init_health_blue": config.init_health,
+        "obs_embed": config.obs_embed, "obs_dir": config.obs_dir, "obs_team": config.obs_team,
+        "obs_sight": config.obs_sight,
+        "log_on": config.log_on, "log_path": config.log_path,
+        # "reward_step_on": False, "reward_episode_on": True, "episode_decay_soft": True,
+        # "health_lookup": {"type": "table", "reward": [8, 4, 2, 0], "damage": [0, 1, 2, 100]},
+        # "faster_lookup": {"type": "none"},
+        "fixed_start": config.fixed_start,
+        #"aggregation_fn": config.aggregation_fn,
+        #"hidden_size": config.hidden_size,
+        #"is_hybrid": config.is_hybrid,
+        #"conv_type": config.conv_type,
+    }
+    ## i.e. init_red "pos": tuple(x, z) or "L"/"R" region of the map
     # "init_red": [{"pos": (11, 1), "dir": 1}, {"pos": None}, {"pos": "L", "dir": None}]
     if hasattr(config, "penalty_stay"):
         outer_configs["penalty_stay"] = config.penalty_stay
@@ -109,6 +113,8 @@ def create_env_config(config):
     if hasattr(config, "threshold_red"):
         outer_configs["threshold_damage_2_red"] = config.threshold_red
     return outer_configs, n_episodes
+
+
 # run baseline tests with a few different algorithms
 def run_baselines(config):
     # make dqn trainer

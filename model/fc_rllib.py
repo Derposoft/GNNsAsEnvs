@@ -46,8 +46,10 @@ class FCPolicy(TMv2.TorchModelV2, nn.Module):
         hiddens = list(model_config.get("fcnet_hiddens", [])) + list(
             model_config.get("post_fcnet_hiddens", [])
         )
+        self.hidden_size = kwargs["hidden_size"]
         #hiddens = [170, 170] # ensures that this model has ~90k params
-        hiddens = [177, 177] # ensures that this model has ~96k params
+        #hiddens = [177, 177] # ensures that this model has ~96k params
+        hiddens = [self.hidden_size, self.hidden_size] # TODO temp removed //2
         
         activation = model_config.get("fcnet_activation")
         if not model_config.get("fcnet_hiddens", []):
@@ -117,6 +119,8 @@ class FCPolicy(TMv2.TorchModelV2, nn.Module):
     @override(TMv2.TorchModelV2)
     def value_function(self) -> TensorType:
         assert self._features is not None, "must call forward() first"
+        if not self._value_branch:
+            return torch.Tensor([0]*len(self._features))
         if self._value_branch_separate:
             return self._value_branch(
                 self._value_branch_separate(self._last_flat_in)

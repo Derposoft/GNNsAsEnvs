@@ -19,6 +19,7 @@ import os
 from sigma_graph.envs.figure8.action_lookup import MOVE_LOOKUP, TURN_90_LOOKUP
 from sigma_graph.envs.figure8.default_setup import OBS_TOKEN
 from sigma_graph.envs.figure8.figure8_squad_rllib import Figure8SquadRLLib
+from graph_scout.envs.base import ScoutMissionStdRLLib
 import sigma_graph.envs.figure8.default_setup as default_setup
 import model # THIS NEEDS TO BE HERE IN ORDER TO RUN __init__.py!
 import model.utils as utils
@@ -45,6 +46,8 @@ def create_env_config(config):
     # init_red and init_blue should have number of agents dictionary elements if you want to specify it
     # [!!] remember to update this dict if adding new args in parser
     outer_configs = {
+        # FIG8 PARAMETERS
+
         "env_path": config.env_path, "max_step": config.max_step, "act_masked": config.act_masked,
         "n_red": config.n_red, "n_blue": config.n_blue,
         "init_red": config.init_red, "init_blue": config.init_blue,
@@ -60,6 +63,10 @@ def create_env_config(config):
         #"hidden_size": config.hidden_size,
         #"is_hybrid": config.is_hybrid,
         #"conv_type": config.conv_type,
+
+        # SCOUT PARAMETERS
+
+        "num_red": config.n_red, "num_blue": config.n_blue,
     }
     ## i.e. init_red "pos": tuple(x, z) or "L"/"R" region of the map
     # "init_red": [{"pos": (11, 1), "dir": 1}, {"pos": None}, {"pos": "L", "dir": None}]
@@ -70,6 +77,7 @@ def create_env_config(config):
     if hasattr(config, "threshold_red"):
         outer_configs["threshold_damage_2_red"] = config.threshold_red
     return outer_configs, n_episodes
+
 
 # store tb logs in custom named dir
 def custom_log_creator(log_name, custom_dir="~/ray_results"):
@@ -83,6 +91,7 @@ def custom_log_creator(log_name, custom_dir="~/ray_results"):
         return UnifiedLogger(config, logdir, loggers=None)
     return logger_creator
 
+
 # create trainer configuration
 def create_trainer_config(outer_configs, inner_configs, trainer_type=None, custom_model=""):
     # check params
@@ -90,12 +99,13 @@ def create_trainer_config(outer_configs, inner_configs, trainer_type=None, custo
     assert trainer_type != None, f"trainer_type must be one of {trainer_types}"
 
     # initialize env and required config settings
-    setup_env = Figure8SquadRLLib(outer_configs)
-    obs_space = setup_env.observation_space
-    act_space = setup_env.action_space
-    policies = {}
-    for agent_id in setup_env.learning_agent:
-        policies[str(agent_id)] = (None, obs_space, act_space, {})
+    env = ScoutMissionStdRLLib if "scout" in custom_model else Figure8SquadRLLib
+    setup_env = env(outer_configs)
+    #obs_space = setup_env.observation_space
+    #act_space = setup_env.action_space
+    #policies = {}
+    #for agent_id in setup_env.learning_agent:
+    #    policies[str(agent_id)] = (None, obs_space, act_space, {})
     # policy mapping function not currently used.
     #def policy_mapping_fn(agent_id, episode, worker, **kwargs):
     #    return str(agent_id)
@@ -123,7 +133,7 @@ def create_trainer_config(outer_configs, inner_configs, trainer_type=None, custo
         },
     }
     init_trainer_config = {
-        "env": Figure8SquadRLLib,
+        "env": env,
         "env_config": {
             **outer_configs
         },
@@ -135,7 +145,7 @@ def create_trainer_config(outer_configs, inner_configs, trainer_type=None, custo
         "evaluation_interval": 1,
         "evaluation_num_episodes": 10,
         "evaluation_num_workers": 1,
-        "rollout_fragment_length": 50, # 50 for a2c, 200 for everyone else?
+        "rollout_fragment_length": 100, # 50 for a2c, 200 for everyone else?
         "train_batch_size": 200,
         "log_level": "ERROR",
         "seed": SEED
@@ -146,7 +156,7 @@ def create_trainer_config(outer_configs, inner_configs, trainer_type=None, custo
     trainer_type_config = trainer_type.DEFAULT_CONFIG.copy()
     trainer_type_config.update(init_trainer_config)
     # TODO tune lr with scheduler?
-    trainer_type_config["lr"] = 1e-3
+    trainer_type_config["lr"] = inner_configs.lr # 1e-3
 
     # merge init config and trainer-specific config and return
     trainer_config = { **init_trainer_config, **trainer_type_config }
@@ -190,8 +200,9 @@ def run_baselines(config, run_default_baseline_metrics=False, train_time=200, ch
     outer_configs, _ = create_env_config(config)
     
     # train
+    env = ScoutMissionStdRLLib if "scout" in custom_model else Figure8SquadRLLib
     ppo_config = create_trainer_config(outer_configs, config, trainer_type=ppo, custom_model=custom_model)
-    ppo_trainer_custom = ppo.PPOTrainer(config=ppo_config, env=Figure8SquadRLLib, logger_creator=custom_log_creator(config.name))
+    ppo_trainer_custom = ppo.PPOTrainer(config=ppo_config, env=env, logger_creator=custom_log_creator(config.name))
     train(ppo_trainer_custom, config.name, train_time, checkpoint_models, ppo_config)
 
 # parse arguments
@@ -241,15 +252,16 @@ def parse_arguments():
 
     # model/training config
     parser.add_argument("--name", default="", help="name this model")
-    parser.add_argument("--model", default="graph_transformer", choices=["graph_transformer", "hybrid", "fc", "gnn"])
-    parser.add_argument("--is_hybrid", type=bool, default=True, help="choose between hybrid/not hybrid for gnn")
+    parser.add_argument("--model", default="graph_transformer", choices=["graph_transformer", "hybrid", "fc", "gnn", "gt", "fc_scout", "gnn_scout"])
+    parser.add_argument("--is_hybrid", type=bool, default=False, help="choose between hybrid/not hybrid for gnn")
     parser.add_argument("--conv_type", default="gcn", choices=["gcn", "gat"])
     parser.add_argument("--layernorm", type=bool, default=False, help="add layer norm in between each layer of graph network")
     parser.add_argument("--aggregation_fn", type=str, default="agent_node", help="which output fn to use after gat")
-    parser.add_argument("--hidden_size", type=int, default=169, help="size of the hidden layer to use")
+    parser.add_argument("--hidden_size", type=int, default=10, help="size of the hidden layer to use") # 169
     parser.add_argument("--train_time", type=int, default=200, help="how long to train the model")
     parser.add_argument("--fixed_start", type=int, default=-1, help="where to fix the agent init points when training")
     parser.add_argument("--seed", type=int, default=0, help="seed to use for reproducibility purposes")
+    parser.add_argument("--lr", type=float, default=1e-3, help="learning rate")
 
     # graph obs config
     parser.add_argument("--embed_opt", type=bool, default=False, help="embed graph optimization")
