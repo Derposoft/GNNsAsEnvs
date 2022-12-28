@@ -29,7 +29,7 @@ class ScoutMissionStd(gym.Env):
         # 2 init Multi-branched action gym space & flattened observation gym space
         from gym import spaces
         self.action_space = [spaces.MultiDiscrete(self.acts.shape())] * self.states.num
-        self.observation_space = [spaces.Box(low=0., high=1., shape=(self.states.shape*2,))] * self.states.num # CHANGED TO ADD 2x
+        self.observation_space = [spaces.Box(low=0., high=1., shape=(self.states.shape*2,))] * self.states.num
 
     def reset(self, force=False, **kwargs):
         self.step_counter = 0
@@ -193,7 +193,8 @@ class ScoutMissionStd(gym.Env):
 
             # change action branch
             cur_branch = self.assist_mat[_index, _index]
-            tar_branch = self._get_val_from_lists(_agent.health / _agent.health_max, **self.configs["branch_dict"])
+            #tar_branch = self._get_val_from_lists(_agent.health / _agent.health_max, **self.configs["branch_dict"])
+            tar_branch = 1
             # default forward
             if tar_branch <= cur_branch:
                 continue
@@ -491,10 +492,10 @@ class ScoutMissionStd(gym.Env):
         rewards = [0] * self.states.num
         rew_cfg = self.rew_cfg["episode"]
         # TBD (lv1): only update red rewards now; should support both teams.
-        index_aid = {}
+        agent_alive = set()
+        agent_death = set()
         health_sum = 0
         health_max = 0
-        flag_all_alive = True
         # gather final states
         for _index, _aid in enumerate(self.agents.ids_ob):
             _agent = self.agents.gid[_aid]
@@ -502,27 +503,47 @@ class ScoutMissionStd(gym.Env):
             if _agent.team:
                 continue
             _HP = _agent.health
-            index_aid[_index] = _aid  # = _HP for single-agent based rewards
+            health_max += _agent.health_max
             if _HP:
+                agent_alive.add(_index)
                 health_sum += _HP
             else:
-                flag_all_alive = False
-            health_max += _agent.health_max  # health_max += self.agents.list_init[_agent.gid, -1]
+                agent_death.add(_index)
         # team based final reward for all agents in team red
-        team_delay = self._get_reward_from_segments(self.step_counter, **rew_cfg["rew_ep_delay"])
-        team_health = self._get_val_from_lists(health_sum/health_max, **rew_cfg["rew_ep_health"])
-        team_alive = self._get_val_from_lists(flag_all_alive, **rew_cfg["rew_ep_alive"])
-        reward_uniform = team_delay + team_health + team_alive
-        for _id in index_aid:
-            self.states.rewards[_id, 0] = reward_uniform
-            rewards[_id] += reward_uniform
+        team_delay = self._get_delay_reward_by_step(**rew_cfg["rew_ep_delay"])
+        health_index = self._get_val_from_list(health_sum/health_max, rew_cfg["rew_ep_health"]["bar"])
+        team_health = rew_cfg["rew_ep_health"]["num"][health_index]
+        total_reward = team_delay + team_health
+        if len(agent_death):
+            # do not award global health reward for death reds
+            for _id in agent_death:
+                self.states.rewards[_id, 0] = team_delay
+                rewards[_id] += team_delay
+        elif self.step_counter > rew_cfg["rew_ep_bonus"]["bar"]:
+            # bonus reward is conditioned on both health (all alive) and delay (> certain timestep threshold)
+            total_reward += rew_cfg["rew_ep_bonus"]["value"]
+        for _id in agent_alive:
+            self.states.rewards[_id, 0] = total_reward
+            rewards[_id] += total_reward
         return rewards
 
+    def _get_delay_reward_by_step(self, **val_dict):
+        delay_reward = val_dict["min"]
+        _index = self._get_val_from_list(self.step_counter, val_dict["step"])
+        if _index:
+            for _pre in range(1, _index):
+                delay_reward += (val_dict["step"][_pre] - val_dict["step"][_pre - 1]) * val_dict["inc"][_pre]
+            delay_reward += (self.step_counter - val_dict["step"][_index - 1]) * val_dict["inc"][_index - 1]
+        else:
+            delay_reward += (self.step_counter - val_dict["step"][0]) * val_dict["inc"][0]
+        if delay_reward > val_dict["max"]:
+            delay_reward = val_dict["max"]
+        return delay_reward
+
     @staticmethod
-    def _get_val_from_lists(target_val, **val_dict):
+    def _get_val_from_list(target_val, list_val):
         # find the index of the first element in the val_list that is greater than the target value
-        index = next(_id for _id, _val in enumerate(val_dict["bar"]) if _val >= target_val)
-        return val_dict["num"][index]
+        return next(_id for _id, _val in enumerate(list_val) if target_val <= _val)
 
     @staticmethod
     def _get_reward_from_segments(n_step, **val_dict):
@@ -713,10 +734,6 @@ class AgentManager:
             _pos = a_dict["posture"]
             _HP = a_dict["health"] if "health" in a_dict else default_HP[_team]
 
-            # ensure that only the agents we need are added in case more agent configs than required are provided
-            if _team and len(self.ids_B) == n_blue: continue
-            elif not _team and len(self.ids_R) == n_red: continue # TODO EDITED HERE
-
             # learning agents
             if _type == "RL":
                 _node = a_dict["node"]
@@ -750,6 +767,8 @@ class AgentManager:
 
         # TBD(a): add default RL agents if not enough agent_init_configs were provided
         # or just raise error
+        #print(n_red, n_blue)
+        #print(len(self.ids_R), len(self.ids_B))
         if len(self.ids_R) != n_red or len(self.ids_B) != n_blue:
             raise ValueError("[GSMEnv][Init] Not enough agent init configs were provided.")
 
