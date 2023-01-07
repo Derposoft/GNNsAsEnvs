@@ -21,7 +21,11 @@ local_action_turn = env_setup.TURN_3_LOOKUP
 class ScoutMissionStdRLLib(ScoutMissionStd, MultiAgentEnv):
     def __init__(self, config=None):
         config = config or {}
+        #super(ScoutMissionStd).__init__(**config)
+        #super(MultiAgentEnv).__init__()
         super().__init__(**config)
+        #super(ScoutMissionStdRLLib, ScoutMissionStd).__init__(**config)
+        #super(ScoutMissionStdRLLib, MultiAgentEnv).__init__()
         
         # extra values to make graph embedding viable
         self.action_space = self.action_space[0] #spaces.Tuple(self.action_space)

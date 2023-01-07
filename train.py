@@ -26,8 +26,8 @@ import model.utils as utils
 
 # algorithms to test
 #from ray.rllib.agents import dqn
-#from ray.rllib.algorithms import ppo, dqn, pg, a3c, impala
-from ray.rllib.agents import ppo, dqn, pg, a3c, impala
+from ray.rllib.algorithms import ppo, dqn, pg, a3c, impala
+#from ray.rllib.agents import ppo, dqn, pg, a3c, impala
 #from ray.rllib.agents import a3c
 #from ray.rllib.agents import ppo
 #from ray.rllib.agents import impala # not currently used; single-threaded stuff only for now
@@ -36,7 +36,7 @@ from ray.tune.logger import pretty_print
 from ray.tune.logger import UnifiedLogger
 ray.init(
     num_gpus=torch.cuda.device_count(),
-    num_cpus=30
+    num_cpus=2#30
 )
 SEED = 0
 
@@ -198,14 +198,20 @@ def run_baselines(config, run_default_baseline_metrics=False, train_time=200, ch
     np.random.seed(SEED)
     torch.manual_seed(SEED)
     outer_configs, _ = create_env_config(config)
+    #print(outer_configs)
+    env_config = {"config": outer_configs}
     
     # train
     env = ScoutMissionStdRLLib if "scout" in custom_model else Figure8SquadRLLib
     ppo_config = create_trainer_config(outer_configs, config, trainer_type=ppo, custom_model=custom_model)
-    ppo_trainer_custom = ppo.PPOTrainer(config=ppo_config, env=env, logger_creator=custom_log_creator(config.name))
-    train(ppo_trainer_custom, config.name, train_time, checkpoint_models, ppo_config)
-    #trainer = ppo.PPOConfig().build(env, logger_creator=custom_log_creator(config.name))
-    #train(trainer, config.name, train_time, checkpoint_models, ppo_config)
+    #ppo_trainer_custom = ppo.PPOTrainer(config=ppo_config, env=env, logger_creator=custom_log_creator(config.name))
+    #train(ppo_trainer_custom, config.name, train_time, checkpoint_models, ppo_config)
+    trainer = ppo.PPOConfig().environment(env=env, env_config=env_config)
+    trainer = trainer.framework("torch")
+    trainer = trainer.training(lr=config.lr, model=ppo_config["model"])
+    trainer = trainer.exploration()
+    trainer = trainer.build(env, logger_creator=custom_log_creator(config.name))
+    train(trainer, config.name, train_time, checkpoint_models, ppo_config)
 
 # parse arguments
 def parse_arguments():
