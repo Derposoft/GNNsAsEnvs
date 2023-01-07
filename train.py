@@ -26,7 +26,7 @@ import model.utils as utils
 
 # algorithms to test
 #from ray.rllib.agents import dqn
-#from ray.rllib.algorithms import dqn, pg, a3c, impala
+#from ray.rllib.algorithms import ppo, dqn, pg, a3c, impala
 from ray.rllib.agents import ppo, dqn, pg, a3c, impala
 #from ray.rllib.agents import a3c
 #from ray.rllib.agents import ppo
@@ -204,6 +204,8 @@ def run_baselines(config, run_default_baseline_metrics=False, train_time=200, ch
     ppo_config = create_trainer_config(outer_configs, config, trainer_type=ppo, custom_model=custom_model)
     ppo_trainer_custom = ppo.PPOTrainer(config=ppo_config, env=env, logger_creator=custom_log_creator(config.name))
     train(ppo_trainer_custom, config.name, train_time, checkpoint_models, ppo_config)
+    #trainer = ppo.PPOConfig().build(env, logger_creator=custom_log_creator(config.name))
+    #train(trainer, config.name, train_time, checkpoint_models, ppo_config)
 
 # parse arguments
 def parse_arguments():

@@ -8,10 +8,10 @@ from ray.rllib.utils.annotations import override
 from ray.rllib.utils.typing import Dict, TensorType, List, ModelConfigDict
 import gym
 
-import dgl
+#import dgl
 from torch_geometric.nn.conv import GATv2Conv, GCNConv
 from torch_geometric.nn.norm import BatchNorm
-import networkx as nx
+#import networkx as nx
 import numpy as np
 
 from sigma_graph.data.graph.skirmish_graph import MapInfo
