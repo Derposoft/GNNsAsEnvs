@@ -199,7 +199,7 @@ def run_baselines(config, run_default_baseline_metrics=False, train_time=200, ch
     torch.manual_seed(SEED)
     outer_configs, _ = create_env_config(config)
     #print(outer_configs)
-    env_config = {"config": outer_configs}
+    env_config = outer_configs#{"config": outer_configs}
     
     # train
     env = ScoutMissionStdRLLib if "scout" in custom_model else Figure8SquadRLLib
@@ -208,8 +208,8 @@ def run_baselines(config, run_default_baseline_metrics=False, train_time=200, ch
     #train(ppo_trainer_custom, config.name, train_time, checkpoint_models, ppo_config)
     trainer = ppo.PPOConfig().environment(env=env, env_config=env_config)
     trainer = trainer.framework("torch")
-    trainer = trainer.training(lr=config.lr, model=ppo_config["model"])
-    trainer = trainer.exploration()
+    trainer = trainer.training(lr=config.lr, model=ppo_config["model"], train_batch_size=100, sgd_minibatch_size=100)
+    #trainer = trainer.exploration(exploration_config={})
     trainer = trainer.build(env, logger_creator=custom_log_creator(config.name))
     train(trainer, config.name, train_time, checkpoint_models, ppo_config)
 

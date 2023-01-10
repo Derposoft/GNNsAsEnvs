@@ -1,7 +1,8 @@
 from gym import spaces
 from ray.rllib.env.multi_agent_env import MultiAgentEnv
 from ray.rllib.models.catalog import MODEL_DEFAULTS
-from ray.rllib.agents import dqn
+#from ray.rllib.agents import dqn
+from ray.rllib.algorithms import dqn
 import numpy as np
 import os
 
@@ -117,6 +118,7 @@ def create_env_config(config):
 
 # run baseline tests with a few different algorithms
 def run_baselines(config):
+    print("TODO -- not currently implemented.")
     # make dqn trainer
     outer_configs, n_episodes = create_env_config(config)
     def create_dqn_config(outer_configs):
@@ -136,15 +138,15 @@ def run_baselines(config):
             "rollout_fragment_length": 200,
             "train_batch_size": 200
         }
-        dqn_config = dqn.DEFAULT_CONFIG.copy()
+        dqn_config = {}#dqn.DEFAULT_CONFIG.copy()
         dqn_config.update(dqn_extra_config_settings)
         dqn_config["lr"] = 1e-3
         return dqn_config
-    dqn_trainer = dqn.DQNTrainer(config=create_dqn_config(outer_configs), env=Figure8SquadRLLib)
+    #dqn_trainer = dqn.DQNTrainer(config=create_dqn_config(outer_configs), env=Figure8SquadRLLib)
 
-    print('dqn trainer loaded.')
+    print('ppo trainer loaded.')
     # train
     print('training...')
-    result = dqn_trainer.train()
+    #result = dqn_trainer.train()
 
     

@@ -1,7 +1,7 @@
 from gym import spaces
 from ray.rllib.env.multi_agent_env import MultiAgentEnv
 from ray.rllib.models.catalog import MODEL_DEFAULTS
-from ray.rllib.agents import dqn
+#from ray.rllib.agents import dqn
 import numpy as np
 import os
 
