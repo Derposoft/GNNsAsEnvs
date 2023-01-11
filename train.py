@@ -205,9 +205,9 @@ def run_baselines(config, run_default_baseline_metrics=False, train_time=200, ch
     ppo_config = create_trainer_config(outer_configs, config, trainer_type=ppo, custom_model=custom_model)
     trainer = ppo.PPOConfig().environment(env=env, env_config=env_config)
     trainer = trainer.framework("torch")
-    trainer = trainer.exploration(exploration_config={
+    """trainer = trainer.exploration(exploration_config={
         "type": "StochasticSampling",
-    })
+    })"""
     trainer = trainer.training(lr=config.lr, model=ppo_config["model"], train_batch_size=100, sgd_minibatch_size=100)
     trainer = trainer.build(env, logger_creator=custom_log_creator(config.name))
     train(trainer, config.name, train_time, checkpoint_models, ppo_config)
