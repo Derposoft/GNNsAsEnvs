@@ -40,6 +40,7 @@ ray.init(
 )
 SEED = 0
 
+
 # create env configuration
 def create_env_config(config):
     n_episodes = config.n_episode
@@ -162,6 +163,7 @@ def create_trainer_config(outer_configs, inner_configs, trainer_type=None, custo
     trainer_config = { **init_trainer_config, **trainer_type_config }
     return trainer_config
 
+
 def train(trainer, model_name, train_time=200, checkpoint_models=True, config=None):
     assert model_name != "", "you must name your model. please use --name"
     if checkpoint_models: assert config != None, "configs must not be none if models are being saved."
@@ -176,6 +178,7 @@ def train(trainer, model_name, train_time=200, checkpoint_models=True, config=No
             pickle.dump(config, f)
         with open(model_dir+"checkpoint_path.txt", "w") as f:
             f.write(checkpoint_path)
+
 
 # run baseline tests with a few different algorithms
 def run_baselines(config, run_default_baseline_metrics=False, train_time=200, checkpoint_models=True, custom_model="graph_transformer_policy"):
@@ -203,14 +206,15 @@ def run_baselines(config, run_default_baseline_metrics=False, train_time=200, ch
     # train
     env = ScoutMissionStdRLLib if "scout" in custom_model else Figure8SquadRLLib
     ppo_config = create_trainer_config(outer_configs, config, trainer_type=ppo, custom_model=custom_model)
-    trainer = ppo.PPOConfig().environment(env=env, env_config=env_config)
-    trainer = trainer.framework("torch")
-    """trainer = trainer.exploration(exploration_config={
-        "type": "StochasticSampling",
-    })"""
-    trainer = trainer.training(lr=config.lr, model=ppo_config["model"], train_batch_size=100, sgd_minibatch_size=100)
-    trainer = trainer.build(env, logger_creator=custom_log_creator(config.name))
+    trainer = (
+        ppo.PPOConfig().environment(env=env, env_config=env_config)
+            .framework("torch")
+            .training(lr=config.lr, model=ppo_config["model"], train_batch_size=100, sgd_minibatch_size=100)
+            #.exploration(exploration_config={"type": "StochasticSampling"})
+            .build(env, logger_creator=custom_log_creator(config.name))
+    )
     train(trainer, config.name, train_time, checkpoint_models, ppo_config)
+
 
 # parse arguments
 def parse_arguments():
@@ -278,6 +282,7 @@ def parse_arguments():
     parser.add_argument("--policy_file", type=str, default="", help="use hardcoded policy from provided policy file")
 
     return parser
+
 
 if __name__ == "__main__":
     # parse args
