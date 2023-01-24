@@ -25,7 +25,7 @@ class ScoutMissionStdRLLib(ScoutMissionStd, MultiAgentEnv):
         
         # extra values to make graph embedding viable
         self.action_space = self.action_space[0] #spaces.Tuple(self.action_space)
-        self.observation_space = self.observation_space[0]# spaces.Tuple(self.observation_space)
+        self.observation_space = self.observation_space[0] # spaces.Tuple(self.observation_space)
         self.done = set()
 
     # return an arbitrary encoding from the "flat" action space to the normal action space 0-indexed
