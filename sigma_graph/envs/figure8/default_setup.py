@@ -45,9 +45,10 @@ OBS_TOKEN = {
     "obs_graph": True, # _is_graph_ready
 }
 
+import time
 
 # update agent position. return value: str of binary embedding code
-def get_default_red_encoding(red_id=0, red_pos=None) -> str:
+def get_default_red_encoding(red_id=0, red_pos=None, forced_start_pos=None) -> str:
     # providing the coordinates of red position (row, col) or sampling from init spawn position pools
     if red_pos is None:
         _region = red_id
@@ -59,6 +60,8 @@ def get_default_red_encoding(red_id=0, red_pos=None) -> str:
         assert "Unexpected POS flags"
     pos_red_pool = INIT_POS_LOOKUP[_region % len(INIT_POS_LOOKUP)]
     idx = randint(0, len(pos_red_pool) - 1)
+    if forced_start_pos:
+        idx = forced_start_pos % len(pos_red_pool)
     R_pos = pos_red_pool[idx]
     return get_node_name_from_pos_abs(R_pos)
 

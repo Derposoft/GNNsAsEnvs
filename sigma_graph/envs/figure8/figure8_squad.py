@@ -24,6 +24,9 @@ class Figure8Squad(gym.Env):
         self.num_blue = n_blue
         self.step_counter = 0
         self.done_counter = 0
+        # "in_eval" will be in kwargs if we are in eval mode. check train.py:create_trainer_config for more information.
+        self.in_eval = "in_eval" in kwargs
+        self.n_eval_episodes = 0
 
         # manage environment config arguments
         self.configs = {}
@@ -58,6 +61,8 @@ class Figure8Squad(gym.Env):
         self.states = [[] for _ in range(len(self.learning_agent))]
 
     def reset(self, force=False):
+        if self.in_eval:
+            self.n_eval_episodes += 1
         self.step_counter = 0
         if force:
             self.done_counter = 0
@@ -501,7 +506,8 @@ class Figure8Squad(gym.Env):
     def _reset_agents(self):
         HP_red = self.configs["init_health_red"]
         for idx, init_red in enumerate(self.configs["init_red"]):
-            r_code = env_setup.get_default_red_encoding(idx, init_red["pos"])
+            r_eval_start_pos = self.n_eval_episodes if self.in_eval else None
+            r_code = env_setup.get_default_red_encoding(idx, init_red["pos"], r_eval_start_pos)
             r_node = self.map.get_index_by_name(r_code)
             r_dir = env_setup.get_default_dir(init_red["dir"])
             self.team_red[idx].reset(_node=r_node, _code=r_code, _dir=r_dir, _health=HP_red)

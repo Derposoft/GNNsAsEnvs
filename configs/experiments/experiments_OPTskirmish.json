@@ -1,107 +1,121 @@
 {
-    "baseline_5hp_NOOPT_REPRO": {
+    "baseline_5hp_OPT": {
         "init_health": 5,
         "model": "fc",
+        "embed_opt": true,
         "hidden_size": 177
     },
-    "hybridGT_5hp_localemb_NOOPT_REPRO": {
+    "hybridGT_5hp_localemb_OPT": {
         "init_health": 5,
         "model": "hybrid",
         "aggregation_fn": "local",
+        "embed_opt": true,
         "hidden_size": 169
     },
-    "hybridGAT_5hp_localemb_NOOPT_REPRO": {
+    "hybridGAT_5hp_localemb_OPT": {
         "init_health": 5,
         "model": "gnn",
         "is_hybrid": true,
         "conv_type": "gat",
         "aggregation_fn": "local",
+        "embed_opt": true,
         "hidden_size": 169
     },
-    "hybridGCN_5hp_localemb_NOOPT_REPRO": {
+    "hybridGCN_5hp_localemb_OPT": {
         "init_health": 5,
         "model": "gnn",
         "is_hybrid": true,
         "conv_type": "gcn",
         "aggregation_fn": "local",
+        "embed_opt": true,
         "hidden_size": 169
     },
 
 
-    "baseline_2hp_NOOPT_REPRO": {
+    "baseline_2hp_OPT": {
         "init_health": 2,
         "model": "fc",
+        "embed_opt": true,
         "hidden_size": 177
     },
-    "hybridGT_2hp_localemb_NOOPT_REPRO": {
+    "hybridGT_2hp_localemb_OPT": {
         "init_health": 2,
         "model": "hybrid",
         "aggregation_fn": "local",
+        "embed_opt": true,
         "hidden_size": 169
     },
-    "hybridGAT_2hp_localemb_NOOPT_REPRO": {
+    "hybridGAT_2hp_localemb_OPT": {
         "init_health": 2,
         "model": "gnn",
         "is_hybrid": true,
         "conv_type": "gat",
         "aggregation_fn": "local",
+        "embed_opt": true,
         "hidden_size": 169
     },
-    "hybridGCN_2hp_localemb_NOOPT_REPRO": {
+    "hybridGCN_2hp_localemb_OPT": {
         "init_health": 2,
         "model": "gnn",
         "is_hybrid": true,
         "conv_type": "gcn",
         "aggregation_fn": "local",
+        "embed_opt": true,
         "hidden_size": 169
     },
 
 
-    "baseline_20hp_NOOPT_REPRO": {
+    "baseline_20hp_OPT": {
         "init_health": 20,
         "model": "fc",
+        "embed_opt": true,
         "hidden_size": 177
     },
-    "hybridGT_20hp_localemb_NOOPT_REPRO": {
+    "hybridGT_20hp_localemb_OPT": {
         "init_health": 20,
         "model": "hybrid",
         "aggregation_fn": "local",
+        "embed_opt": true,
         "hidden_size": 169
     },
-    "hybridGAT_20hp_localemb_NOOPT_REPRO": {
+    "hybridGAT_20hp_localemb_OPT": {
         "init_health": 20,
         "model": "gnn",
         "is_hybrid": true,
         "conv_type": "gat",
         "aggregation_fn": "local",
+        "embed_opt": true,
         "hidden_size": 169
     },
-    "hybridGCN_20hp_localemb_NOOPT_REPRO": {
+    "hybridGCN_20hp_localemb_OPT": {
         "init_health": 20,
         "model": "gnn",
         "is_hybrid": true,
         "conv_type": "gcn",
         "aggregation_fn": "local",
+        "embed_opt": true,
         "hidden_size": 169
     },
 
     
-    "baseline_5hp_NOOPT_2r2b_REPRO": {
+    "baseline_5hp_OPT_2r2b": {
         "n_red": 2,
         "n_blue": 2,
         "init_health": 5,
         "model": "fc",
+        "embed_opt": true,
         "hidden_size": 177
     },
-    "hybridGT_5hp_localemb_NOOPT_2r2b_REPRO": {
+    "hybridGT_5hp_localemb_OPT_2r2b": {
         "n_red": 2,
         "n_blue": 2,
         "init_health": 5,
         "model": "hybrid",
         "aggregation_fn": "local",
+        "embed_opt": true,
         "hidden_size": 169
     },
-    "hybridGAT_5hp_localemb_NOOPT_2r2b_REPRO": {
+    "hybridGAT_5hp_localemb_OPT_2r2b": {
         "n_red": 2,
         "n_blue": 2,
         "init_health": 5,
@@ -109,9 +123,10 @@
         "is_hybrid": true,
         "conv_type": "gat",
         "aggregation_fn": "local",
+        "embed_opt": true,
         "hidden_size": 169
     },
-    "hybridGCN_5hp_localemb_NOOPT_2r2b_REPRO": {
+    "hybridGCN_5hp_localemb_OPT_2r2b": {
         "n_red": 2,
         "n_blue": 2,
         "init_health": 5,
@@ -119,6 +134,7 @@
         "is_hybrid": true,
         "conv_type": "gcn",
         "aggregation_fn": "local",
+        "embed_opt": true,
         "hidden_size": 169
     }
 }

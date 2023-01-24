@@ -1,9 +1,92 @@
 {
-    "gatscout_200h2.2l_1r2b": {
-        "n_red": 1,
+    "baseline_100h_NOOPT": {
+        "n_red": 2,
+        "n_blue": 2,
+        "model": "fc_scout",
+        "hidden_size": 100
+    },
+
+
+    "scoutGCN_globalemb_100h_NOOPT": {
+        "n_red": 2,
         "n_blue": 2,
         "model": "gnn_scout",
-        "hidden_size": 200,
-        "conv_type": "gat"
+        "conv_type": "gcn",
+        "aggregation_fn": "global",
+        "is_hybrid": true,
+        "hidden_size": 100
+    },
+    "scoutGCN_hybridemb_100h_NOOPT": {
+        "n_red": 2,
+        "n_blue": 2,
+        "model": "gnn_scout",
+        "conv_type": "gcn",
+        "aggregation_fn": "hybrid",
+        "is_hybrid": true,
+        "hidden_size": 100
+    },
+    "scoutGCN_localemb_100h_NOOPT": {
+        "n_red": 2,
+        "n_blue": 2,
+        "model": "gnn_scout",
+        "conv_type": "gcn",
+        "aggregation_fn": "local",
+        "is_hybrid": true,
+        "hidden_size": 100
+    },
+
+
+    "scoutGAT_globalemb_100h_NOOPT": {
+        "n_red": 2,
+        "n_blue": 2,
+        "model": "gnn_scout",
+        "conv_type": "gat",
+        "aggregation_fn": "global",
+        "is_hybrid": true,
+        "hidden_size": 100
+    },
+    "scoutGAT_hybridemb_100h_NOOPT": {
+        "n_red": 2,
+        "n_blue": 2,
+        "model": "gnn_scout",
+        "conv_type": "gat",
+        "aggregation_fn": "hybrid",
+        "is_hybrid": true,
+        "hidden_size": 100
+    },
+    "scoutGAT_localemb_100h_NOOPT": {
+        "n_red": 2,
+        "n_blue": 2,
+        "model": "gnn_scout",
+        "conv_type": "gat",
+        "aggregation_fn": "local",
+        "is_hybrid": true,
+        "hidden_size": 100
+    },
+
+
+    "scoutGT_globalemb_100h_NOOPT": {
+        "n_red": 2,
+        "n_blue": 2,
+        "model": "gt_scout",
+        "aggregation_fn": "global",
+        "is_hybrid": true,
+        "hidden_size": 100
+    },
+    "scoutGT_hybridemb_100h_NOOPT": {
+        "n_red": 2,
+        "n_blue": 2,
+        "model": "gt_scout",
+        "aggregation_fn": "hybrid",
+        "is_hybrid": true,
+        "hidden_size": 100
+    },
+    "scoutGT_localemb_100h_NOOPT": {
+        "n_red": 2,
+        "n_blue": 2,
+        "model": "gt_scout",
+        "aggregation_fn": "local",
+        "is_hybrid": true,
+        "hidden_size": 100
     }
 }

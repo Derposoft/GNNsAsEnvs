@@ -1,12 +1,162 @@
 {
-    "gcnLNskirmish_5hp_baseline100_50_3.4_PAPER": {
-        "n_red": 1,
-        "n_blue": 1,
-        "model": "gnn",
-        "conv_type": "gcn",
-        "is_hybrid": true,
+    "baseline_5hp_NOOPT_EVAL": {
         "init_health": 5,
-        "hidden_size": 100,
-        "layernorm": true
+        "model": "fc",
+        "hidden_size": 177
+    },
+    "hybridGT_5hp_localemb_NOOPT_EVAL": {
+        "init_health": 5,
+        "model": "hybrid",
+        "aggregation_fn": "local",
+        "hidden_size": 169
+    },
+    "hybridGAT_5hp_localemb_NOOPT_EVAL": {
+        "init_health": 5,
+        "model": "gnn",
+        "is_hybrid": true,
+        "conv_type": "gat",
+        "aggregation_fn": "local",
+        "hidden_size": 169
+    },
+    "hybridGCN_5hp_localemb_NOOPT_EVAL": {
+        "init_health": 5,
+        "model": "gnn",
+        "is_hybrid": true,
+        "conv_type": "gcn",
+        "aggregation_fn": "local",
+        "hidden_size": 169
+    },
+
+
+    "baseline_2hp_NOOPT_EVAL": {
+        "init_health": 2,
+        "model": "fc",
+        "hidden_size": 177
+    },
+    "hybridGT_2hp_localemb_NOOPT_EVAL": {
+        "init_health": 2,
+        "model": "hybrid",
+        "aggregation_fn": "local",
+        "hidden_size": 169
+    },
+    "hybridGAT_2hp_localemb_NOOPT_EVAL": {
+        "init_health": 2,
+        "model": "gnn",
+        "is_hybrid": true,
+        "conv_type": "gat",
+        "aggregation_fn": "local",
+        "hidden_size": 169
+    },
+    "hybridGCN_2hp_localemb_NOOPT_EVAL": {
+        "init_health": 2,
+        "model": "gnn",
+        "is_hybrid": true,
+        "conv_type": "gcn",
+        "aggregation_fn": "local",
+        "hidden_size": 169
+    },
+
+
+    "baseline_20hp_NOOPT_EVAL": {
+        "init_health": 20,
+        "model": "fc",
+        "hidden_size": 177
+    },
+    "hybridGT_20hp_localemb_NOOPT_EVAL": {
+        "init_health": 20,
+        "model": "hybrid",
+        "aggregation_fn": "local",
+        "hidden_size": 169
+    },
+    "hybridGAT_20hp_localemb_NOOPT_EVAL": {
+        "init_health": 20,
+        "model": "gnn",
+        "is_hybrid": true,
+        "conv_type": "gat",
+        "aggregation_fn": "local",
+        "hidden_size": 169
+    },
+    "hybridGCN_20hp_localemb_NOOPT_EVAL": {
+        "init_health": 20,
+        "model": "gnn",
+        "is_hybrid": true,
+        "conv_type": "gcn",
+        "aggregation_fn": "local",
+        "hidden_size": 169
+    },
+
+    
+    "baseline_5hp_NOOPT_2r2b_EVAL": {
+        "n_red": 2,
+        "n_blue": 2,
+        "init_health": 5,
+        "model": "fc",
+        "hidden_size": 177
+    },
+    "hybridGT_5hp_localemb_NOOPT_2r2b_EVAL": {
+        "n_red": 2,
+        "n_blue": 2,
+        "init_health": 5,
+        "model": "hybrid",
+        "aggregation_fn": "local",
+        "hidden_size": 169
+    },
+    "hybridGAT_5hp_localemb_NOOPT_2r2b_EVAL": {
+        "n_red": 2,
+        "n_blue": 2,
+        "init_health": 5,
+        "model": "gnn",
+        "is_hybrid": true,
+        "conv_type": "gat",
+        "aggregation_fn": "local",
+        "hidden_size": 169
+    },
+    "hybridGCN_5hp_localemb_NOOPT_2r2b_EVAL": {
+        "n_red": 2,
+        "n_blue": 2,
+        "init_health": 5,
+        "model": "gnn",
+        "is_hybrid": true,
+        "conv_type": "gcn",
+        "aggregation_fn": "local",
+        "hidden_size": 169
+    },
+
+    
+
+    "baseline_5hp_NOOPT_1r2b_EVAL": {
+        "n_red": 1,
+        "n_blue": 2,
+        "init_health": 5,
+        "model": "fc",
+        "hidden_size": 177
+    },
+    "hybridGT_5hp_localemb_NOOPT_1r2b_EVAL": {
+        "n_red": 1,
+        "n_blue": 2,
+        "init_health": 5,
+        "model": "hybrid",
+        "aggregation_fn": "local",
+        "hidden_size": 169
+    },
+    "hybridGAT_5hp_localemb_NOOPT_1r2b_EVAL": {
+        "n_red": 1,
+        "n_blue": 2,
+        "init_health": 5,
+        "model": "gnn",
+        "is_hybrid": true,
+        "conv_type": "gat",
+        "aggregation_fn": "local",
+        "hidden_size": 169
+    },
+    "hybridGCN_5hp_localemb_NOOPT_1r2b_EVAL": {
+        "n_red": 1,
+        "n_blue": 2,
+        "init_health": 5,
+        "model": "gnn",
+        "is_hybrid": true,
+        "conv_type": "gcn",
+        "aggregation_fn": "local",
+        "hidden_size": 169
     }
 }

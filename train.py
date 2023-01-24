@@ -143,8 +143,11 @@ def create_trainer_config(outer_configs, inner_configs, trainer_type=None, custo
         "num_workers": 1,  # parallelism
         "framework": "torch",
         "evaluation_interval": 1,
-        "evaluation_num_episodes": 10,
+        "evaluation_num_episodes": 7,#10,
         "evaluation_num_workers": 1,
+        "evaluation_config": {
+            "env_config": { **outer_configs, "in_eval": True },
+        },
         "rollout_fragment_length": 100, # 50 for a2c, 200 for everyone else?
         "train_batch_size": 200,
         "log_level": "ERROR",
