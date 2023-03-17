@@ -29,7 +29,7 @@ class ScoutMissionStd(gym.Env):
         # 2 init Multi-branched action gym space & flattened observation gym space
         from gym import spaces
         self.action_space = [spaces.MultiDiscrete(self.acts.shape())] * self.states.num
-        self.observation_space = [spaces.Box(low=0., high=1., shape=(self.states.shape * 2,))] * self.states.num
+        self.observation_space = [spaces.Box(low=0., high=1., shape=(self.states.shape*2,))] * self.states.num
 
     def reset(self, force=False, **kwargs):
         self.step_counter = 0
@@ -193,11 +193,12 @@ class ScoutMissionStd(gym.Env):
 
             # change action branch
             cur_branch = self.assist_mat[_index, _index]
-            tar_branch = self.bxs_id[self._get_val_from_list(_agent.health/_agent.health_max, self.bxs_HP)]
+            #tar_branch = self._get_val_from_lists(_agent.health / _agent.health_max, **self.configs["branch_dict"])
+            tar_branch = 1
             # default forward
             if tar_branch <= cur_branch:
                 continue
-            if tar_branch == 5:
+            if tar_branch > 4:
                 # retreat
                 _agent.target_branch = tar_branch
                 self.assist_mat[_index, _index] = tar_branch
@@ -527,7 +528,7 @@ class ScoutMissionStd(gym.Env):
         return rewards
 
     def _get_delay_reward_by_step(self, **val_dict):
-        delay_reward = 0
+        delay_reward = val_dict["min"]
         _index = self._get_val_from_list(self.step_counter, val_dict["step"])
         if _index:
             for _pre in range(1, _index):
@@ -574,8 +575,7 @@ class ScoutMissionStd(gym.Env):
         if self.step_counter >= self.max_step:
             return [True] * self.states.num
         # all team_Blue or team_Red agents got terminated
-        if all([self.agents.gid[_id].death for _id in self.agents.ids_R])\
-                or all([self.agents.gid[_id].death for _id in self.agents.ids_B]):
+        if all([self.agents.gid[_id].death for _id in self.agents.ids_R]) or all([self.agents.gid[_id].death for _id in self.agents.ids_B]):
             return [True] * self.states.num
         # death => done for each observing agent (early termination)
         return [self.agents.gid[_id].death for _id in self.agents.ids_ob]
@@ -606,8 +606,9 @@ class ScoutMissionStd(gym.Env):
             elif key in _log:
                 self.log_cfg[key] = value
             else:
-                pass
-                # raise KeyError("[GSMEnv][Init] Invalid config")
+                # pass
+                continue
+                raise KeyError("[GSMEnv][Init] Invalid config")
 
         # set defaults bool vars if not specified
         for key in _config_local:
@@ -635,42 +636,12 @@ class ScoutMissionStd(gym.Env):
 
     # 0.2. load terrain graphs. [*]executable after calling self._init_env_config()
     def _load_map_graph(self):
-        from graph_scout.envs.data.file_manager import check_parsed_files, load_graph_files, generate_graph_files
+        from graph_scout.envs.data.file_manager import load_graph_files
         from graph_scout.envs.data.terrain_graph import MapInfo
-        # load or generate graphs
+        # load graphs
         self.map = MapInfo()
-        _files, _flags = check_parsed_files(self.configs["env_path"], self.configs["map_id"])
-        if all(_flags):
-            self.map = load_graph_files(self.configs["env_path"], self.configs["map_id"], _files)
-        else:
-            self.map = generate_graph_files(self.configs["env_path"], self.configs["map_id"])
-        # set up range limits
-        self.zones = self.configs["engage_range"]
-        # manually adjust the probs for imbalance node pairs
-        if self.configs["imbalance_prob"]:
-            for node_pair in self.configs["imbalance_pairs"]:
-                (_src, _tar, _dirs) = node_pair
-                # increase the probs from the advantage direction
-                _forward = self.map.g_view[_src][_tar]
-                for _id in _forward:
-                    _prob = _forward[_id]["prob"]
-                    _forward[_id]["prob"] = max(_prob + min(0.4, _prob), 0.95)
-                # decrease the probs from the disadvantage direction
-                _backward = self.map.g_view[_tar][_src]
-                for _id in _backward:
-                    _prob = _backward[_id]["prob"]
-                    _backward[_id]["prob"] = max(_prob - 0.2, _prob / 2)
-                # spread to the surrounding area (red zone)
-                u_adj = self.map.g_view.adj[_src]
-                for _node in u_adj:
-                    if _node == _tar:
-                        continue
-                    if u_adj[_node][0]['dist'] > self.zones[3]['dist']:
-                        continue
-                    for _edge in u_adj[_node]:
-                        if u_adj[_node][_edge]['dir'] in _dirs:
-                            _prob = u_adj[_node][_edge]["prob"]
-                            u_adj[_node][_edge]["prob"] = max(_prob + min(0.20, _prob/2), 0.80)
+        self.map = load_graph_files(env_path=self.configs["env_path"], map_lookup=self.configs["map_id"])
+        # TBD(lv3): call generate_files if parsed data not exist
 
     # 0.3. initialize all agents. [*] executable after calling self._init_env_config()
     def _init_agent_state(self):
@@ -696,13 +667,12 @@ class ScoutMissionStd(gym.Env):
             _node, _dir, _pos = self.agents.gid[_a].get_geo_tuple()
             self.engage_mat[_a, _a] = _node
             self.engage_mat[_a, -3:] = [_dir, _pos, _node]
+        self.zones = self.configs["engage_range"]
 
         # memory of heuristic agents [branch, signal_e, signal_h, target_agent, graph_dist, target_node]
         # _dts = len(self.agents.ids_dt)
         # self.buffer_mat = np.zeros((self.configs["buffer_size"], _dts, 5), dtype=int)
         # self.buffer_ptr = [-1] * _dts
-        self.bxs_id = self.configs["behavior_lookup"]["val"]
-        self.bxs_HP = self.configs["behavior_lookup"]["bar"]
         # simple version -> count_down num
         self.dt_buffer = {}
         for a_id in self.agents.ids_dt:
@@ -764,10 +734,6 @@ class AgentManager:
             _pos = a_dict["posture"]
             _HP = a_dict["health"] if "health" in a_dict else default_HP[_team]
 
-            # skip if we already have the requisite number of agents
-            if _team and len(self.ids_B) == n_blue: continue
-            if not _team and len(self.ids_R) == n_red: continue
-
             # learning agents
             if _type == "RL":
                 _node = a_dict["node"]
@@ -796,10 +762,13 @@ class AgentManager:
                 self.ids_B.append(g_id)
             else:
                 self.ids_R.append(g_id)
+
             g_id += 1
 
         # TBD(a): add default RL agents if not enough agent_init_configs were provided
         # or just raise error
+        #print(n_red, n_blue)
+        #print(len(self.ids_R), len(self.ids_B))
         if len(self.ids_R) != n_red or len(self.ids_B) != n_blue:
             raise ValueError("[GSMEnv][Init] Not enough agent init configs were provided.")
 
@@ -838,7 +807,7 @@ class StateManager:
         # observation slots for teammate and opposite [single copy]
         self.obs_R = np.zeros(shape)
         self.obs_B = np.zeros(shape)
-        self.obs_full = np.zeros((num, shape * 2))
+        self.obs_full = np.zeros((num, shape))
         self.rewards = np.zeros((num, max_step + 1))
         self.done_array = np.zeros(num, dtype=bool)
 

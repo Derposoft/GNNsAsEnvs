@@ -175,17 +175,25 @@ class MapInfo:
         return g_edge_labels
 
     def save_graph_pickle(self, f_move, f_view, f_table, f_coord):
-        # all data saved in the pickle fashion
-        nx.write_gpickle(self.g_move, f_move)
-        nx.write_gpickle(self.g_view, f_view)
+        # all graph data saved in the python pickle format by default
+        # nx.write_gpickle(self.g_move, f_move)
+        # nx.write_gpickle(self.g_view, f_view)
+        with open(f_move, 'wb') as file:
+            pickle.dump(self.g_move, file, pickle.HIGHEST_PROTOCOL)
+        with open(f_view, 'wb') as file:
+            pickle.dump(self.g_view, file, pickle.HIGHEST_PROTOCOL)
         with open(f_table, 'wb') as file:
             pickle.dump(self.n_table, file, pickle.HIGHEST_PROTOCOL)
         with open(f_coord, 'wb') as file:
             pickle.dump(self.n_coord, file, pickle.HIGHEST_PROTOCOL)
 
     def load_graph_pickle(self, f_move, f_view, f_table, f_coord) -> bool:
-        self.g_move = nx.read_gpickle(f_move)
-        self.g_view = nx.read_gpickle(f_view)
+        # self.g_move = nx.read_gpickle(f_move)
+        # self.g_view = nx.read_gpickle(f_view)
+        with open(f_move, 'rb') as file:
+            self.g_move = pickle.load(file)
+        with open(f_view, 'rb') as file:
+            self.g_view = pickle.load(file)
         with open(f_table, 'rb') as file:
             self.n_table = pickle.load(file)
         with open(f_coord, 'rb') as file:

@@ -206,10 +206,11 @@ def run_baselines(config, run_default_baseline_metrics=False, train_time=200, ch
     # train
     env = ScoutMissionStdRLLib if "scout" in custom_model else Figure8SquadRLLib
     ppo_config = create_trainer_config(outer_configs, config, trainer_type=ppo, custom_model=custom_model)
+    trainer = ppo.PPOConfig().environment(env=env, env_config=env_config)
+    trainer.rollout_fragment_length = 100
     trainer = (
-        ppo.PPOConfig().environment(env=env, env_config=env_config)
-            .framework("torch")
-            .training(lr=config.lr, model=ppo_config["model"], train_batch_size=100, sgd_minibatch_size=100)
+            trainer.framework("torch")
+            .training(lr=config.lr, model=ppo_config["model"], train_batch_size=200, sgd_minibatch_size=128)
             #.exploration(exploration_config={"type": "StochasticSampling"})
             .build(env, logger_creator=custom_log_creator(config.name))
     )
