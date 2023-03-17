@@ -21,7 +21,7 @@ from multiprocessing.pool import ThreadPool
 
 
 N_PROCS = 2     #multiprocessing.cpu_count() // 2
-N_SEEDS = 10
+N_SEEDS = 2
 START_SEED = 0
 
 # read experiments.json
@@ -54,4 +54,3 @@ for cmd in experiment_cmds:
     results.append(pool.apply_async(call_proc, (cmd,)))
 pool.close()
 pool.join()
-#print(results)
