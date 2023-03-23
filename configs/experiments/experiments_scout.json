@@ -1,7 +1,30 @@
 {
-    "gatscout_200h2.2l_1r2b": {
-        "n_red": 1,
+    "gcnscout_200h2.2l_2r2b": {
+        "n_red": 2,
         "n_blue": 2,
+        "model": "gnn_scout",
+        "hidden_size": 200,
+        "conv_type": "gcn"
+    },
+    "gcnscout_200h2.2l_1r1b": {
+        "n_red": 1,
+        "n_blue": 1,
+        "model": "gnn_scout",
+        "hidden_size": 200,
+        "conv_type": "gcn"
+    },
+
+
+    "gatscout_200h2.2l_2r2b": {
+        "n_red": 2,
+        "n_blue": 2,
+        "model": "gnn_scout",
+        "hidden_size": 200,
+        "conv_type": "gat"
+    },
+    "gatscout_200h2.2l_1r1b": {
+        "n_red": 1,
+        "n_blue": 1,
         "model": "gnn_scout",
         "hidden_size": 200,
         "conv_type": "gat"
