@@ -42,7 +42,7 @@ init_setup = {
         "field_boundary_node": 75,  # machine gun covered region [0 <= node_list_index < 75]
 
         "num_hibernate": 4,  # heuristic agents: initial stay period
-        "buffer_count": 4,  # heuristic agents: maintain current target for a while
+        "buffer_timeout": 4,  # heuristic agents: maintain current target for a while (n_major_step)
         "behavior_lookup": {"val": [5, 3, 2, 0], "bar": [0.25, 0.4, 0.5, 1.01]},  # heuristic: health % -> action branch
 
         "log_on": False

@@ -60,8 +60,8 @@ class ScoutMissionStd(gym.Env):
         # 3. calculate rewards
         # step rewards: stored @self.states.rewards[:, n_step]
         if self.rew_cfg["step"]["rew_step_on"]:
-            self.get_step_rewards(_invalid)
-        n_rewards = self.states.get_reward_list(self.step_counter)
+            n_rewards = self.get_step_rewards(_invalid)
+        # n_rewards = self.states.get_reward_list(self.step_counter)
         # True: if an agent loses all health points (or @max_step)
         n_done = self.get_done_list(force_stop)
         if all(n_done):
@@ -120,8 +120,55 @@ class ScoutMissionStd(gym.Env):
         """ # TODO (lv1) only support heuristic_blue + lr_red now
         # get all other agents' next states before executing mini-steps
         # decision trees for DT agents
-        # behavior branches: {[0,1]:"FORWARD", [2,3,4]:"ASSIST", 5:"RETREAT"}
+        # behavior branches: {[0,1]:"FORWARD", [2,3,4]:"ASSIST", [5]:"RETREAT"}
         """
+        # 1.2.1 target selection
+        self._update_engage_mat_target(main_step=True)
+
+        # 1.2.2 Movement & behaviors
+        if self.step_counter <= self.configs["num_hibernate"]:
+            return True
+        for _index, a_src in enumerate(self.agents.ids_dt):
+            _agent = self.agents.gid[a_src]
+            # Skip death agent
+            if _agent.death:
+                continue
+            # Move in macro step
+            if _agent.slow_mode:
+                self.engage_mat[a_src, -1] = _agent.move_slow_mode_prep()
+            else:
+                self.engage_mat[a_src, -1] = _agent.move_en_route_prep()
+
+            # change behavior branch
+            cur_branch = self.assist_mat[_index, _index]
+            tar_branch = self.bxs_id[self._get_val_from_list(_agent.health/_agent.health_max, self.bxs_HP)]
+            # forward (default)
+            if tar_branch <= cur_branch:
+                continue
+            if tar_branch == 5:
+                # retreat
+                _agent.target_branch = tar_branch
+                self.assist_mat[_index, _index] = tar_branch
+                a_tar = self.assist_mat[_index, -1]
+                self.assist_mat[a_tar, _index] = 0
+                # [TBD] reset path
+                self.assist_mat[a_tar, a_tar] = 0
+            elif tar_branch > 1:
+                # assist
+                _agent.target_branch = tar_branch
+                self.assist_mat[_index, _index] = tar_branch
+                for a_tar in range(len(self.agents.ids_dt)):
+                    # teammate in another branch
+                    if self.assist_mat[a_tar, a_tar]:
+                        continue
+                    # [TBD] new path
+                    self.assist_mat[_index, -1] = a_tar
+                    self.assist_mat[a_tar, a_tar] = 4
+                    self.assist_mat[a_tar, _index] = tar_branch
+        return False
+
+    # 1.2.1 heuristic blues target selection
+    def _update_engage_mat_target(self, main_step=True):
         # DIR POS target selection
         for a_src in self.agents.ids_dt:
             # Skip death agent
@@ -132,12 +179,12 @@ class ScoutMissionStd(gym.Env):
             src_node = self.engage_mat[a_src, a_src]
             _dir, _pos = self.engage_mat[a_src, -3:-1]
             target_agent_id = _agent.target_agent
-            if target_agent_id < 0:
+            if target_agent_id == -1:
                 # {target_agent_id: distance}
                 tar_dist = {}
                 # store all possible {target_aid: dist}
                 for a_tar in self.agents.ids_R:
-                    tar_node = self.engage_mat[a_tar, a_tar]
+                    tar_node = self.engage_mat[a_tar, a_tar]  # [a_tar, -1]
                     if self.map.g_view.has_edge(src_node, tar_node):
                         tar_dist[a_tar] = self.map.get_Gview_edge_attr_dist(src_node, tar_node)
                 # If opposite agents are in sight
@@ -163,61 +210,21 @@ class ScoutMissionStd(gym.Env):
                 if self.map.g_view.has_edge(src_node, tar_node):
                     # maintain current target if it is still in sight
                     _dir = self.map.get_Gview_edge_attr_dir(src_node, tar_node, 0)
-                    zone_id = self._get_zone_by_dist(self.map.get_Gview_edge_attr_dist(src_node, tar_node))
+                    zone_id = self._get_zone_token(src_node, tar_node)
                     _agent.target_zone = zone_id
                 else:
-                    # reset target to default
-                    self.dt_buffer[a_src] -= 1
+                    # reset target to default None (-1)
                     _agent.target_zone = 0
-                    if self.dt_buffer[a_src] == 0:
-                        _agent.target_agent = -1
-                        self.dt_buffer[a_src] = self.configs["buffer_count"]
-            _agent.direction = _dir
-            self.engage_mat[a_src, -3] = _dir
-            # Update agent.posture after all mini-steps using mat[agent, 'pos']
-            self.engage_mat[a_src, -2] = _pos
-
-        # MOVE
-        if self.step_counter < self.configs["num_hibernate"]:
-            return True
-        for _index, a_src in enumerate(self.agents.ids_dt):
-            _agent = self.agents.gid[a_src]
-            # Skip death agent
-            if _agent.death:
-                continue
-            # Move in macro step
-            if _agent.slow_mode:
-                self.engage_mat[a_src, -1] = _agent.move_slow_mode_prep()
-            else:
-                self.engage_mat[a_src, -1] = _agent.move_en_route_prep()
-
-            # change action branch
-            cur_branch = self.assist_mat[_index, _index]
-            tar_branch = self.bxs_id[self._get_val_from_list(_agent.health/_agent.health_max, self.bxs_HP)]
-            # default forward
-            if tar_branch <= cur_branch:
-                continue
-            if tar_branch == 5:
-                # retreat
-                _agent.target_branch = tar_branch
-                self.assist_mat[_index, _index] = tar_branch
-                a_tar = self.assist_mat[_index, -1]
-                self.assist_mat[a_tar, _index] = 0
-                # [TBD] reset path
-                self.assist_mat[a_tar, a_tar] = 0
-            elif tar_branch > 1:
-                # assist
-                _agent.target_branch = tar_branch
-                self.assist_mat[_index, _index] = tar_branch
-                for a_tar in range(len(self.agents.ids_dt)):
-                    # teammate in another branch
-                    if self.assist_mat[a_tar, a_tar]:
-                        continue
-                    # [TBD] new path
-                    self.assist_mat[_index, -1] = a_tar
-                    self.assist_mat[a_tar, a_tar] = 4
-                    self.assist_mat[a_tar, _index] = tar_branch
-        return False
+                    if main_step:
+                        self.dt_buffer[a_src] -= 1
+                        if self.dt_buffer[a_src] == 0:
+                            _agent.target_agent = -1
+                            self.dt_buffer[a_src] = self.configs["buffer_timeout"]
+            if main_step:
+                _agent.direction = _dir
+                self.engage_mat[a_src, -3] = _dir
+                # Update agent.posture after all mini-steps using mat[agent, 'pos']
+                self.engage_mat[a_src, -2] = _pos
 
     # 2.1 update local states after all agents get action validation done
     def update(self):
@@ -253,10 +260,11 @@ class ScoutMissionStd(gym.Env):
             if max_zone:
                 self.engage_mat[_r, max_id] = max_zone
         # update engage matrix for heuristic agents
+        self._update_engage_mat_target(main_step=False)
         for _b in self.agents.ids_B:
             _agent = self.agents.gid[_b]
             _r = _agent.target_agent
-            if _r < 0 or _agent.target_branch == 5:
+            if _r == -1 or _agent.target_branch == 5:
                 continue
             if _agent.target_zone:
                 self.engage_mat[_b, _r] = _agent.target_zone
@@ -291,7 +299,7 @@ class ScoutMissionStd(gym.Env):
             for _r in self.agents.ids_R:
                 _agent = self.agents.gid[_r]
                 for _b in self.agents.ids_B:
-                    # check reed_blue engage flags
+                    # check red & blue engage flags
                     token_r_b = self.engage_mat[_r, _b]
                     if token_r_b:
                         _damage = self._get_prob_by_src_tar(_r, _b, token_r_b)
@@ -453,7 +461,7 @@ class ScoutMissionStd(gym.Env):
 
     # 2.3.3. distance based zone token getter
     def _get_zone_by_dist(self, dist) -> int:
-        # default_ranges = [dangerous_zone_dist_boundary=50, cautious_zone_dist_boundary=150]
+        # default_ranges: {dangerous_zone_dist_boundary=50, cautious_zone_dist_boundary=150}
         obs_range = [self.zones[3]["dist"], self.zones[2]["dist"]]
         return 1 if dist > obs_range[1] else (2 if dist > obs_range[0] else 3)
 
@@ -699,14 +707,13 @@ class ScoutMissionStd(gym.Env):
 
         # memory of heuristic agents [branch, signal_e, signal_h, target_agent, graph_dist, target_node]
         # _dts = len(self.agents.ids_dt)
-        # self.buffer_mat = np.zeros((self.configs["buffer_size"], _dts, 5), dtype=int)
         # self.buffer_ptr = [-1] * _dts
         self.bxs_id = self.configs["behavior_lookup"]["val"]
         self.bxs_HP = self.configs["behavior_lookup"]["bar"]
         # simple version -> count_down num
         self.dt_buffer = {}
         for a_id in self.agents.ids_dt:
-            self.dt_buffer[a_id] = self.configs["buffer_count"]
+            self.dt_buffer[a_id] = self.configs["buffer_timeout"]
         # pair-wised assisting matrix + [assist agent_id (>0)]
         n_dt = len(self.agents.ids_dt)
         self.assist_mat = np.zeros((n_dt, n_dt + 1), dtype=int)

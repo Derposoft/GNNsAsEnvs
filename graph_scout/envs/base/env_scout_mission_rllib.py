@@ -4,6 +4,7 @@ from ray.rllib.models.catalog import MODEL_DEFAULTS
 #from ray.rllib.agents import dqn
 import numpy as np
 import os
+import time
 
 import sys
 from .env_scout_mission_std import ScoutMissionStd
@@ -55,6 +56,8 @@ class ScoutMissionStdRLLib(ScoutMissionStd, MultiAgentEnv):
             else:
                 n_actions.append(self.action_space.sample())
         super().step(n_actions)
+        #print(n_actions)
+        #time.sleep(0.1)
         obs, rew, done = self.states.dump_dict()
         all_done = True
         for k in done:
@@ -66,4 +69,5 @@ class ScoutMissionStdRLLib(ScoutMissionStd, MultiAgentEnv):
         # make sure to only report done ids once
         for id in self.done:
             done.pop(id)
+        #print(rew)
         return obs, rew, done, {}
