@@ -22,5 +22,5 @@ ModelCatalog.register_custom_model("fc_scout_policy", FCScoutPolicy)
 """
 not under development: "attention learn to route"-based model
 """
-#from model.altr_rllib import AltrPolicy
-#ModelCatalog.register_custom_model("altr_policy", AltrPolicy)
+# from model.altr_rllib import AltrPolicy
+# ModelCatalog.register_custom_model("altr_policy", AltrPolicy)
