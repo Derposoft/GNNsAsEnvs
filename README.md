@@ -14,4 +14,7 @@ There are two options for seeing metrics. The first is to run the collect_stats.
 The second option is to view the results directly in tensorboard. You can run tensorboard to see metrics using `tensorboard serve --logdir logs_directory`, where `logs_directory` is the location of the ray_results folder for your OS (again, this should be something like `~/ray_rllib`).
 
 ## More tests
-To see specific model behavior and specific locations, try running `test.py`. test.py reads the model checkpoints that are stored in the checkpoints/ folder during training, and runs those for specific starting locations in the simulation.
+To see specific model behavior and specific locations, try running `test.py`. test.py reads the model checkpoints that are stored in the checkpoints/ folder during training, and runs those for specific starting locations in the simulation. Logs from this script are outputted into a folder called `test_logs/`.
+
+## Visualizing the environment with animations
+The log output from test.py can be fed into `generate_animation_from_logs.py` to create an animation. 
